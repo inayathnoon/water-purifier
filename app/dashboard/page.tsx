@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { User } from '@/lib/auth';
+import Link from 'next/link';
+import { getCurrentUser, signOut, type User } from '@/lib/auth';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -10,23 +11,24 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      // Dynamically import to avoid build-time issues
-      const { getCurrentUser, signOut } = await import('@/lib/auth');
-      const currentUser = await getCurrentUser();
+    let cancelled = false;
+
+    getCurrentUser().then((currentUser) => {
+      if (cancelled) return;
       if (!currentUser) {
         router.push('/auth/login');
         return;
       }
       setUser(currentUser);
       setLoading(false);
-    };
+    });
 
-    fetchUser();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleSignOut = async () => {
-    const { signOut } = await import('@/lib/auth');
     await signOut();
     router.push('/auth/login');
   };
@@ -80,15 +82,15 @@ export default function DashboardPage() {
                   Manage enquiries, book installations, and track payments
                 </p>
                 <nav className="space-y-2">
-                  <a href="/admin/enquiries" className="block text-blue-600 hover:text-blue-900">
-                    → View Enquiries
-                  </a>
-                  <a href="/admin/installations" className="block text-blue-600 hover:text-blue-900">
-                    → View Installations
-                  </a>
-                  <a href="/admin/customers" className="block text-blue-600 hover:text-blue-900">
-                    → View Customers
-                  </a>
+                  <Link href="/admin/enquiries" className="block text-blue-600 hover:text-blue-900">
+                    → Enquiries
+                  </Link>
+                  <Link href="/admin/installations" className="block text-blue-600 hover:text-blue-900">
+                    → Installations
+                  </Link>
+                  <Link href="/admin/orders" className="block text-blue-600 hover:text-blue-900">
+                    → Orders & Payments
+                  </Link>
                 </nav>
               </div>
             )}
@@ -97,18 +99,18 @@ export default function DashboardPage() {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                 <h3 className="font-semibold text-green-900 mb-2">Owner Dashboard</h3>
                 <p className="text-sm text-green-800 mb-4">
-                  View business overview, approvals, and reports
+                  You can also cover the admin's desk (§2.1) if they're away
                 </p>
                 <nav className="space-y-2">
-                  <a href="/owner/overview" className="block text-green-600 hover:text-green-900">
-                    → Business Overview
-                  </a>
-                  <a href="/owner/payments" className="block text-green-600 hover:text-green-900">
-                    → Outstanding Payments
-                  </a>
-                  <a href="/owner/approvals" className="block text-green-600 hover:text-green-900">
-                    → Pending Approvals
-                  </a>
+                  <Link href="/admin/enquiries" className="block text-green-600 hover:text-green-900">
+                    → Enquiries
+                  </Link>
+                  <Link href="/admin/installations" className="block text-green-600 hover:text-green-900">
+                    → Installations
+                  </Link>
+                  <Link href="/admin/orders" className="block text-green-600 hover:text-green-900">
+                    → Orders & Payments
+                  </Link>
                 </nav>
               </div>
             )}
@@ -120,12 +122,9 @@ export default function DashboardPage() {
                   View and complete your assigned jobs
                 </p>
                 <nav className="space-y-2">
-                  <a href="/staff/jobs" className="block text-purple-600 hover:text-purple-900">
+                  <Link href="/staff/jobs" className="block text-purple-600 hover:text-purple-900">
                     → My Jobs
-                  </a>
-                  <a href="/staff/time-off" className="block text-purple-600 hover:text-purple-900">
-                    → Request Time Off
-                  </a>
+                  </Link>
                 </nav>
               </div>
             )}

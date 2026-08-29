@@ -81,7 +81,16 @@ CREATE TABLE tickets (
   -- Warranty/Service tracking
   installation_date DATE,
   warranty_expires_at DATE,
-  service_declined BOOLEAN DEFAULT FALSE
+  service_declined BOOLEAN DEFAULT FALSE,
+
+  -- Recorded at the moment an enquiry converts (§5.7) — carried onto the
+  -- installation ticket that's created, so the order created later at
+  -- closing (§7.1) uses the price agreed when the customer said yes, not
+  -- whatever the product happens to cost today.
+  agreed_price NUMERIC(10, 2),
+
+  -- Cancellation (§6.8: cancelling a job requires a reason)
+  cancellation_reason TEXT
 );
 
 -- Constraint: only service_staff can be assigned jobs
@@ -92,43 +101,83 @@ CHECK (
   OR EXISTS (SELECT 1 FROM users WHERE id = assigned_to_id AND role = 'service_staff')
 );
 
--- Orders table (1:1 with installation tickets when closed)
+-- Order status: 'open' while anything is owed (§7.3 — chased every 3 days),
+-- 'closed' once paid in full. This is a separate lifecycle from the
+-- installation ticket's own 'closed' status (§7.1: closing the ticket is
+-- what *creates* the order — the order itself may still sit open for weeks
+-- after that while payment is chased).
+CREATE TYPE order_status AS ENUM ('open', 'closed');
+
+-- Orders table (1:1 with an installation ticket, created when that ticket closes)
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   ticket_id UUID NOT NULL UNIQUE REFERENCES tickets(id),
+  status order_status NOT NULL DEFAULT 'open',
   list_price NUMERIC(10, 2) NOT NULL,
   sold_price NUMERIC(10, 2) NOT NULL,
   paid_amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+
+  -- Computed, never hand-set (§7.2) — no screen can produce an
+  -- inconsistent discount or balance because these aren't writable columns.
+  discount NUMERIC(10, 2) GENERATED ALWAYS AS (list_price - sold_price) STORED,
+  balance_owed NUMERIC(10, 2) GENERATED ALWAYS AS (sold_price - paid_amount) STORED,
+
+  last_payment_call_at TIMESTAMP WITH TIME ZONE,
+  owner_notified_at TIMESTAMP WITH TIME ZONE,
+
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  CONSTRAINT list_price_non_negative CHECK (list_price >= 0),
+  CONSTRAINT sold_price_non_negative CHECK (sold_price >= 0),
+  CONSTRAINT paid_amount_non_negative CHECK (paid_amount >= 0),
+  CONSTRAINT paid_not_more_than_sold CHECK (paid_amount <= sold_price)
 );
 
--- Computed columns (views for discount and balance_owed to avoid duplication)
-ALTER TABLE orders
-ADD CONSTRAINT list_price_non_negative CHECK (list_price >= 0),
-ADD CONSTRAINT sold_price_non_negative CHECK (sold_price >= 0),
-ADD CONSTRAINT paid_amount_non_negative CHECK (paid_amount >= 0),
-ADD CONSTRAINT paid_not_more_than_sold CHECK (paid_amount <= sold_price);
-
--- Function to prevent closing order while balance owed
+-- Hard rule §7.5 / §13.1: an order cannot be closed while money is owed.
+-- Enforced here so it holds no matter which screen or future code path
+-- tries to set status = 'closed'.
 CREATE OR REPLACE FUNCTION check_order_payment_before_close()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NEW.status = 'closed' THEN
-    IF (NEW.sold_price - NEW.paid_amount) > 0 THEN
-      RAISE EXCEPTION 'Cannot close order with outstanding balance';
-    END IF;
+  IF NEW.status = 'closed' AND (NEW.sold_price - NEW.paid_amount) > 0 THEN
+    RAISE EXCEPTION 'Cannot close order with outstanding balance';
   END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to enforce payment rule
 CREATE TRIGGER enforce_order_payment_on_close
-BEFORE UPDATE ON tickets
+BEFORE INSERT OR UPDATE ON orders
 FOR EACH ROW
-WHEN (OLD.kind = 'installation' AND NEW.status = 'closed')
 EXECUTE FUNCTION check_order_payment_before_close();
+
+-- Call log (§5.2: every call attempt logged with what came of it — nobody
+-- should have to remember what was said last time). One row per attempt;
+-- tickets.call_count is a denormalized counter kept in sync by the trigger
+-- below so "has this enquiry ever been called" (§5.5) is a cheap check.
+CREATE TABLE call_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ticket_id UUID NOT NULL REFERENCES tickets(id),
+  note TEXT NOT NULL,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION bump_ticket_call_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE tickets
+  SET call_count = call_count + 1, updated_at = NOW()
+  WHERE id = NEW.ticket_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER bump_call_count_after_call_log_insert
+AFTER INSERT ON call_log
+FOR EACH ROW
+EXECUTE FUNCTION bump_ticket_call_count();
 
 -- Products table (synced from Google Sheets)
 CREATE TABLE products (
@@ -162,9 +211,11 @@ CREATE INDEX idx_tickets_assigned_to ON tickets(assigned_to_id);
 CREATE INDEX idx_tickets_kind ON tickets(kind);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
 CREATE INDEX idx_orders_ticket ON orders(ticket_id);
+CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_products_code ON products(code);
 CREATE INDEX idx_products_active ON products(active);
 CREATE INDEX idx_notifications_created ON notifications_log(created_at DESC);
+CREATE INDEX idx_call_log_ticket ON call_log(ticket_id);
 
 -- Row-Level Security (RLS) Policies
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
@@ -172,6 +223,13 @@ ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE call_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY call_log_read ON call_log FOR SELECT
+  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin'));
+
+CREATE POLICY call_log_write ON call_log FOR INSERT
+  WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
 
 -- Customers: everyone can read, admin/owner can modify
 CREATE POLICY customers_read ON customers FOR SELECT

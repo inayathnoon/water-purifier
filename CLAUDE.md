@@ -109,19 +109,26 @@ Four tables + enums:
    - [x] Dashboard home screen
    - [ ] Manual user account creation (run SQL scripts for the 5 initial users)
 
-2. **Enquiry → Installation → Order loop** (Stage 2)
-   - [ ] Admin enquiry list, call logging, conversion
-   - [ ] Installation booking to service staff
-   - [ ] Tech completion workflow
-   - [ ] Admin closing call + order creation
-   - [ ] Payment tracking (3-day call cadence, 7-day owner alert)
-   - *Proves hard rules 1, 2, 5*
+2. **Enquiry → Installation → Order loop** ✅ Complete
+   - [x] Admin enquiry list, call logging, conversion (`/admin/enquiries`)
+   - [x] Installation booking to service staff (`/admin/installations`)
+   - [x] Tech completion workflow (`/staff/jobs` — minimal, full UX in Stage 3)
+   - [x] Admin closing call + order creation (`/api/admin/tickets/[id]/close`)
+   - [x] Payment tracking — 3-day call logging, order close gate (`/admin/orders`)
+   - [ ] 7-day owner alert (needs Telegram/notification channel — Stage 6)
+   - *Proves hard rules 1, 2, 5 — enforced in `lib/services/tickets.ts`, `lib/services/orders.ts`, and DB triggers*
 
-3. **Service staff job view** (Stage 3)
-   - [ ] Staff job list (today's jobs only, responsive design for phone)
-   - [ ] Job completion form (real date/time/notes)
-   - [ ] Under-a-minute mark-done flow (§15.2)
-   - *Staff sees no prices or balances*
+   Schema correction made in this stage: the "can't close while owed" trigger
+   from Stage 1 referenced columns that don't exist on `tickets` — fixed by
+   giving `orders` its own `status` (open/closed) with `discount` and
+   `balance_owed` as Postgres generated columns, plus a `call_log` table for
+   §5.2 that Stage 1 had missed. See `supabase/migrations/001_init_schema.sql`.
+
+3. **Service staff job view** (Stage 3 — next)
+   - [x] Basic job list + completion form exists (`/staff/jobs`)
+   - [ ] Polish for "under a minute at the door" (§15.2): bigger touch targets, today-only filter
+   - [ ] Confirm staff genuinely see zero price/discount/balance fields anywhere in the response
+   - *Staff sees no prices or balances — API route never selects order/price columns*
 
 4. **Warranty & yearly service loop** (Stage 4)
    - [ ] GitHub Actions cron: nightly check for 1-year-old installations
