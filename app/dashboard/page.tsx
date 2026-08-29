@@ -91,6 +91,9 @@ export default function DashboardPage() {
                   <Link href="/admin/orders" className="block text-blue-600 hover:text-blue-900">
                     → Orders & Payments
                   </Link>
+                  <Link href="/admin/service-calls" className="block text-blue-600 hover:text-blue-900">
+                    → Yearly Service Calls
+                  </Link>
                 </nav>
               </div>
             )}
@@ -110,6 +113,9 @@ export default function DashboardPage() {
                   </Link>
                   <Link href="/admin/orders" className="block text-green-600 hover:text-green-900">
                     → Orders & Payments
+                  </Link>
+                  <Link href="/admin/service-calls" className="block text-green-600 hover:text-green-900">
+                    → Yearly Service Calls
                   </Link>
                 </nav>
               </div>

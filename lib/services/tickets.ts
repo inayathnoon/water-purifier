@@ -277,9 +277,24 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
     throw new ApiError(400, 'Job must be completed before it can be closed');
   }
 
+  const update: Record<string, unknown> = { status: 'closed' };
+
+  if (ticket.kind === 'installation') {
+    // §8.1: warranty is dated from the day the unit was actually fitted —
+    // the technician's recorded actual_date (§6.5), not today's date, since
+    // closing can happen days after the visit.
+    if (!ticket.actual_date) {
+      throw new ApiError(400, 'Job has no recorded completion date — cannot start the warranty clock');
+    }
+    const warrantyExpires = new Date(ticket.actual_date);
+    warrantyExpires.setFullYear(warrantyExpires.getFullYear() + 1);
+    update.installation_date = ticket.actual_date;
+    update.warranty_expires_at = warrantyExpires.toISOString().slice(0, 10);
+  }
+
   const { data: closed, error: closeError } = await supabaseAdmin
     .from('tickets')
-    .update({ status: 'closed' })
+    .update(update)
     .eq('id', ticketId)
     .select('*')
     .single();

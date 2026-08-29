@@ -98,6 +98,8 @@ export type Database = {
           // Recorded at conversion (§5.7), carried to the installation ticket
           agreed_price: number | null;
           cancellation_reason: string | null;
+          // Set on service_visit tickets — points back at the triggering installation
+          parent_installation_id: string | null;
         };
         Insert: Omit<Database['public']['Tables']['tickets']['Row'], 'id' | 'created_at' | 'updated_at' | 'call_count'>;
         Update: Partial<Database['public']['Tables']['tickets']['Row']>;

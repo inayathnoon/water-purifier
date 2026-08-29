@@ -90,7 +90,13 @@ CREATE TABLE tickets (
   agreed_price NUMERIC(10, 2),
 
   -- Cancellation (§6.8: cancelling a job requires a reason)
-  cancellation_reason TEXT
+  cancellation_reason TEXT,
+
+  -- Set on service_visit tickets, pointing back at the installation that
+  -- triggered them (§8.2). Doubles as the "has this installation's yearly
+  -- check already been created" guard for the nightly cron — one query,
+  -- no separate flag to keep in sync.
+  parent_installation_id UUID REFERENCES tickets(id)
 );
 
 -- Constraint: only service_staff can be assigned jobs
@@ -210,6 +216,8 @@ CREATE INDEX idx_tickets_status ON tickets(status);
 CREATE INDEX idx_tickets_assigned_to ON tickets(assigned_to_id);
 CREATE INDEX idx_tickets_kind ON tickets(kind);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
+CREATE INDEX idx_tickets_parent_installation ON tickets(parent_installation_id);
+CREATE INDEX idx_tickets_warranty_expires ON tickets(warranty_expires_at) WHERE kind = 'installation';
 CREATE INDEX idx_orders_ticket ON orders(ticket_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_products_code ON products(code);

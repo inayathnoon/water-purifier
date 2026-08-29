@@ -1,0 +1,22 @@
+name: Nightly jobs
+
+on:
+  schedule:
+    # 02:00 UTC nightly — after the business day ends, before it starts again.
+    - cron: '0 2 * * *'
+  workflow_dispatch: {} # allows a manual "Run workflow" from the Actions tab
+
+jobs:
+  yearly-service-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger yearly service call generation (§8.2)
+        run: |
+          response=$(curl -s -o /tmp/body -w "%{http_code}" -X POST \
+            "${{ secrets.APP_URL }}/api/jobs/yearly-service-check" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          cat /tmp/body
+          if [ "$response" -ge 300 ]; then
+            echo "Job failed with HTTP $response"
+            exit 1
+          fi

@@ -141,11 +141,32 @@ Four tables + enums:
    charge for a chargeable visit; §8.5 only means the *within-warranty*
    determination overrides them, not that they never enter an amount.
 
-4. **Warranty & yearly service loop** (Stage 4)
-   - [ ] GitHub Actions cron: nightly check for 1-year-old installations
-   - [ ] Auto-create service-call tickets on Admin's list
-   - [ ] Service visit booking and completion
-   - *Proves hard rule 3 (no warranty-year charges)*
+4. **Warranty & yearly service loop** ✅ Complete
+   - [x] GitHub Actions cron (`.github/workflows/nightly-jobs.yml`, 02:00 UTC)
+         hits `/api/jobs/yearly-service-check`, secret-protected via `CRON_SECRET`
+   - [x] Auto-creates a `service_visit` ticket per installation whose
+         warranty just expired, guarded by `parent_installation_id` so a
+         installation is only ever followed up once
+   - [x] Admin flow at `/admin/service-calls`: call → decline (§8.6) or book
+         → tech completes → admin confirms & closes (reuses the same
+         `bookJob`/`completeJob`/`closeTicketAfterConfirmation` as installations)
+   - *Proves hard rule 3 — `charge_amount` is forced to 0 inside the
+     warranty year regardless of what the tech enters*
+
+   **Two more gaps found and fixed in this stage:**
+   1. Nothing in Stage 2 ever stamped `installation_date`/`warranty_expires_at`
+      on a closed installation — the warranty clock never actually started.
+      Fixed in `closeTicketAfterConfirmation()`: now dated from the
+      technician's recorded `actual_date` (§8.1 — "from the day it was
+      fitted"), not the day admin got around to closing it.
+   2. Needed a way to stop the nightly job recreating the same yearly-service
+      ticket every night after the first trigger. Added
+      `tickets.parent_installation_id` (self-referencing) rather than a
+      separate boolean flag — one query answers "already handled?" and it
+      doubles as ticket lineage for §4.3.
+
+   Env additions: `CRON_SECRET` (generate with `openssl rand -hex 32`),
+   plus a GitHub repo secret `APP_URL` pointing at the deployed app.
 
 5. **Product sync from Google Sheets** (Stage 5)
    - [ ] Google Sheets API client (service account, read-only)
