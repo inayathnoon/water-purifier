@@ -12,7 +12,14 @@ A web application for a small water-purifier sales and service business (7 staff
 - **Database**: Postgres (Supabase)
 - **Auth**: Supabase Auth (phone + password, no self-signup) — phone, not
   email, because field staff don't reliably have personal emails; uses the
-  phone+password grant, not phone+OTP, so no SMS provider or per-login cost
+  phone+password grant, not phone+OTP, so no SMS provider or per-login cost.
+  Supabase still requires *some* SMS provider configured before it will let
+  you flip "Phone" on as a sign-in method at all (Authentication → Sign In /
+  Providers → Phone) — but it never validates those values against the
+  provider's API, and this app never triggers an OTP send, so a Twilio
+  account with a placeholder Messaging Service SID satisfies it for free
+  (no phone number purchase needed). Real Twilio credentials only matter if
+  a future feature actually needs to send an SMS.
 - **Hosting**: Railway (Hobby tier, ~$5–8/mo)
 - **Async jobs**: GitHub Actions cron → API routes
 - **Group chat**: Telegram Bot API (free, outbound only)
