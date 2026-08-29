@@ -192,7 +192,14 @@ export async function bookJob(
 export async function completeJob(
   ticketId: string,
   callerId: string,
-  input: { actualDate: string; actualStartTime: string; actualEndTime: string; notes: string; partsUsed?: string }
+  input: {
+    actualDate: string;
+    actualStartTime: string;
+    actualEndTime: string;
+    notes: string;
+    partsUsed?: string;
+    chargeAmount?: number;
+  }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
 
@@ -213,14 +220,26 @@ export async function completeJob(
 
   if (ticket.kind === 'service_visit') {
     update.parts_used = input.partsUsed ?? null;
-    // §8.5/§13.3: chargeability is computed from installation_date, never
-    // accepted from the form — enforced here regardless of what a client sends.
+    // §8.4: the technician does record what a chargeable visit costs.
+    // §8.5/§13.3: but *whether* it's chargeable at all is worked out from
+    // installation_date, never taken from the form — so a visit inside the
+    // warranty year is forced to 0 no matter what the tech typed.
     update.charge_amount = isWithinWarranty(ticket.installation_date, input.actualDate)
       ? 0
-      : null; // null = "not yet priced"; admin/owner sets the actual charge on closing
+      : input.chargeAmount ?? null;
   }
 
-  const { data, error } = await supabaseAdmin.from('tickets').update(update).eq('id', ticketId).select('*').single();
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .update(update)
+    .eq('id', ticketId)
+    .select(
+      // §13.4: service staff never see a selling price — this select list is
+      // the enforcement point. `agreed_price` (the order's sale price) is
+      // deliberately excluded even though it lives on this same row.
+      'id, kind, status, actual_date, actual_start_time, actual_end_time, actual_notes, parts_used, charge_amount'
+    )
+    .single();
   if (error) throw new ApiError(500, error.message);
   return data;
 }

@@ -124,11 +124,22 @@ Four tables + enums:
    `balance_owed` as Postgres generated columns, plus a `call_log` table for
    §5.2 that Stage 1 had missed. See `supabase/migrations/001_init_schema.sql`.
 
-3. **Service staff job view** (Stage 3 — next)
-   - [x] Basic job list + completion form exists (`/staff/jobs`)
-   - [ ] Polish for "under a minute at the door" (§15.2): bigger touch targets, today-only filter
-   - [ ] Confirm staff genuinely see zero price/discount/balance fields anywhere in the response
-   - *Staff sees no prices or balances — API route never selects order/price columns*
+3. **Service staff job view** ✅ Complete
+   - [x] Today-only view by default, "+N upcoming" to expand (§15.2)
+   - [x] Large touch targets, prefilled date/time, tap-to-call customer
+   - [x] Service-visit completion accepts parts + charge, but §8.5 warranty
+         rule still overrides whatever the tech enters
+   - *Staff sees no prices or balances*
+
+   **Bug found and fixed in this stage:** Stage 2's `completeJob()` did
+   `select('*')` and returned the full ticket row — which for an
+   installation includes `agreed_price` (the sale price), sent straight to
+   the technician's browser. A direct §13.4 violation. Fixed by giving that
+   function an explicit column whitelist that excludes `agreed_price`,
+   instead of trusting `select('*')` anywhere on a staff-facing path. Also
+   corrected the service-visit charge logic: §8.4 has the tech record the
+   charge for a chargeable visit; §8.5 only means the *within-warranty*
+   determination overrides them, not that they never enter an amount.
 
 4. **Warranty & yearly service loop** (Stage 4)
    - [ ] GitHub Actions cron: nightly check for 1-year-old installations
