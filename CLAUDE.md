@@ -49,7 +49,7 @@ supabase/
 2. **Enquiry closure needs 30+ words & ≥1 prior call** → Server-side validation in `/api/admin/enquiries/close`
 3. **No charge inside warranty year** → `charge_amount` computed from `installation_date` at write time
 4. **Service staff never see price/discount/balance** → Supabase RLS policies + server-side field filters
-5. **Jobs only assigned to service staff** → `CHECK` constraint on `tickets.assigned_to_id`
+5. **Jobs only assigned to service staff** → Postgres trigger on `tickets.assigned_to_id` (not a `CHECK` — Postgres CHECK constraints can't contain a subquery)
 
 ## Data Model
 
@@ -80,7 +80,7 @@ Four tables + enums:
 - Installation/Service fields: `booked_date`, `booked_half_day`, `location`, `actual_date`, `actual_start_time`, `actual_end_time`, `actual_notes`
 - Service fields: `parts_used`, `charge_amount`
 - Warranty: `installation_date`, `warranty_expires_at`, `service_declined`
-- Constraint: `assigned_to_id` must reference a `service_staff` user
+- Trigger: refuses insert/update if `assigned_to_id` doesn't reference a `service_staff` user
 
 **`orders`** (created only when installation ticket is closed, §7.1)
 - `id`, `ticket_id` (UNIQUE), `list_price`, `sold_price`, `paid_amount`
@@ -108,6 +108,28 @@ Four tables + enums:
    - [x] Auth scaffolding (Supabase Auth, login page, middleware)
    - [x] Dashboard home screen
    - [ ] Manual user account creation (run SQL scripts for the 5 initial users)
+
+   **Migration bugs found and fixed only once it hit a real Postgres
+   instance** (2026-08-29, first `supabase db push` against a live project —
+   the schema had never actually been executed before):
+   1. `uuid_generate_v4()` (uuid-ossp) doesn't resolve — Supabase installs
+      that extension into the `extensions` schema, which isn't on the
+      migration session's search_path. Switched every `id` default to
+      `gen_random_uuid()`, built into Postgres 13+ core, no extension needed.
+   2. The §13.5 "only service_staff can be assigned jobs" rule was written
+      as a `CHECK` constraint with an `EXISTS` subquery — Postgres doesn't
+      allow subqueries in CHECK constraints at all. Replaced with a
+      `BEFORE INSERT OR UPDATE` trigger (`check_assignee_is_service_staff`),
+      matching the pattern already used for the order-close and
+      leave-denial rules.
+   3. Five RLS policies (`orders_*`, `notifications_read`, `leave_update`)
+      compared `users.role` (the business enum: owner/admin/service_staff)
+      against the literal `'service_role'` — but that's the *Postgres/JWT*
+      auth role from `auth.role()`, not a value the `user_role` enum has,
+      so the policy failed to even compile. Dropped it from those lists —
+      it was also redundant: the service-role API key already bypasses RLS
+      at the database level (`BYPASSRLS`), so no policy needed to special-case
+      it in the first place.
 
 2. **Enquiry → Installation → Order loop** ✅ Complete
    - [x] Admin enquiry list, call logging, conversion (`/admin/enquiries`)

@@ -1,5 +1,7 @@
--- Enable necessary extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- UUIDs are generated with gen_random_uuid(), built into Postgres 13+ core.
+-- (Not uuid-ossp's uuid_generate_v4() — Supabase installs that extension into
+-- the `extensions` schema, which isn't on this session's search_path, so the
+-- unqualified function name resolves to nothing and the migration fails.)
 
 -- Create enum types
 CREATE TYPE user_role AS ENUM ('owner', 'admin', 'service_staff');
@@ -23,7 +25,7 @@ CREATE TABLE users (
 
 -- Customers table
 CREATE TABLE customers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone_number TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   address TEXT NOT NULL,
@@ -51,7 +53,7 @@ EXECUTE FUNCTION normalize_customer_text();
 
 -- Tickets table (covers enquiry, installation, service_visit)
 CREATE TABLE tickets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id UUID NOT NULL REFERENCES customers(id),
   kind ticket_kind NOT NULL,
   status ticket_status NOT NULL,
@@ -100,13 +102,27 @@ CREATE TABLE tickets (
   parent_installation_id UUID REFERENCES tickets(id)
 );
 
--- Constraint: only service_staff can be assigned jobs
-ALTER TABLE tickets
-ADD CONSTRAINT only_service_staff_assigned
-CHECK (
-  assigned_to_id IS NULL
-  OR EXISTS (SELECT 1 FROM users WHERE id = assigned_to_id AND role = 'service_staff')
-);
+-- Rule: only service_staff can be assigned jobs (§13.5). Postgres CHECK
+-- constraints can't contain a subquery, so this is a trigger instead —
+-- same shape as the other cross-row rules below (order-close, leave-denial).
+CREATE OR REPLACE FUNCTION check_assignee_is_service_staff()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.assigned_to_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM users WHERE id = NEW.assigned_to_id AND role = 'service_staff'
+     )
+  THEN
+    RAISE EXCEPTION 'tickets.assigned_to_id must reference a service_staff user';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_assignee_is_service_staff
+BEFORE INSERT OR UPDATE ON tickets
+FOR EACH ROW
+EXECUTE FUNCTION check_assignee_is_service_staff();
 
 -- Order status: 'open' while anything is owed (§7.3 — chased every 3 days),
 -- 'closed' once paid in full. This is a separate lifecycle from the
@@ -117,7 +133,7 @@ CREATE TYPE order_status AS ENUM ('open', 'closed');
 
 -- Orders table (1:1 with an installation ticket, created when that ticket closes)
 CREATE TABLE orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id UUID NOT NULL UNIQUE REFERENCES tickets(id),
   status order_status NOT NULL DEFAULT 'open',
   list_price NUMERIC(10, 2) NOT NULL,
@@ -164,7 +180,7 @@ EXECUTE FUNCTION check_order_payment_before_close();
 -- tickets.call_count is a denormalized counter kept in sync by the trigger
 -- below so "has this enquiry ever been called" (§5.5) is a cheap check.
 CREATE TABLE call_log (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id UUID NOT NULL REFERENCES tickets(id),
   note TEXT NOT NULL,
   created_by UUID REFERENCES users(id),
@@ -188,7 +204,7 @@ EXECUTE FUNCTION bump_ticket_call_count();
 
 -- Products table (synced from Google Sheets)
 CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT UNIQUE NOT NULL,
   category TEXT NOT NULL,
   type TEXT NOT NULL,
@@ -206,7 +222,7 @@ CREATE TABLE products (
 -- other admin actions an owner can also cover). Refusing requires a
 -- reason (§11.4), same spirit as the 30-word rule on enquiries.
 CREATE TABLE leave_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requester_id UUID NOT NULL REFERENCES users(id),
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
@@ -236,7 +252,7 @@ EXECUTE FUNCTION check_leave_denial_reason();
 
 -- Notifications log (for tracking Telegram/webhook failures)
 CREATE TABLE notifications_log (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type event_type NOT NULL,
   status notification_status NOT NULL,
   error_message TEXT,
@@ -290,7 +306,7 @@ CREATE POLICY leave_write ON leave_requests FOR INSERT
 -- §11.3: only an owner decides — not the admin, unlike most other actions
 -- an owner can also cover for the admin on.
 CREATE POLICY leave_update ON leave_requests FOR UPDATE
-  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'service_role'));
+  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner'));
 
 -- Customers: everyone can read, admin/owner can modify
 CREATE POLICY customers_read ON customers FOR SELECT
@@ -322,13 +338,13 @@ CREATE POLICY tickets_update ON tickets FOR UPDATE
 
 -- Orders: admin/owner can read/modify, service staff cannot see
 CREATE POLICY orders_read ON orders FOR SELECT
-  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin', 'service_role'));
+  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin'));
 
 CREATE POLICY orders_write ON orders FOR INSERT
-  WITH CHECK ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin', 'service_role'));
+  WITH CHECK ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin'));
 
 CREATE POLICY orders_update ON orders FOR UPDATE
-  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin', 'service_role'));
+  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin'));
 
 -- Products: everyone can read
 CREATE POLICY products_read ON products FOR SELECT
@@ -342,7 +358,7 @@ CREATE POLICY products_update ON products FOR UPDATE
 
 -- Notifications log: internal only
 CREATE POLICY notifications_read ON notifications_log FOR SELECT
-  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin', 'service_role'));
+  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin'));
 
 CREATE POLICY notifications_write ON notifications_log FOR INSERT
   WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
