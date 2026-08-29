@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signIn } from '@/lib/auth';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(phone, password);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -47,19 +47,19 @@ export default function LoginPage() {
 
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
+              <label htmlFor="phone" className="sr-only">
+                Phone number
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
               />
             </div>
             <div>

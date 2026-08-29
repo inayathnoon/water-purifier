@@ -10,7 +10,9 @@ A web application for a small water-purifier sales and service business (7 staff
 - **Frontend**: Next.js (App Router, TypeScript, Tailwind CSS)
 - **Backend**: Next.js API routes + Supabase serverless functions
 - **Database**: Postgres (Supabase)
-- **Auth**: Supabase Auth (email + password, no self-signup)
+- **Auth**: Supabase Auth (phone + password, no self-signup) — phone, not
+  email, because field staff don't reliably have personal emails; uses the
+  phone+password grant, not phone+OTP, so no SMS provider or per-login cost
 - **Hosting**: Railway (Hobby tier, ~$5–8/mo)
 - **Async jobs**: GitHub Actions cron → API routes
 - **Group chat**: Telegram Bot API (free, outbound only)
@@ -68,7 +70,7 @@ Four tables + enums:
 
 **`users`** (1 row per staff member)
 - `id` (UUID, refs auth.users)
-- `email`, `role`, `name`
+- `phone`, `role`, `name`
 
 **`customers`** (phone number is the only lookup key, §4.1)
 - `id`, `phone_number` (UNIQUE), `name`, `address`, `area`

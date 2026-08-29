@@ -45,7 +45,7 @@ export type Database = {
       users: {
         Row: {
           id: string;
-          email: string;
+          phone: string;
           role: 'owner' | 'admin' | 'service_staff';
           name: string;
           created_at: string;

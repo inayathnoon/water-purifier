@@ -4,7 +4,7 @@ export type UserRole = 'owner' | 'admin' | 'service_staff';
 
 export interface User {
   id: string;
-  email: string;
+  phone: string;
   role: UserRole;
   name: string;
 }
@@ -23,7 +23,7 @@ export async function getCurrentUser(): Promise<User | null> {
   // Fetch user metadata (role, name) from the profiles table
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, role, name')
+    .select('id, phone, role, name')
     .eq('id', authUser.id)
     .single();
 
@@ -51,11 +51,13 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Sign in with email and password.
+ * Sign in with phone number and password. No OTP/SMS involved — this is
+ * Supabase's phone+password grant, so it's free and works offline of any
+ * SMS provider.
  */
-export async function signIn(email: string, password: string): Promise<void> {
+export async function signIn(phone: string, password: string): Promise<void> {
   const { error } = await supabase.auth.signInWithPassword({
-    email,
+    phone,
     password,
   });
 
