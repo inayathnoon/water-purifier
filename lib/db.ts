@@ -148,7 +148,7 @@ export type Database = {
       notifications_log: {
         Row: {
           id: string;
-          event_type: 'job_assigned' | 'job_completed' | 'leave_requested' | 'payment_reminder';
+          event_type: 'job_assigned' | 'job_completed' | 'leave_requested' | 'payment_reminder' | 'product_sync_failed';
           status: 'sent' | 'failed' | 'pending';
           error_message: string | null;
           created_at: string;

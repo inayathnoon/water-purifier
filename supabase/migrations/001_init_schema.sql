@@ -8,7 +8,7 @@ CREATE TYPE ticket_status AS ENUM ('open', 'booked', 'completed', 'closed', 'pas
 CREATE TYPE half_day AS ENUM ('morning', 'afternoon', 'evening');
 CREATE TYPE location_type AS ENUM ('home', 'office');
 CREATE TYPE notification_status AS ENUM ('sent', 'failed', 'pending');
-CREATE TYPE event_type AS ENUM ('job_assigned', 'job_completed', 'leave_requested', 'payment_reminder');
+CREATE TYPE event_type AS ENUM ('job_assigned', 'job_completed', 'leave_requested', 'payment_reminder', 'product_sync_failed');
 
 -- Users table (extends Supabase auth.users)
 CREATE TABLE users (

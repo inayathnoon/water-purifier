@@ -94,6 +94,9 @@ export default function DashboardPage() {
                   <Link href="/admin/service-calls" className="block text-blue-600 hover:text-blue-900">
                     → Yearly Service Calls
                   </Link>
+                  <Link href="/admin/products" className="block text-blue-600 hover:text-blue-900">
+                    → Products
+                  </Link>
                 </nav>
               </div>
             )}

@@ -168,11 +168,23 @@ Four tables + enums:
    Env additions: `CRON_SECRET` (generate with `openssl rand -hex 32`),
    plus a GitHub repo secret `APP_URL` pointing at the deployed app.
 
-5. **Product sync from Google Sheets** (Stage 5)
-   - [ ] Google Sheets API client (service account, read-only)
-   - [ ] Nightly sync + "Sync now" button
-   - [ ] Fail loudly on renamed columns (§9.6), not silently
-   - [ ] Upsert by `code`, flag missing rows inactive
+5. **Product sync from Google Sheets** ✅ Complete
+   - [x] Google Sheets API client (`googleapis`, service account, read-only)
+   - [x] Nightly sync (extended `.github/workflows/nightly-jobs.yml`) + "Sync now"
+         button on `/admin/products`
+   - [x] Header row validated *before* any row is parsed — a rename throws,
+         nothing partial gets written, and the failure is logged to
+         `notifications_log` so a silent nightly run still leaves a trail (§9.6)
+   - [x] Upsert by `code` (§9.4); codes missing from the sheet get
+         `active = false`, never deleted (§9.3)
+
+   Expected sheet columns (any order, case-insensitive): `category`, `type`,
+   `brand`, `name`, `code`, `list price`. Spare parts live in the same sheet
+   under their own `category` value (§9.5) — no separate schema needed.
+
+   Env additions: `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON` (the
+   service account's JSON key, as a single-line string), optional
+   `GOOGLE_SHEETS_RANGE` (defaults to `Products!A:F`).
 
 6. **Telegram feed & leave requests** (Stage 6)
    - [ ] Telegram Bot API integration

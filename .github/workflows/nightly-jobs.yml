@@ -20,3 +20,19 @@ jobs:
             echo "Job failed with HTTP $response"
             exit 1
           fi
+
+  product-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync products from spreadsheet (§9.2)
+        run: |
+          response=$(curl -s -o /tmp/body -w "%{http_code}" -X POST \
+            "${{ secrets.APP_URL }}/api/jobs/product-sync" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          cat /tmp/body
+          if [ "$response" -ge 300 ]; then
+            # §9.6: fail loudly — a non-zero exit here fails the whole
+            # workflow run, which GitHub surfaces in the Actions tab.
+            echo "Product sync failed with HTTP $response"
+            exit 1
+          fi
