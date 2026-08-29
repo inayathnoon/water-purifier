@@ -9,6 +9,7 @@ CREATE TYPE half_day AS ENUM ('morning', 'afternoon', 'evening');
 CREATE TYPE location_type AS ENUM ('home', 'office');
 CREATE TYPE notification_status AS ENUM ('sent', 'failed', 'pending');
 CREATE TYPE event_type AS ENUM ('job_assigned', 'job_completed', 'leave_requested', 'payment_reminder', 'product_sync_failed');
+CREATE TYPE leave_status AS ENUM ('pending', 'approved', 'denied');
 
 -- Users table (extends Supabase auth.users)
 CREATE TABLE users (
@@ -200,6 +201,39 @@ CREATE TABLE products (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Time off (§11). A technician requests dates + a reason; it waits, and
+-- only an owner decides (§11.3 — explicitly not the admin, unlike most
+-- other admin actions an owner can also cover). Refusing requires a
+-- reason (§11.4), same spirit as the 30-word rule on enquiries.
+CREATE TABLE leave_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  requester_id UUID NOT NULL REFERENCES users(id),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  reason TEXT NOT NULL,
+  status leave_status NOT NULL DEFAULT 'pending',
+  decided_by UUID REFERENCES users(id),
+  decision_reason TEXT,
+  decided_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT end_after_start CHECK (end_date >= start_date)
+);
+
+CREATE OR REPLACE FUNCTION check_leave_denial_reason()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'denied' AND (NEW.decision_reason IS NULL OR trim(NEW.decision_reason) = '') THEN
+    RAISE EXCEPTION 'Refusing leave requires a reason';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_leave_denial_reason
+BEFORE UPDATE ON leave_requests
+FOR EACH ROW
+EXECUTE FUNCTION check_leave_denial_reason();
+
 -- Notifications log (for tracking Telegram/webhook failures)
 CREATE TABLE notifications_log (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -224,6 +258,9 @@ CREATE INDEX idx_products_code ON products(code);
 CREATE INDEX idx_products_active ON products(active);
 CREATE INDEX idx_notifications_created ON notifications_log(created_at DESC);
 CREATE INDEX idx_call_log_ticket ON call_log(ticket_id);
+CREATE INDEX idx_leave_requester ON leave_requests(requester_id);
+CREATE INDEX idx_leave_status ON leave_requests(status);
+CREATE INDEX idx_leave_dates ON leave_requests(start_date, end_date);
 
 -- Row-Level Security (RLS) Policies
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
@@ -232,12 +269,28 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE call_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY call_log_read ON call_log FOR SELECT
   USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin'));
 
 CREATE POLICY call_log_write ON call_log FOR INSERT
   WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+
+-- Owner/admin see every request; a technician sees only their own (§11.1).
+CREATE POLICY leave_read ON leave_requests FOR SELECT
+  USING (
+    (SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'admin')
+    OR requester_id = auth.uid()
+  );
+
+CREATE POLICY leave_write ON leave_requests FOR INSERT
+  WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+
+-- §11.3: only an owner decides — not the admin, unlike most other actions
+-- an owner can also cover for the admin on.
+CREATE POLICY leave_update ON leave_requests FOR UPDATE
+  USING ((SELECT role FROM users WHERE id = auth.uid()) IN ('owner', 'service_role'));
 
 -- Customers: everyone can read, admin/owner can modify
 CREATE POLICY customers_read ON customers FOR SELECT

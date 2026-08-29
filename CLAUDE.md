@@ -186,12 +186,31 @@ Four tables + enums:
    service account's JSON key, as a single-line string), optional
    `GOOGLE_SHEETS_RANGE` (defaults to `Products!A:F`).
 
-6. **Telegram feed & leave requests** (Stage 6)
-   - [ ] Telegram Bot API integration
-   - [ ] Three message templates: job assigned, job completed, leave requested
-   - [ ] Post after DB commit, never before (fail-safe: caught errors logged, no rollback)
-   - [ ] Deep links to app routes (require Supabase session, §10.4)
-   - [ ] Leave approval workflow (owner only decides, §11.3)
+6. **Telegram feed & leave requests** ✅ Complete
+   - [x] `lib/services/telegram.ts` — never throws, returns `{ok, error}`;
+         callers log the outcome instead of unwinding on failure (§10.5)
+   - [x] Three templates in `lib/services/notifications.ts`: job assigned
+         (on `bookJob`), job completed (on `completeJob`), leave requested
+         (on `requestLeave`) — no price/discount/balance in any of them (§10.6)
+   - [x] Every send happens *after* its triggering DB write has already
+         committed, and failures are logged to `notifications_log`, never thrown
+   - [x] Deep links (`/tickets/[id]` → `/api/tickets/[id]/redirect-target`):
+         middleware already requires a session to reach the page; the
+         redirector then sends staff to `/staff/jobs` and admin/owner to
+         the right list for the ticket's kind
+   - [x] Leave: `/staff/time-off` (request), `/owner/leave` (decide) — owner-only
+         per §11.3, DB trigger also refuses a denial with no reason (§11.4)
+   - [x] Approved leave surfaced (not enforced) on the booking forms in
+         `/admin/installations` and `/admin/service-calls` (§11.5)
+
+   Simplification worth knowing: deep links route to the relevant *list*
+   page, not a bespoke per-ticket detail view (installations/service
+   visits don't have one yet) — the ticket is easy to find there. A true
+   single-ticket page is straightforward to add later without touching
+   this routing.
+
+   Env additions: `APP_URL` (for building the links), `TELEGRAM_BOT_TOKEN`,
+   `TELEGRAM_CHAT_ID` (see comments in `.env.local` for how to get them).
 
 7. **Dashboards** (Stage 7)
    - [ ] Admin morning screen (§15.1): new enquiries, confirmations due, service calls due, payments outstanding — one screen, no navigating

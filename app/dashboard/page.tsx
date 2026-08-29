@@ -120,6 +120,12 @@ export default function DashboardPage() {
                   <Link href="/admin/service-calls" className="block text-green-600 hover:text-green-900">
                     → Yearly Service Calls
                   </Link>
+                  <Link href="/admin/products" className="block text-green-600 hover:text-green-900">
+                    → Products
+                  </Link>
+                  <Link href="/owner/leave" className="block text-green-600 hover:text-green-900">
+                    → Leave Requests
+                  </Link>
                 </nav>
               </div>
             )}
@@ -133,6 +139,9 @@ export default function DashboardPage() {
                 <nav className="space-y-2">
                   <Link href="/staff/jobs" className="block text-purple-600 hover:text-purple-900">
                     → My Jobs
+                  </Link>
+                  <Link href="/staff/time-off" className="block text-purple-600 hover:text-purple-900">
+                    → Request Time Off
                   </Link>
                 </nav>
               </div>

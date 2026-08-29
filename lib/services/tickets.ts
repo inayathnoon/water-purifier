@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
+import { notifyJobAssigned, notifyJobCompleted } from './notifications';
 
 const MIN_EXPLANATION_WORDS = 30;
 
@@ -176,10 +177,25 @@ export async function bookJob(
       status: 'booked',
     })
     .eq('id', ticketId)
-    .select('*')
+    .select('*, customers(name, address)')
     .single();
 
   if (error) throw new ApiError(500, error.message);
+
+  // §10.5: fire only after the booking above has already committed —
+  // a Telegram failure here can never undo or block the assignment.
+  const { data: technician } = await supabaseAdmin.from('users').select('name').eq('id', input.assignedToId).single();
+  await notifyJobAssigned({
+    ticketId,
+    productOrKind: data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation',
+    bookedDate: input.bookedDate,
+    bookedHalfDay: input.bookedHalfDay,
+    location: input.location,
+    customerName: data.customers.name,
+    customerAddress: data.customers.address,
+    technicianName: technician?.name ?? 'Unknown',
+  });
+
   return data;
 }
 
@@ -241,6 +257,22 @@ export async function completeJob(
     )
     .single();
   if (error) throw new ApiError(500, error.message);
+
+  // §10.5: after the write above has committed. §10.6: no prices in this
+  // message even though charge_amount was just set on the row above.
+  const [{ data: customer }, { data: technician }] = await Promise.all([
+    supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single(),
+    supabaseAdmin.from('users').select('name').eq('id', callerId).single(),
+  ]);
+  await notifyJobCompleted({
+    ticketId,
+    technicianName: technician?.name ?? 'Unknown',
+    productOrKind: ticket.kind === 'service_visit' ? 'a service visit' : 'an installation',
+    customerName: customer?.name ?? 'Unknown',
+    startTime: input.actualStartTime,
+    endTime: input.actualEndTime,
+  });
+
   return data;
 }
 

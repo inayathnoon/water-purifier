@@ -17,6 +17,13 @@ interface ServiceCall {
 interface StaffMember {
   id: string;
   name: string;
+  approvedLeave: { start_date: string; end_date: string }[];
+}
+
+function onApprovedLeave(staff: StaffMember[], staffId: string, date: string): boolean {
+  if (!date) return false;
+  const person = staff.find((s) => s.id === staffId);
+  return (person?.approvedLeave ?? []).some((l) => date >= l.start_date && date <= l.end_date);
 }
 
 export default function ServiceCallsPage() {
@@ -204,6 +211,11 @@ export default function ServiceCallsPage() {
                           <option value="office">Office</option>
                         </select>
                       </div>
+                      {onApprovedLeave(staff, bookForm.assignedToId, bookForm.bookedDate) && (
+                        <p className="text-xs text-orange-600">
+                          This person is on approved leave that day — you can still book them (§11.5).
+                        </p>
+                      )}
                       <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                         Confirm booking
                       </button>

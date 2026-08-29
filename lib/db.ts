@@ -156,6 +156,25 @@ export type Database = {
         Insert: Omit<Database['public']['Tables']['notifications_log']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['notifications_log']['Row']>;
       };
+      leave_requests: {
+        Row: {
+          id: string;
+          requester_id: string;
+          start_date: string;
+          end_date: string;
+          reason: string;
+          status: 'pending' | 'approved' | 'denied';
+          decided_by: string | null;
+          decision_reason: string | null;
+          decided_at: string | null;
+          created_at: string;
+        };
+        Insert: Pick<
+          Database['public']['Tables']['leave_requests']['Row'],
+          'requester_id' | 'start_date' | 'end_date' | 'reason'
+        >;
+        Update: Partial<Database['public']['Tables']['leave_requests']['Row']>;
+      };
     };
   };
 };

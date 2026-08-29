@@ -17,6 +17,14 @@ interface Installation {
 interface StaffMember {
   id: string;
   name: string;
+  approvedLeave: { start_date: string; end_date: string }[];
+}
+
+// §11.5: approved leave shows on the booking calendar but never blocks a booking.
+function onApprovedLeave(staff: StaffMember[], staffId: string, date: string): boolean {
+  if (!date) return false;
+  const person = staff.find((s) => s.id === staffId);
+  return (person?.approvedLeave ?? []).some((l) => date >= l.start_date && date <= l.end_date);
 }
 
 export default function InstallationsPage() {
@@ -177,6 +185,11 @@ export default function InstallationsPage() {
                     <p className="text-xs text-gray-500">
                       This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
                       in this half-day.
+                    </p>
+                  )}
+                  {onApprovedLeave(staff, bookForm.assignedToId, bookForm.bookedDate) && (
+                    <p className="text-xs text-orange-600">
+                      This person is on approved leave that day — you can still book them (§11.5).
                     </p>
                   )}
                   <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Confirm booking</button>
