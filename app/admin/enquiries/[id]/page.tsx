@@ -79,7 +79,6 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       setError(data.error);
       return;
     }
-    const data = await res.json();
     if (action === 'convert') {
       router.push('/admin/installations');
     } else {

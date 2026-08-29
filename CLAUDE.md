@@ -212,10 +212,43 @@ Four tables + enums:
    Env additions: `APP_URL` (for building the links), `TELEGRAM_BOT_TOKEN`,
    `TELEGRAM_CHAT_ID` (see comments in `.env.local` for how to get them).
 
-7. **Dashboards** (Stage 7)
-   - [ ] Admin morning screen (§15.1): new enquiries, confirmations due, service calls due, payments outstanding — one screen, no navigating
-   - [ ] Owner dashboard (§15.3): what's happening today, revenue this month, who's busy
-   - [ ] Tech availability calendar
+7. **Dashboards** ✅ Complete — all 7 rollout stages done
+   - [x] `/dashboard` now *is* the answer for admin/owner — no more link list.
+         A technician is redirected straight to `/staff/jobs` (§15.2 — "sees
+         today's jobs and nothing else," not a dashboard detour first)
+   - [x] Admin (§15.1): new enquiries (14+ day ones flagged), confirm-finished-work,
+         yearly service calls due, payments outstanding (3-day-overdue-call
+         flagged) — 4 cards, one `Promise.all`, no page-to-page navigating
+   - [x] Owner (§15.3/§7.6): jobs today, who's busy, sold/collected this
+         month, discount given this month, enquiries passed to them (§2.1),
+         orders overdue 7+ days (§7.4), pending leave count linking to `/owner/leave`
+
+   No separate tech availability calendar built — §11.5's "shows as away on
+   the booking calendar" is satisfied by the non-blocking leave warning
+   already on the two booking forms (Stage 6); a dedicated calendar view
+   wasn't asked for by §15's acceptance checks and would be pure surface
+   area for a 3-technician team.
+
+---
+
+## V1 Status: all 7 stages built
+
+Every hard rule (§13) is enforced in code, most of them in two independent
+places (a Postgres constraint/trigger *and* the service layer) so no future
+screen can route around them. Every §15 acceptance check has a concrete
+screen behind it. See the "Cost" section above for what running this
+actually costs once deployed.
+
+**Before this is genuinely live**, the remaining work is entirely
+external-service wiring, not code:
+1. Create the Supabase project, run the migration, populate `.env.local`
+2. Create Telegram bot via @BotFather, add to the staff group, get its chat id
+3. Create a Google Cloud service account with Sheets read access, share
+   the actual product spreadsheet with it
+4. Deploy to Railway, point `APP_URL` at the real deployment
+5. Set the `CRON_SECRET` + `APP_URL` GitHub repo secrets so the nightly
+   Actions workflow can reach the deployed app
+6. Create the 5 real user accounts in Supabase Auth
 
 ## Verification Checklist
 
