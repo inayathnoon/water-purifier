@@ -111,12 +111,15 @@ Four tables + enums:
 
 ## Build Stages (Rollout to Live)
 
-1. **Foundation** ✅ (in progress)
+1. **Foundation** ✅ Complete
    - [x] Next.js + Tailwind + TypeScript scaffold
    - [x] Supabase schema (tables, enums, constraints, RLS)
    - [x] Auth scaffolding (Supabase Auth, login page, middleware)
    - [x] Dashboard home screen
-   - [ ] Manual user account creation (run SQL scripts for the 5 initial users)
+   - [x] Manual user account creation — created via Supabase's Admin API
+         (not SQL scripts, since `auth.users` and `public.users` both need a
+         row with the same id) for the 5 real staff: Ismath (owner), Zainaba
+         (admin), Cristeen/Babu/Yasir (service_staff)
 
    **Migration bugs found and fixed only once it hit a real Postgres
    instance** (2026-08-29, first `supabase db push` against a live project —
