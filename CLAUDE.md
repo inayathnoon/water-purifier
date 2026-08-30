@@ -220,6 +220,18 @@ Four tables + enums:
    service account's JSON key, as a single-line string), optional
    `GOOGLE_SHEETS_RANGE` (defaults to `Products!A:F`).
 
+   **Wired up and verified end-to-end (2026-08-30)** against the real
+   product sheet: a sheet created by uploading/converting a CSV gets a tab
+   named after Sheets' own default (e.g. `Untitled`), not `Products` — the
+   code's default range assumes a tab literally named `Products`, so any
+   sheet not built by hand from a template needs `GOOGLE_SHEETS_RANGE` set
+   explicitly to match its real tab name (`spreadsheets.get` lists a
+   sheet's tab names if unsure). Also worth knowing: Sheets reads bare
+   numeric-looking cells (e.g. `001`) as numbers and drops the leading
+   zeros unless that column is formatted as Plain text before typing —
+   matters here since `code` (§9.4) is meant to be a stable, immutable
+   identifier.
+
 6. **Telegram feed & leave requests** ✅ Complete
    - [x] `lib/services/telegram.ts` — never throws, returns `{ok, error}`;
          callers log the outcome instead of unwinding on failure (§10.5)
