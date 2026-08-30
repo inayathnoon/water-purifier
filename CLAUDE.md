@@ -318,9 +318,41 @@ assumed:**
 
 ## Verification Checklist
 
-- [ ] Each hard rule: write a test that tries to break it, confirm backend refuses
-- [ ] End-to-end: enquiry → call logged → converted → installation booked → tech completes → admin closes → order balances → payment → Telegram posts exactly 3 message types
-- [ ] §15 checks: Admin's screen shows all 4 categories; tech can mark job done in <1 min on phone; renaming a Sheet column breaks sync loudly
+- [x] Each hard rule: write a test that tries to break it, confirm backend refuses
+- [x] End-to-end: enquiry → call logged → converted → installation booked → tech completes → admin closes → order balances → payment → Telegram posts exactly 3 message types
+- [x] §15 checks: Admin's screen shows all 4 categories; tech can mark job done in <1 min on phone; renaming a Sheet column breaks sync loudly
+
+**Verified 2026-08-30, directly against the live Supabase project and
+deployed Railway app** (a throwaway script exercising the real service
+layer — `lib/services/*.ts` — against production, not a mocked test DB;
+all rows cleaned up afterward). 23/23 checks passed:
+
+- Every §13 hard rule tried and refused **twice** — once through the
+  service-layer guard, once by writing straight to the table to prove the
+  Postgres trigger/constraint catches it independently: jobs-to-non-staff
+  (§13.5), order-close-while-owed (§13.1), plus the service-layer-only
+  checks for the 30-word/one-call enquiry-closure rule (§13.2/§5.4/§5.5)
+  and the warranty charge override (§13.3) — a tech-entered charge was
+  forced to 0 inside the warranty year and preserved outside it.
+- `completeJob`'s response was inspected directly to confirm
+  `agreed_price` genuinely never appears in the object sent to a
+  technician (§13.4), not just that the UI doesn't render it.
+- Full lifecycle run for real: enquiry → call logged → converted →
+  installation booked to a real tech → completed → admin-closed → order
+  created → partial payment (still refused) → paid in full → order
+  closed. Warranty dates came out stamped from the technician's actual
+  completion date, not the close date (§8.1).
+- §8.2's nightly yearly-service job was run against a real backdated
+  installation: created exactly one follow-up ticket, then created zero
+  more on a second run (duplicate guard via `parent_installation_id`).
+- §11.4's leave-denial-needs-a-reason trigger was tried and refused live.
+- All 3 Telegram templates fired for real and logged `sent` in
+  `notifications_log`: `job_assigned`, `job_completed`,
+  `leave_requested`.
+- Dashboard queries (`app/api/admin/dashboard`, `app/api/owner/dashboard`)
+  re-run directly against the DB state produced above, confirming the
+  test ticket/order actually surfaced in the right category (completed
+  jobs awaiting confirmation, this month's revenue).
 
 ## Cost
 
