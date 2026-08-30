@@ -285,16 +285,36 @@ screen can route around them. Every §15 acceptance check has a concrete
 screen behind it. See the "Cost" section above for what running this
 actually costs once deployed.
 
-**Before this is genuinely live**, the remaining work is entirely
-external-service wiring, not code:
-1. Create the Supabase project, run the migration, populate `.env.local`
-2. Create Telegram bot via @BotFather, add to the staff group, get its chat id
-3. Create a Google Cloud service account with Sheets read access, share
-   the actual product spreadsheet with it
-4. Deploy to Railway, point `APP_URL` at the real deployment
-5. Set the `CRON_SECRET` + `APP_URL` GitHub repo secrets so the nightly
-   Actions workflow can reach the deployed app
-6. Create the 5 real user accounts in Supabase Auth
+**External-service wiring — done (2026-08-30), all verified live, not
+assumed:**
+1. [x] Supabase project created, migration run, `.env.local` populated
+2. [x] Telegram bot created, added to staff group, message posted for real
+3. [x] Google Cloud service account created, Sheets API enabled, real
+   product spreadsheet shared with it, `syncProductsFromSheet()` run
+   against live Supabase (2 real products landed)
+4. [x] Deployed to Railway — live at
+   `https://water-purifier-production.up.railway.app`
+5. [x] `CRON_SECRET` + `APP_URL` set as GitHub repo secrets
+   (`inayathnoon/water-purifier`); nightly workflow manually triggered
+   and both jobs passed
+6. [x] 5 real staff accounts created in Supabase Auth (see Stage 1)
+
+**Two deploy-time bugs found and fixed while verifying the above:**
+1. Railway's generated domain defaulted to `--port 3000`, but `next
+   start` actually listens on whatever `$PORT` Railway injects (`8080`
+   here) — the domain returned 502 until repointed with
+   `railway domain update <domain> --port 8080`. If a future redeploy
+   ever gets a different `$PORT`, the fix is the same: match the
+   domain's target port to what the container log says it's listening on.
+2. `GOOGLE_SERVICE_ACCOUNT_JSON` got corrupted the first time it was set
+   on Railway: it was piped in via `node -e "require('dotenv')..." |
+   railway variable set --stdin`, and this project's `dotenv` prints an
+   "◇ injected env..." banner to stdout — which piped straight into the
+   variable ahead of the real JSON, breaking `JSON.parse` in production
+   (silent locally, since the local `.env.local` file is read directly,
+   never through that pipe). Fixed by extracting the value straight out
+   of `.env.local` with `grep`/`sed` — no `node`/`dotenv` in the
+   pipeline — before piping it to `--stdin`.
 
 ## Verification Checklist
 
@@ -316,8 +336,7 @@ external-service wiring, not code:
 
 ## Next Steps
 
-1. Create a Supabase project (https://supabase.com)
-2. Populate .env.local with Supabase URL/keys
-3. Run the migration (`001_init_schema.sql`) in Supabase SQL editor
-4. Create 5 user accounts via Supabase Auth console or SQL
-5. Start Stage 2: Enquiry flow
+All external-service wiring and deployment is done and verified (see
+above). What's left is the **Verification Checklist** above: hard-rule
+break-tests, one full end-to-end walkthrough on the live app, and the
+§15 dashboard acceptance checks.
