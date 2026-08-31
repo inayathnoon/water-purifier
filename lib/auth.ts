@@ -51,13 +51,27 @@ export async function signOut(): Promise<void> {
 }
 
 /**
+ * Every account was created with an E.164 phone (+91XXXXXXXXXX, see
+ * Supabase Auth), but nobody types a country code to log in — they type
+ * the 10-digit number they know. Without this, "8157906367" and
+ * "+918157906367" are different identities to Supabase and login just
+ * fails with an opaque "Invalid login credentials".
+ */
+function toE164India(phone: string): string {
+  const trimmed = phone.trim();
+  if (trimmed.startsWith('+')) return trimmed;
+  const digitsOnly = trimmed.replace(/\D/g, '').replace(/^0+/, '');
+  return `+91${digitsOnly}`;
+}
+
+/**
  * Sign in with phone number and password. No OTP/SMS involved — this is
  * Supabase's phone+password grant, so it's free and works offline of any
  * SMS provider.
  */
 export async function signIn(phone: string, password: string): Promise<void> {
   const { error } = await supabase.auth.signInWithPassword({
-    phone,
+    phone: toE164India(phone),
     password,
   });
 
