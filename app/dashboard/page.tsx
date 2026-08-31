@@ -112,9 +112,15 @@ function AdminDashboard() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
-        <div className="flex gap-3 text-sm">
+        <div className="flex items-center gap-4 text-sm">
           <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
+          <Link
+            href="/admin/enquiries?new=1"
+            className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            + New Enquiry
+          </Link>
         </div>
       </div>
 

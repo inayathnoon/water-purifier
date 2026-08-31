@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
   id: string;
@@ -12,9 +13,20 @@ interface Enquiry {
 }
 
 export default function EnquiriesPage() {
+  return (
+    <Suspense fallback={<p className="p-8">Loading...</p>}>
+      <EnquiriesPageInner />
+    </Suspense>
+  );
+}
+
+function EnquiriesPageInner() {
+  // "+ New Enquiry" on the dashboard links here with ?new=1 so it opens
+  // straight to the form instead of the list.
+  const searchParams = useSearchParams();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(searchParams.get('new') === '1');
   const [form, setForm] = useState({ phoneNumber: '', name: '', address: '', area: '', productInterest: '' });
   const [error, setError] = useState('');
 
