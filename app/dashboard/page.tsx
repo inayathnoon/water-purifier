@@ -145,7 +145,7 @@ function AdminDashboard() {
               primary={e.customers.name}
               secondary={e.enquiry_product_interest || e.customers.phone_number}
               tag={daysAgo(e.created_at) >= 14 ? `${daysAgo(e.created_at)}d — decide now` : `${daysAgo(e.created_at)}d`}
-              tagColor={daysAgo(e.created_at) >= 14 ? 'text-red-600' : 'text-gray-400'}
+              tagColor={daysAgo(e.created_at) >= 14 ? 'text-red-600' : 'text-gray-600'}
             />
           ))}
         </DashboardCard>
@@ -233,14 +233,14 @@ function OwnerDashboard() {
           {Object.entries(data.whoIsBusy).map(([name, count]) => (
             <div key={name} className="flex justify-between py-2 border-b last:border-0 text-sm">
               <span>{name}</span>
-              <span className="text-gray-500">{count} job(s)</span>
+              <span className="text-gray-600">{count} job(s)</span>
             </div>
           ))}
         </DashboardCard>
 
         <DashboardCard title="Discount given this month" emptyText="">
           <p className="text-2xl font-semibold text-gray-900">${data.monthRevenue.discount.toFixed(2)}</p>
-          <p className="text-sm text-gray-500 mt-1">Margin sits between list price and sold price (§7.6)</p>
+          <p className="text-sm text-gray-600 mt-1">Margin sits between list price and sold price (§7.6)</p>
         </DashboardCard>
 
         <DashboardCard
@@ -305,7 +305,7 @@ function DashboardCard({
         <h3 className="font-semibold text-gray-900">{title}</h3>
         {badge && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>{badge}</span>}
       </div>
-      {isEmpty ? <p className="text-sm text-gray-400">{emptyText}</p> : children}
+      {isEmpty ? <p className="text-sm text-gray-600">{emptyText}</p> : children}
       {viewAllHref && (
         <Link href={viewAllHref} className="block text-sm text-blue-600 hover:underline mt-2">
           View all →
@@ -332,9 +332,9 @@ function Row({
     <Link href={href} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-gray-50 -mx-1 px-1 rounded">
       <div>
         <p className="text-sm font-medium">{primary}</p>
-        {secondary && <p className="text-xs text-gray-500">{secondary}</p>}
+        {secondary && <p className="text-xs text-gray-600">{secondary}</p>}
       </div>
-      {tag && <span className={`text-xs ${tagColor ?? 'text-gray-400'}`}>{tag}</span>}
+      {tag && <span className={`text-xs ${tagColor ?? 'text-gray-600'}`}>{tag}</span>}
     </Link>
   );
 }
@@ -342,7 +342,7 @@ function Row({
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <p className="text-sm text-gray-500">{label}</p>
+      <p className="text-sm text-gray-600">{label}</p>
       <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
     </div>
   );

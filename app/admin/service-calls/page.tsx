@@ -97,7 +97,7 @@ export default function ServiceCallsPage() {
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-1">Yearly Service Calls</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-gray-600 mb-6">
         Created automatically one year after each installation (§8.2) — nobody has to remember.
       </p>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
@@ -105,7 +105,7 @@ export default function ServiceCallsPage() {
       {loading ? (
         <p>Loading...</p>
       ) : calls.length === 0 ? (
-        <p className="text-gray-500">No yearly service calls due right now.</p>
+        <p className="text-gray-600">No yearly service calls due right now.</p>
       ) : (
         <div className="space-y-4">
           {calls.map((c) => (

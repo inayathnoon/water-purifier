@@ -61,7 +61,7 @@ export default function ProductsPage() {
           {syncing ? 'Syncing...' : 'Sync now'}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-gray-600 mb-6">
         Copied nightly from the product spreadsheet, or on demand here (§9.2).
       </p>
 
@@ -76,7 +76,7 @@ export default function ProductsPage() {
       {loading ? (
         <p>Loading...</p>
       ) : products.length === 0 ? (
-        <p className="text-gray-500">No products yet — press Sync now to pull from the spreadsheet.</p>
+        <p className="text-gray-600">No products yet — press Sync now to pull from the spreadsheet.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full text-sm">
@@ -93,7 +93,7 @@ export default function ProductsPage() {
             </thead>
             <tbody>
               {products.map((p) => (
-                <tr key={p.id} className={`border-t ${!p.active ? 'text-gray-400' : ''}`}>
+                <tr key={p.id} className={`border-t ${!p.active ? 'text-gray-600' : ''}`}>
                   <td className="p-3 font-mono">{p.code}</td>
                   <td className="p-3">{p.category}</td>
                   <td className="p-3">{p.type}</td>

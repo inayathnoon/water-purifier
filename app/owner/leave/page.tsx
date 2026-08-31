@@ -61,7 +61,7 @@ export default function OwnerLeavePage() {
         <>
           <h2 className="font-semibold mb-3">Pending ({pending.length})</h2>
           {pending.length === 0 ? (
-            <p className="text-gray-500 mb-6">Nothing waiting on you.</p>
+            <p className="text-gray-600 mb-6">Nothing waiting on you.</p>
           ) : (
             <div className="space-y-3 mb-8">
               {pending.map((r) => (
@@ -110,7 +110,7 @@ export default function OwnerLeavePage() {
 
           <h2 className="font-semibold mb-3">Decided</h2>
           {decided.length === 0 ? (
-            <p className="text-gray-500">Nothing yet.</p>
+            <p className="text-gray-600">Nothing yet.</p>
           ) : (
             <div className="space-y-2">
               {decided.map((r) => (
@@ -119,7 +119,7 @@ export default function OwnerLeavePage() {
                     <span className="font-medium">{r.users.name}</span> — {r.start_date} to {r.end_date} —{' '}
                     <span className={r.status === 'approved' ? 'text-green-700' : 'text-red-700'}>{r.status}</span>
                   </p>
-                  {r.decision_reason && <p className="text-gray-500 mt-1">{r.decision_reason}</p>}
+                  {r.decision_reason && <p className="text-gray-600 mt-1">{r.decision_reason}</p>}
                 </div>
               ))}
             </div>

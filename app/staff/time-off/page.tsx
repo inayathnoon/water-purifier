@@ -95,7 +95,7 @@ export default function TimeOffPage() {
       {loading ? (
         <p>Loading...</p>
       ) : requests.length === 0 ? (
-        <p className="text-gray-500">No requests yet.</p>
+        <p className="text-gray-600">No requests yet.</p>
       ) : (
         <div className="space-y-3">
           {requests.map((r) => (

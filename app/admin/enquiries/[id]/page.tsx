@@ -86,17 +86,43 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const handleDelete = async () => {
+    if (
+      !window.confirm(
+        `Delete the enquiry for ${ticket?.customers.name}? This removes it and its call history permanently — it cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setError('');
+    const res = await fetch(`/api/admin/enquiries/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? 'Failed to delete enquiry');
+      return;
+    }
+    router.push('/admin/enquiries');
+  };
+
   if (loading || !ticket) return <p className="p-8">Loading...</p>;
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{ticket.customers.name}</h1>
-        <p className="text-gray-600">
-          {ticket.customers.phone_number} · {ticket.customers.address}, {ticket.customers.area}
-        </p>
-        <p className="text-sm text-gray-500 mt-1">Interested in: {ticket.enquiry_product_interest || '—'}</p>
-        <p className="text-sm text-gray-500">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold">{ticket.customers.name}</h1>
+          <p className="text-gray-600">
+            {ticket.customers.phone_number} · {ticket.customers.address}, {ticket.customers.area}
+          </p>
+          <p className="text-sm text-gray-600 mt-1">Interested in: {ticket.enquiry_product_interest || '—'}</p>
+          <p className="text-sm text-gray-600">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
+        </div>
+        <button
+          onClick={handleDelete}
+          className="px-3 py-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+        >
+          Delete enquiry
+        </button>
       </div>
 
       {error && <p className="text-red-600 bg-red-50 p-3 rounded">{error}</p>}
@@ -192,13 +218,13 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="font-semibold mb-2">Call history</h2>
         {calls.length === 0 ? (
-          <p className="text-sm text-gray-500">No calls logged yet.</p>
+          <p className="text-sm text-gray-600">No calls logged yet.</p>
         ) : (
           <ul className="space-y-2">
             {calls.map((c) => (
               <li key={c.id} className="text-sm border-b pb-2">
                 <p>{c.note}</p>
-                <p className="text-gray-400 text-xs">{new Date(c.created_at).toLocaleString()}</p>
+                <p className="text-gray-600 text-xs">{new Date(c.created_at).toLocaleString()}</p>
               </li>
             ))}
           </ul>

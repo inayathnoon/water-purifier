@@ -88,7 +88,7 @@ export default function OrdersPage() {
       {loading ? (
         <p>Loading...</p>
       ) : orders.length === 0 ? (
-        <p className="text-gray-500">No orders yet.</p>
+        <p className="text-gray-600">No orders yet.</p>
       ) : (
         <div className="space-y-4">
           {orders.map((o) => {

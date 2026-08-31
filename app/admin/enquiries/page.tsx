@@ -106,6 +106,25 @@ function EnquiriesPageInner() {
     load();
   };
 
+  const handleDelete = async (e: React.MouseEvent, enquiry: Enquiry) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (
+      !window.confirm(
+        `Delete the enquiry for ${enquiry.customers?.name}? This removes it and its call history permanently — it cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    const res = await fetch(`/api/admin/enquiries/${enquiry.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? 'Failed to delete enquiry');
+      return;
+    }
+    load();
+  };
+
   // Sort so anything ≥14 days old floats to the top (§5.6)
   const sorted = [...enquiries].sort((a, b) => daysOld(b.created_at) - daysOld(a.created_at));
 
@@ -120,6 +139,8 @@ function EnquiriesPageInner() {
           {showForm ? 'Cancel' : '+ New Enquiry'}
         </button>
       </div>
+
+      {error && !showForm && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
@@ -181,7 +202,7 @@ function EnquiriesPageInner() {
               <option value="ready_to_buy">Ready to buy</option>
             </select>
           </FormRow>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-600">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
@@ -193,7 +214,7 @@ function EnquiriesPageInner() {
       {loading ? (
         <p>Loading...</p>
       ) : sorted.length === 0 ? (
-        <p className="text-gray-500">No open enquiries.</p>
+        <p className="text-gray-600">No open enquiries.</p>
       ) : (
         <div className="bg-white rounded-lg shadow divide-y">
           {sorted.map((e) => {
@@ -221,10 +242,16 @@ function EnquiriesPageInner() {
                     </p>
                   </div>
                   <div className="text-right text-sm">
-                    <p className={age >= 14 ? 'text-red-600 font-semibold' : 'text-gray-500'}>
+                    <p className={age >= 14 ? 'text-red-600 font-semibold' : 'text-gray-600'}>
                       {age} day{age === 1 ? '' : 's'} old {age >= 14 ? '— decide now' : ''}
                     </p>
-                    <p className="text-gray-400">{e.call_count} call(s) made</p>
+                    <p className="text-gray-600">{e.call_count} call(s) made</p>
+                    <button
+                      onClick={(ev) => handleDelete(ev, e)}
+                      className="text-xs text-red-600 hover:underline mt-1"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </Link>
