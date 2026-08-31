@@ -7,10 +7,30 @@ import { useSearchParams } from 'next/navigation';
 interface Enquiry {
   id: string;
   enquiry_product_interest: string;
+  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | null;
   call_count: number;
   created_at: string;
   customers: { name: string; phone_number: string; area: string };
 }
+
+interface Product {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  general: 'General enquiry',
+  water_test: 'Brought water for testing',
+  ready_to_buy: 'Ready to buy',
+};
+
+const SOURCE_BADGE: Record<string, string> = {
+  general: 'bg-gray-100 text-gray-700',
+  water_test: 'bg-yellow-100 text-yellow-800',
+  ready_to_buy: 'bg-green-100 text-green-800',
+};
 
 export default function EnquiriesPage() {
   return (
@@ -25,9 +45,17 @@ function EnquiriesPageInner() {
   // straight to the form instead of the list.
   const searchParams = useSearchParams();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(searchParams.get('new') === '1');
-  const [form, setForm] = useState({ phoneNumber: '', name: '', address: '', area: '', productInterest: '' });
+  const [form, setForm] = useState({
+    phoneNumber: '',
+    name: '',
+    address: '',
+    area: '',
+    productInterest: '',
+    source: 'general' as 'general' | 'water_test' | 'ready_to_buy',
+  });
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -40,6 +68,10 @@ function EnquiriesPageInner() {
 
   useEffect(() => {
     load();
+    // Same active-product list Products/Sync-now show — kept fresh nightly (§9.2).
+    fetch('/api/admin/products')
+      .then((res) => res.json())
+      .then((data) => setProducts((data.products ?? []).filter((p: Product & { active: boolean }) => p.active)));
   }, []);
 
   const daysOld = (createdAt: string) =>
@@ -58,7 +90,7 @@ function EnquiriesPageInner() {
       setError(data.error ?? 'Failed to create enquiry');
       return;
     }
-    setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '' });
+    setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '', source: 'general' });
     setShowForm(false);
     load();
   };
@@ -109,12 +141,30 @@ function EnquiriesPageInner() {
             value={form.area}
             onChange={(e) => setForm({ ...form, area: e.target.value })}
           />
-          <input
-            placeholder="What are they interested in?"
-            className="w-full border rounded px-3 py-2"
+          <select
+            className="w-full border rounded px-3 py-2 text-gray-700"
             value={form.productInterest}
             onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
-          />
+          >
+            <option value="">What are they interested in? (optional)</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.name}>
+                {p.name} — {p.brand} ({p.category})
+              </option>
+            ))}
+          </select>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">How did this come in?</label>
+            <select
+              className="w-full border rounded px-3 py-2 text-gray-700"
+              value={form.source}
+              onChange={(e) => setForm({ ...form, source: e.target.value as typeof form.source })}
+            >
+              <option value="general">General enquiry</option>
+              <option value="water_test">Brought water for testing</option>
+              <option value="ready_to_buy">Ready to buy</option>
+            </select>
+          </div>
           <p className="text-xs text-gray-500">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
@@ -140,9 +190,16 @@ function EnquiriesPageInner() {
               >
                 <div className="flex justify-between">
                   <div>
-                    <p className="font-medium">
-                      {e.customers?.name} — {e.customers?.phone_number}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">
+                        {e.customers?.name} — {e.customers?.phone_number}
+                      </p>
+                      {e.enquiry_source && e.enquiry_source !== 'general' && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${SOURCE_BADGE[e.enquiry_source]}`}>
+                          {SOURCE_LABEL[e.enquiry_source]}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600">
                       {e.customers?.area} · {e.enquiry_product_interest || 'No product noted'}
                     </p>

@@ -12,7 +12,12 @@ function wordCount(text: string): number {
 // Enquiries (§5)
 // ---------------------------------------------------------------------------
 
-export async function createEnquiry(input: { customerId: string; productInterest: string; createdBy: string }) {
+export async function createEnquiry(input: {
+  customerId: string;
+  productInterest: string;
+  createdBy: string;
+  source?: 'general' | 'water_test' | 'ready_to_buy';
+}) {
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .insert({
@@ -20,6 +25,7 @@ export async function createEnquiry(input: { customerId: string; productInterest
       kind: 'enquiry',
       status: 'open',
       enquiry_product_interest: input.productInterest,
+      enquiry_source: input.source ?? 'general',
     })
     .select('*')
     .single();

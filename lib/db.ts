@@ -78,6 +78,7 @@ export type Database = {
           updated_at: string;
           // Enquiry fields
           enquiry_product_interest: string | null;
+          enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | null;
           call_count: number;
           callback_date: string | null;
           closure_reason: string | null;

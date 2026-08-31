@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       customerId: customer.id,
       productInterest: body.productInterest ?? '',
       createdBy: user.id,
+      source: body.source,
     });
 
     return Response.json({ customer, ticket }, { status: 201 });
