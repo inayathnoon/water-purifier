@@ -9,7 +9,7 @@ import ProductPicker from '@/components/ProductPicker';
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-700">{label}</label>
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">{label}</label>
       {children}
     </div>
   );
@@ -169,7 +169,7 @@ function InstallationsPageInner() {
 
       {showPurchaseForm && (
         <form onSubmit={handleCreatePurchase} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-900">
             For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech.
           </p>
           {purchaseError && <p className="text-red-600 text-sm">{purchaseError}</p>}
@@ -253,7 +253,7 @@ function InstallationsPageInner() {
       {loading ? (
         <p>Loading...</p>
       ) : installations.length === 0 ? (
-        <p className="text-gray-600">No installations in progress.</p>
+        <p className="text-gray-900">No installations in progress.</p>
       ) : (
         <div className="space-y-4">
           {installations.map((inst) => (
@@ -263,12 +263,12 @@ function InstallationsPageInner() {
                   <p className="font-medium">
                     {inst.customers.name} — {inst.customers.phone_number}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-900">
                     {inst.customers.address}, {inst.customers.area}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1">Agreed price: ₹{inst.agreed_price}</p>
+                  <p className="text-sm text-gray-900 mt-1">Agreed price: ₹{inst.agreed_price}</p>
                   {firstOrder(inst.orders) && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-900">
                       Paid: ₹{firstOrder(inst.orders)!.paid_amount}
                       {firstOrder(inst.orders)!.balance_owed > 0 && (
                         <span className="text-red-600"> · ₹{firstOrder(inst.orders)!.balance_owed} owed</span>
@@ -349,7 +349,7 @@ function InstallationsPageInner() {
                     </select>
                   </div>
                   {bookForm.assignedToId && bookForm.bookedDate && (
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-gray-900">
                       This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
                       in this half-day.
                     </p>

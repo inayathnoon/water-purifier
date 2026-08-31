@@ -95,7 +95,7 @@ export default function TimeOffPage() {
       {loading ? (
         <p>Loading...</p>
       ) : requests.length === 0 ? (
-        <p className="text-gray-600">No requests yet.</p>
+        <p className="text-gray-900">No requests yet.</p>
       ) : (
         <div className="space-y-3">
           {requests.map((r) => (
@@ -105,7 +105,7 @@ export default function TimeOffPage() {
                   <p className="font-medium">
                     {r.start_date} to {r.end_date}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1">{r.reason}</p>
+                  <p className="text-sm text-gray-900 mt-1">{r.reason}</p>
                   {r.status === 'denied' && r.decision_reason && (
                     <p className="text-sm text-red-600 mt-1">Reason: {r.decision_reason}</p>
                   )}

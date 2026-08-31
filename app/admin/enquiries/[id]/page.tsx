@@ -111,11 +111,11 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold">{ticket.customers.name}</h1>
-          <p className="text-gray-600">
+          <p className="text-gray-900">
             {ticket.customers.phone_number} · {ticket.customers.address}, {ticket.customers.area}
           </p>
-          <p className="text-sm text-gray-600 mt-1">Interested in: {ticket.enquiry_product_interest || '—'}</p>
-          <p className="text-sm text-gray-600">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
+          <p className="text-sm text-gray-900 mt-1">Interested in: {ticket.enquiry_product_interest || '—'}</p>
+          <p className="text-sm text-gray-900">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
         </div>
         <button
           onClick={handleDelete}
@@ -218,13 +218,13 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="font-semibold mb-2">Call history</h2>
         {calls.length === 0 ? (
-          <p className="text-sm text-gray-600">No calls logged yet.</p>
+          <p className="text-sm text-gray-900">No calls logged yet.</p>
         ) : (
           <ul className="space-y-2">
             {calls.map((c) => (
               <li key={c.id} className="text-sm border-b pb-2">
                 <p>{c.note}</p>
-                <p className="text-gray-600 text-xs">{new Date(c.created_at).toLocaleString()}</p>
+                <p className="text-gray-900 text-xs">{new Date(c.created_at).toLocaleString()}</p>
               </li>
             ))}
           </ul>

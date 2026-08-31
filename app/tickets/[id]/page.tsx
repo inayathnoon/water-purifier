@@ -29,7 +29,7 @@ export default function TicketRedirectPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <p className="text-gray-600">Opening...</p>
+      <p className="text-gray-900">Opening...</p>
     </div>
   );
 }

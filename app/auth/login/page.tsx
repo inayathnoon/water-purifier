@@ -33,7 +33,7 @@ export default function LoginPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Water Purifier Service
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-gray-900">
             Sign in to your account
           </p>
         </div>
@@ -91,7 +91,7 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <p className="mt-2 text-center text-sm text-gray-600">
+        <p className="mt-2 text-center text-sm text-gray-900">
           Contact the admin to create an account
         </p>
       </div>

@@ -21,7 +21,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const SOURCE_BADGE: Record<string, string> = {
-  general: 'bg-gray-100 text-gray-700',
+  general: 'bg-gray-100 text-gray-900',
   water_test: 'bg-yellow-100 text-yellow-800',
   ready_to_buy: 'bg-green-100 text-green-800',
 };
@@ -31,7 +31,7 @@ const SOURCE_BADGE: Record<string, string> = {
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-700">{label}</label>
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">{label}</label>
       {children}
     </div>
   );
@@ -174,7 +174,7 @@ function EnquiriesPageInner() {
                 key={formKey}
                 onChange={(picked) => setForm({ ...form, productInterest: picked?.display ?? '' })}
               />
-              <p className="text-xs text-gray-600 mt-1">Optional — leave blank if not decided yet.</p>
+              <p className="text-xs text-gray-900 mt-1">Optional — leave blank if not decided yet.</p>
             </div>
           </FormRow>
           <FormRow label="How did this come in?">
@@ -188,7 +188,7 @@ function EnquiriesPageInner() {
               <option value="ready_to_buy">Ready to buy</option>
             </select>
           </FormRow>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-gray-900">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
@@ -200,7 +200,7 @@ function EnquiriesPageInner() {
       {loading ? (
         <p>Loading...</p>
       ) : sorted.length === 0 ? (
-        <p className="text-gray-600">No open enquiries.</p>
+        <p className="text-gray-900">No open enquiries.</p>
       ) : (
         <div className="bg-white rounded-lg shadow divide-y">
           {sorted.map((e) => {
@@ -223,15 +223,15 @@ function EnquiriesPageInner() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-900">
                       {e.customers?.area} · {e.enquiry_product_interest || 'No product noted'}
                     </p>
                   </div>
                   <div className="text-right text-sm">
-                    <p className={age >= 14 ? 'text-red-600 font-semibold' : 'text-gray-600'}>
+                    <p className={age >= 14 ? 'text-red-600 font-semibold' : 'text-gray-900'}>
                       {age} day{age === 1 ? '' : 's'} old {age >= 14 ? '— decide now' : ''}
                     </p>
-                    <p className="text-gray-600">{e.call_count} call(s) made</p>
+                    <p className="text-gray-900">{e.call_count} call(s) made</p>
                     <button
                       onClick={(ev) => handleDelete(ev, e)}
                       className="text-xs text-red-600 hover:underline mt-1"

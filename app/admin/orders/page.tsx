@@ -88,7 +88,7 @@ export default function OrdersPage() {
       {loading ? (
         <p>Loading...</p>
       ) : orders.length === 0 ? (
-        <p className="text-gray-600">No orders yet.</p>
+        <p className="text-gray-900">No orders yet.</p>
       ) : (
         <div className="space-y-4">
           {orders.map((o) => {
@@ -103,7 +103,7 @@ export default function OrdersPage() {
                     <p className="font-medium">
                       {o.tickets.customers.name} — {o.tickets.customers.phone_number}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-900">
                       List: ₹{o.list_price} · Sold: ₹{o.sold_price} · Discount: ₹{o.discount}
                     </p>
                     <p className="text-sm mt-1">

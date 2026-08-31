@@ -107,7 +107,7 @@ export default function StaffJobsPage() {
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 pb-24">
       <h1 className="text-2xl font-bold mb-1">My Jobs</h1>
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-gray-900 mb-4">
         {showAll ? 'All jobs' : `Today, ${today}`}
         {!showAll && upcomingCount > 0 && (
           <button onClick={() => setShowAll(true)} className="ml-2 text-blue-600 underline">
@@ -126,7 +126,7 @@ export default function StaffJobsPage() {
       {loading ? (
         <p>Loading...</p>
       ) : visibleJobs.length === 0 ? (
-        <p className="text-gray-600 text-center py-12">
+        <p className="text-gray-900 text-center py-12">
           {showAll ? 'No jobs assigned.' : 'No jobs today. Nice.'}
         </p>
       ) : (
@@ -137,13 +137,13 @@ export default function StaffJobsPage() {
                 <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   {KIND_LABEL[job.kind]}
                 </span>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-900">
                   {job.booked_date} · {HALF_DAY_LABEL[job.booked_half_day] ?? job.booked_half_day}
                 </span>
               </div>
 
               <p className="font-semibold text-lg leading-tight">{job.customers.name}</p>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-900 text-sm">
                 {job.location === 'office'
                   ? 'Customer brings unit to office'
                   : `${job.customers.address}, ${job.customers.area}`}
@@ -171,7 +171,7 @@ export default function StaffJobsPage() {
                 <div className="mt-4 pt-4 border-t space-y-3">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="text-xs text-gray-600">Start</label>
+                      <label className="text-xs text-gray-900">Start</label>
                       <input
                         type="time"
                         required
@@ -181,7 +181,7 @@ export default function StaffJobsPage() {
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-xs text-gray-600">End</label>
+                      <label className="text-xs text-gray-900">End</label>
                       <input
                         type="time"
                         required
