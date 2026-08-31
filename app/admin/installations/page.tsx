@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import ProductPicker from '@/components/ProductPicker';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
@@ -71,10 +72,12 @@ function InstallationsPageInner() {
     address: '',
     area: '',
     productDetails: '',
+    extraDetails: '',
     price: '',
     paidAmount: '',
   });
   const [purchaseError, setPurchaseError] = useState('');
+  const [purchaseFormKey, setPurchaseFormKey] = useState(0);
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -119,6 +122,7 @@ function InstallationsPageInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...purchaseForm,
+        productDetails: [purchaseForm.productDetails, purchaseForm.extraDetails].filter(Boolean).join(' — '),
         price: Number(purchaseForm.price),
         paidAmount: Number(purchaseForm.paidAmount || 0),
       }),
@@ -128,7 +132,8 @@ function InstallationsPageInner() {
       setPurchaseError(data.error ?? 'Failed to record purchase');
       return;
     }
-    setPurchaseForm({ phoneNumber: '', name: '', address: '', area: '', productDetails: '', price: '', paidAmount: '' });
+    setPurchaseForm({ phoneNumber: '', name: '', address: '', area: '', productDetails: '', extraDetails: '', price: '', paidAmount: '' });
+    setPurchaseFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
     setShowPurchaseForm(false);
     load();
   };
@@ -200,14 +205,20 @@ function InstallationsPageInner() {
               onChange={(e) => setPurchaseForm({ ...purchaseForm, area: e.target.value })}
             />
           </FormRow>
-          <FormRow label="Product details">
-            <input
-              required
-              placeholder="e.g. Wave Krystal TRP RO+UV+UF and Prefilter"
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={purchaseForm.productDetails}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, productDetails: e.target.value })}
-            />
+          <FormRow label="Product">
+            <div className="flex-1">
+              <ProductPicker
+                key={purchaseFormKey}
+                required
+                onChange={(picked) => setPurchaseForm({ ...purchaseForm, productDetails: picked?.display ?? '' })}
+              />
+              <input
+                placeholder="Extra details (optional — e.g. 'and Prefilter')"
+                className="w-full border rounded px-3 py-2 text-gray-900 mt-2 text-sm"
+                value={purchaseForm.extraDetails}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, extraDetails: e.target.value })}
+              />
+            </div>
           </FormRow>
           <FormRow label="Price">
             <input

@@ -133,12 +133,13 @@ export type Database = {
       products: {
         Row: {
           id: string;
-          code: string;
+          code: string; // the sheet's `sku` — unique per variant
           category: string;
-          type: string;
           brand: string;
-          name: string;
-          list_price: number;
+          name: string; // the sheet's `product_name`
+          master_sku: string | null; // groups variant rows into one product
+          variant: string | null;
+          list_price: number | null; // no longer supplied by the sheet
           active: boolean;
           last_synced_at: string;
           created_at: string;

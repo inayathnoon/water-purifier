@@ -2,19 +2,24 @@ import { google } from 'googleapis';
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 
-// §9.1: category, type, brand, name, code, list price — in this order.
+// §9.1 (revised): the business restructured the sheet around variants —
+// the same product (e.g. "Krystal TRP") gets one row per variant (e.g.
+// "RO+UV" vs "RO+UV+AL"), grouped by a shared master_sku. `sku` is the
+// fully-qualified, unique code for that exact variant — it's what this
+// table's `code` column keys off. There's no price column any more; it
+// was never actually read anywhere besides this page.
 // §9.5: spare parts live in the same sheet under their own category, so
 // this schema doesn't distinguish "product" from "part" — category does.
-const EXPECTED_HEADERS = ['category', 'type', 'brand', 'name', 'code', 'list price'];
+const EXPECTED_HEADERS = ['product_name', 'category', 'brand', 'master_sku', 'variant', 'sku'];
 const SHEET_RANGE = process.env.GOOGLE_SHEETS_RANGE || 'Products!A:F';
 
 interface ParsedRow {
+  productName: string;
   category: string;
-  type: string;
   brand: string;
-  name: string;
-  code: string;
-  listPrice: number;
+  masterSku: string;
+  variant: string;
+  sku: string;
 }
 
 async function fetchSheetRows(): Promise<string[][]> {
@@ -67,32 +72,26 @@ function parseRows(rows: string[][]): ParsedRow[] {
   const colIndex = (name: string) => normalizedHeaders.indexOf(name);
 
   const idx = {
+    productName: colIndex('product_name'),
     category: colIndex('category'),
-    type: colIndex('type'),
     brand: colIndex('brand'),
-    name: colIndex('name'),
-    code: colIndex('code'),
-    listPrice: colIndex('list price'),
+    masterSku: colIndex('master_sku'),
+    variant: colIndex('variant'),
+    sku: colIndex('sku'),
   };
 
   const parsed: ParsedRow[] = [];
   for (const row of dataRows) {
-    const code = (row[idx.code] ?? '').trim();
-    if (!code) continue; // skip blank trailing rows
-
-    const rawPrice = (row[idx.listPrice] ?? '').replace(/[^0-9.]/g, '');
-    const listPrice = parseFloat(rawPrice);
-    if (!code || isNaN(listPrice)) {
-      throw new ApiError(422, `Row for code "${code || '(blank)'}" has an invalid list price: "${row[idx.listPrice]}". Nothing was synced.`);
-    }
+    const sku = (row[idx.sku] ?? '').trim();
+    if (!sku) continue; // skip blank trailing rows
 
     parsed.push({
+      productName: (row[idx.productName] ?? '').trim(),
       category: (row[idx.category] ?? '').trim(),
-      type: (row[idx.type] ?? '').trim(),
       brand: (row[idx.brand] ?? '').trim(),
-      name: (row[idx.name] ?? '').trim(),
-      code,
-      listPrice,
+      masterSku: (row[idx.masterSku] ?? '').trim(),
+      variant: (row[idx.variant] ?? '').trim(),
+      sku,
     });
   }
 
@@ -103,8 +102,9 @@ function parseRows(rows: string[][]): ParsedRow[] {
  * §9.2: pull a fresh copy from the sheet (nightly + on-demand "Sync now").
  * §9.3: products removed from the sheet are switched off, never deleted —
  * so historical orders that reference them still resolve.
- * §9.4: code is the stable key; renaming a product's name/category in the
- * sheet updates the existing row rather than creating a duplicate.
+ * §9.4: sku (stored as `code`) is the stable key; renaming a product's
+ * name/category in the sheet updates the existing row rather than
+ * creating a duplicate.
  */
 export async function syncProductsFromSheet(): Promise<{ upserted: number; deactivated: number }> {
   const rows = await fetchSheetRows();
@@ -116,14 +116,17 @@ export async function syncProductsFromSheet(): Promise<{ upserted: number; deact
 
   const now = new Date().toISOString();
 
+  // list_price deliberately omitted — the sheet doesn't carry one, and
+  // leaving it out of the upsert payload means an existing value (if one
+  // is ever set some other way) is left untouched rather than nulled.
   const { error: upsertError } = await supabaseAdmin.from('products').upsert(
     parsed.map((p) => ({
-      code: p.code,
+      code: p.sku,
       category: p.category,
-      type: p.type,
       brand: p.brand,
-      name: p.name,
-      list_price: p.listPrice,
+      name: p.productName,
+      master_sku: p.masterSku,
+      variant: p.variant,
       active: true,
       last_synced_at: now,
     })),
@@ -131,7 +134,7 @@ export async function syncProductsFromSheet(): Promise<{ upserted: number; deact
   );
   if (upsertError) throw new ApiError(500, `Upsert failed: ${upsertError.message}`);
 
-  const currentCodes = parsed.map((p) => p.code);
+  const currentCodes = parsed.map((p) => p.sku);
   const { data: deactivated, error: deactivateError } = await supabaseAdmin
     .from('products')
     .update({ active: false })

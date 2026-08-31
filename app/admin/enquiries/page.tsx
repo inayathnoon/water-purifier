@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import ProductPicker from '@/components/ProductPicker';
 
 interface Enquiry {
   id: string;
@@ -11,13 +12,6 @@ interface Enquiry {
   call_count: number;
   created_at: string;
   customers: { name: string; phone_number: string; area: string };
-}
-
-interface Product {
-  id: string;
-  name: string;
-  brand: string;
-  category: string;
 }
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -56,7 +50,6 @@ function EnquiriesPageInner() {
   // straight to the form instead of the list.
   const searchParams = useSearchParams();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(searchParams.get('new') === '1');
   const [form, setForm] = useState({
@@ -67,6 +60,7 @@ function EnquiriesPageInner() {
     productInterest: '',
     source: 'general' as 'general' | 'water_test' | 'ready_to_buy',
   });
+  const [formKey, setFormKey] = useState(0);
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -79,10 +73,6 @@ function EnquiriesPageInner() {
 
   useEffect(() => {
     load();
-    // Same active-product list Products/Sync-now show — kept fresh nightly (§9.2).
-    fetch('/api/admin/products')
-      .then((res) => res.json())
-      .then((data) => setProducts((data.products ?? []).filter((p: Product & { active: boolean }) => p.active)));
   }, []);
 
   const daysOld = (createdAt: string) =>
@@ -102,6 +92,7 @@ function EnquiriesPageInner() {
       return;
     }
     setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '', source: 'general' });
+    setFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
     setShowForm(false);
     load();
   };
@@ -178,18 +169,13 @@ function EnquiriesPageInner() {
             />
           </FormRow>
           <FormRow label="Interested in">
-            <select
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={form.productInterest}
-              onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
-            >
-              <option value="">(optional — not decided yet)</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.name}>
-                  {p.name} — {p.brand} ({p.category})
-                </option>
-              ))}
-            </select>
+            <div className="flex-1">
+              <ProductPicker
+                key={formKey}
+                onChange={(picked) => setForm({ ...form, productInterest: picked?.display ?? '' })}
+              />
+              <p className="text-xs text-gray-600 mt-1">Optional — leave blank if not decided yet.</p>
+            </div>
           </FormRow>
           <FormRow label="How did this come in?">
             <select

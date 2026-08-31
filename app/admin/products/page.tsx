@@ -6,10 +6,11 @@ interface Product {
   id: string;
   code: string;
   category: string;
-  type: string;
   brand: string;
   name: string;
-  list_price: number;
+  master_sku: string | null;
+  variant: string | null;
+  list_price: number | null;
   active: boolean;
   last_synced_at: string | null;
 }
@@ -82,11 +83,11 @@ export default function ProductsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="p-3">Code</th>
+                <th className="p-3">Code (SKU)</th>
                 <th className="p-3">Category</th>
-                <th className="p-3">Type</th>
                 <th className="p-3">Brand</th>
                 <th className="p-3">Name</th>
+                <th className="p-3">Variant</th>
                 <th className="p-3 text-right">List price</th>
                 <th className="p-3">Status</th>
               </tr>
@@ -96,10 +97,10 @@ export default function ProductsPage() {
                 <tr key={p.id} className={`border-t ${!p.active ? 'text-gray-600' : ''}`}>
                   <td className="p-3 font-mono">{p.code}</td>
                   <td className="p-3">{p.category}</td>
-                  <td className="p-3">{p.type}</td>
                   <td className="p-3">{p.brand}</td>
                   <td className="p-3">{p.name}</td>
-                  <td className="p-3 text-right">₹{p.list_price}</td>
+                  <td className="p-3">{p.variant || '—'}</td>
+                  <td className="p-3 text-right">{p.list_price != null ? `₹${p.list_price}` : '—'}</td>
                   <td className="p-3">{p.active ? 'Active' : 'Discontinued'}</td>
                 </tr>
               ))}
