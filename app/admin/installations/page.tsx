@@ -3,6 +3,17 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+// Label on the left, the field on the right — placeholder text alone was
+// too faint to read reliably, a real label always is.
+function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-700">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 interface Installation {
   id: string;
   status: string;
@@ -157,62 +168,69 @@ function InstallationsPageInner() {
             For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech.
           </p>
           {purchaseError && <p className="text-red-600 text-sm">{purchaseError}</p>}
-          <input
-            required
-            placeholder="Phone number"
-            className="w-full border rounded px-3 py-2"
-            value={purchaseForm.phoneNumber}
-            onChange={(e) => setPurchaseForm({ ...purchaseForm, phoneNumber: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Name"
-            className="w-full border rounded px-3 py-2"
-            value={purchaseForm.name}
-            onChange={(e) => setPurchaseForm({ ...purchaseForm, name: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Address"
-            className="w-full border rounded px-3 py-2"
-            value={purchaseForm.address}
-            onChange={(e) => setPurchaseForm({ ...purchaseForm, address: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Area"
-            className="w-full border rounded px-3 py-2"
-            value={purchaseForm.area}
-            onChange={(e) => setPurchaseForm({ ...purchaseForm, area: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Product details (e.g. Wave Krystal TRP RO+UV+UF and Prefilter)"
-            className="w-full border rounded px-3 py-2"
-            value={purchaseForm.productDetails}
-            onChange={(e) => setPurchaseForm({ ...purchaseForm, productDetails: e.target.value })}
-          />
-          <div className="flex gap-2">
+          <FormRow label="Phone number">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.phoneNumber}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, phoneNumber: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Name">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.name}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, name: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Address">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.address}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, address: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Area">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.area}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, area: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Product details">
+            <input
+              required
+              placeholder="e.g. Wave Krystal TRP RO+UV+UF and Prefilter"
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.productDetails}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, productDetails: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Price">
             <input
               required
               type="number"
               step="0.01"
               min="0"
-              placeholder="Price"
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-gray-900"
               value={purchaseForm.price}
               onChange={(e) => setPurchaseForm({ ...purchaseForm, price: e.target.value })}
             />
+          </FormRow>
+          <FormRow label="Paid so far">
             <input
               type="number"
               step="0.01"
               min="0"
-              placeholder="Paid so far (optional)"
-              className="w-full border rounded px-3 py-2"
+              placeholder="optional"
+              className="w-full border rounded px-3 py-2 text-gray-900"
               value={purchaseForm.paidAmount}
               onChange={(e) => setPurchaseForm({ ...purchaseForm, paidAmount: e.target.value })}
             />
-          </div>
+          </FormRow>
           <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
             Record purchase
           </button>

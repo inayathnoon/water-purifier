@@ -32,6 +32,17 @@ const SOURCE_BADGE: Record<string, string> = {
   ready_to_buy: 'bg-green-100 text-green-800',
 };
 
+// Label on the left, the field on the right — placeholder text alone was
+// too faint to read reliably, a real label always is.
+function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-700">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 export default function EnquiriesPage() {
   return (
     <Suspense fallback={<p className="p-8">Loading...</p>}>
@@ -113,50 +124,55 @@ function EnquiriesPageInner() {
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
           {error && <p className="text-red-600 text-sm">{error}</p>}
-          <input
-            required
-            placeholder="Phone number"
-            className="w-full border rounded px-3 py-2"
-            value={form.phoneNumber}
-            onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Name"
-            className="w-full border rounded px-3 py-2"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Address"
-            className="w-full border rounded px-3 py-2"
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Area"
-            className="w-full border rounded px-3 py-2"
-            value={form.area}
-            onChange={(e) => setForm({ ...form, area: e.target.value })}
-          />
-          <select
-            className="w-full border rounded px-3 py-2 text-gray-700"
-            value={form.productInterest}
-            onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
-          >
-            <option value="">What are they interested in? (optional)</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.name}>
-                {p.name} — {p.brand} ({p.category})
-              </option>
-            ))}
-          </select>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">How did this come in?</label>
+          <FormRow label="Phone number">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.phoneNumber}
+              onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Name">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Address">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Area">
+            <input
+              required
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.area}
+              onChange={(e) => setForm({ ...form, area: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Interested in">
             <select
-              className="w-full border rounded px-3 py-2 text-gray-700"
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.productInterest}
+              onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
+            >
+              <option value="">(optional — not decided yet)</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name} — {p.brand} ({p.category})
+                </option>
+              ))}
+            </select>
+          </FormRow>
+          <FormRow label="How did this come in?">
+            <select
+              className="w-full border rounded px-3 py-2 text-gray-900"
               value={form.source}
               onChange={(e) => setForm({ ...form, source: e.target.value as typeof form.source })}
             >
@@ -164,7 +180,7 @@ function EnquiriesPageInner() {
               <option value="water_test">Brought water for testing</option>
               <option value="ready_to_buy">Ready to buy</option>
             </select>
-          </div>
+          </FormRow>
           <p className="text-xs text-gray-500">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
