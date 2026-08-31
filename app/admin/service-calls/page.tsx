@@ -127,7 +127,7 @@ export default function ServiceCallsPage() {
                 {c.status === 'completed' && (
                   <>
                     {' · '}
-                    charge: {c.charge_amount != null ? `$${c.charge_amount}` : '—'}
+                    charge: {c.charge_amount != null ? `₹${c.charge_amount}` : '—'}
                   </>
                 )}
               </p>

@@ -1,6 +1,15 @@
 @import "tailwindcss";
 
+/* This app has no dark theme — every screen was built with explicit
+ * light-mode Tailwind classes (bg-white cards, text-gray-900, etc). The
+ * create-next-app scaffold's leftover `prefers-color-scheme: dark` block
+ * used to flip the page background near-black and the default text color
+ * near-white whenever a phone/browser was in dark mode, which fought with
+ * every explicit light-background card and made unstyled text unreadable.
+ * `color-scheme: light` tells the browser this site is light-only, so it
+ * stops applying its own dark-mode heuristics to native form controls too. */
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 }
@@ -10,13 +19,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

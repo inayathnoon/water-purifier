@@ -255,12 +255,12 @@ function InstallationsPageInner() {
                   <p className="text-sm text-gray-600">
                     {inst.customers.address}, {inst.customers.area}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1">Agreed price: ${inst.agreed_price}</p>
+                  <p className="text-sm text-gray-600 mt-1">Agreed price: ₹{inst.agreed_price}</p>
                   {firstOrder(inst.orders) && (
                     <p className="text-sm text-gray-600">
-                      Paid: ${firstOrder(inst.orders)!.paid_amount}
+                      Paid: ₹{firstOrder(inst.orders)!.paid_amount}
                       {firstOrder(inst.orders)!.balance_owed > 0 && (
-                        <span className="text-red-600"> · ${firstOrder(inst.orders)!.balance_owed} owed</span>
+                        <span className="text-red-600"> · ₹{firstOrder(inst.orders)!.balance_owed} owed</span>
                       )}
                     </p>
                   )}

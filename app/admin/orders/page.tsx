@@ -104,12 +104,12 @@ export default function OrdersPage() {
                       {o.tickets.customers.name} — {o.tickets.customers.phone_number}
                     </p>
                     <p className="text-sm text-gray-600">
-                      List: ${o.list_price} · Sold: ${o.sold_price} · Discount: ${o.discount}
+                      List: ₹{o.list_price} · Sold: ₹{o.sold_price} · Discount: ₹{o.discount}
                     </p>
                     <p className="text-sm mt-1">
-                      Paid: ${o.paid_amount} ·{' '}
+                      Paid: ₹{o.paid_amount} ·{' '}
                       <span className={o.balance_owed > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                        Balance owed: ${o.balance_owed}
+                        Balance owed: ₹{o.balance_owed}
                       </span>
                       {' · '}
                       <span className="capitalize">{o.status}</span>

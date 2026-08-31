@@ -184,8 +184,8 @@ function AdminDashboard() {
               key={o.id}
               href="/admin/orders"
               primary={o.tickets.customers.name}
-              secondary={`Discount: $${o.discount}`}
-              tag={`$${o.balance_owed} owed`}
+              secondary={`Discount: ₹${o.discount}`}
+              tag={`₹${o.balance_owed} owed`}
               tagColor="text-red-600"
             />
           ))}
@@ -224,8 +224,8 @@ function OwnerDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <StatCard label="Jobs today" value={String(data.todaysJobs.length)} />
-        <StatCard label="Sold this month" value={`$${data.monthRevenue.sold.toFixed(2)}`} />
-        <StatCard label="Collected this month" value={`$${data.monthRevenue.collected.toFixed(2)}`} />
+        <StatCard label="Sold this month" value={`₹${data.monthRevenue.sold.toFixed(2)}`} />
+        <StatCard label="Collected this month" value={`₹${data.monthRevenue.collected.toFixed(2)}`} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -239,7 +239,7 @@ function OwnerDashboard() {
         </DashboardCard>
 
         <DashboardCard title="Discount given this month" emptyText="">
-          <p className="text-2xl font-semibold text-gray-900">${data.monthRevenue.discount.toFixed(2)}</p>
+          <p className="text-2xl font-semibold text-gray-900">₹{data.monthRevenue.discount.toFixed(2)}</p>
           <p className="text-sm text-gray-600 mt-1">Margin sits between list price and sold price (§7.6)</p>
         </DashboardCard>
 
@@ -264,7 +264,7 @@ function OwnerDashboard() {
               href="/admin/orders"
               primary={o.tickets.customers.name}
               secondary={`${daysAgo(o.created_at)} days`}
-              tag={`$${o.balance_owed}`}
+              tag={`₹${o.balance_owed}`}
               tagColor="text-red-600"
             />
           ))}

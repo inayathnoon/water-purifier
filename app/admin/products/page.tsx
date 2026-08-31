@@ -99,7 +99,7 @@ export default function ProductsPage() {
                   <td className="p-3">{p.type}</td>
                   <td className="p-3">{p.brand}</td>
                   <td className="p-3">{p.name}</td>
-                  <td className="p-3 text-right">${p.list_price}</td>
+                  <td className="p-3 text-right">₹{p.list_price}</td>
                   <td className="p-3">{p.active ? 'Active' : 'Discontinued'}</td>
                 </tr>
               ))}
