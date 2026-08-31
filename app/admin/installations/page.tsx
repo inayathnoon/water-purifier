@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface Installation {
   id: string;
@@ -12,6 +13,15 @@ interface Installation {
   location: string | null;
   customers: { name: string; phone_number: string; address: string; area: string };
   users: { name: string } | null;
+  orders: { paid_amount: number; balance_owed: number } | { paid_amount: number; balance_owed: number }[] | null;
+}
+
+// PostgREST returns an embedded to-one relation as an object or a
+// single-item array depending on how it infers the relationship —
+// normalize rather than assume one shape.
+function firstOrder(orders: Installation['orders']): { paid_amount: number; balance_owed: number } | null {
+  if (!orders) return null;
+  return Array.isArray(orders) ? (orders[0] ?? null) : orders;
 }
 
 interface StaffMember {
@@ -28,11 +38,32 @@ function onApprovedLeave(staff: StaffMember[], staffId: string, date: string): b
 }
 
 export default function InstallationsPage() {
+  return (
+    <Suspense fallback={<p className="p-8">Loading...</p>}>
+      <InstallationsPageInner />
+    </Suspense>
+  );
+}
+
+function InstallationsPageInner() {
+  // Dashboard's "+ New Purchase" links here with ?new=1 to open the form directly.
+  const searchParams = useSearchParams();
   const [installations, setInstallations] = useState<Installation[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookForm, setBookForm] = useState({ assignedToId: '', bookedDate: '', bookedHalfDay: 'morning', location: 'home' });
+  const [showPurchaseForm, setShowPurchaseForm] = useState(searchParams.get('new') === '1');
+  const [purchaseForm, setPurchaseForm] = useState({
+    phoneNumber: '',
+    name: '',
+    address: '',
+    area: '',
+    productDetails: '',
+    price: '',
+    paidAmount: '',
+  });
+  const [purchaseError, setPurchaseError] = useState('');
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -69,6 +100,28 @@ export default function InstallationsPage() {
     load();
   };
 
+  const handleCreatePurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPurchaseError('');
+    const res = await fetch('/api/admin/installations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...purchaseForm,
+        price: Number(purchaseForm.price),
+        paidAmount: Number(purchaseForm.paidAmount || 0),
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      setPurchaseError(data.error ?? 'Failed to record purchase');
+      return;
+    }
+    setPurchaseForm({ phoneNumber: '', name: '', address: '', area: '', productDetails: '', price: '', paidAmount: '' });
+    setShowPurchaseForm(false);
+    load();
+  };
+
   const handleCloseAfterConfirm = async (ticketId: string) => {
     setError('');
     const res = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
@@ -88,7 +141,84 @@ export default function InstallationsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Installations</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Installations</h1>
+        <button
+          onClick={() => setShowPurchaseForm((s) => !s)}
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+        >
+          {showPurchaseForm ? 'Cancel' : '+ New Purchase'}
+        </button>
+      </div>
+
+      {showPurchaseForm && (
+        <form onSubmit={handleCreatePurchase} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
+          <p className="text-sm text-gray-600">
+            For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech.
+          </p>
+          {purchaseError && <p className="text-red-600 text-sm">{purchaseError}</p>}
+          <input
+            required
+            placeholder="Phone number"
+            className="w-full border rounded px-3 py-2"
+            value={purchaseForm.phoneNumber}
+            onChange={(e) => setPurchaseForm({ ...purchaseForm, phoneNumber: e.target.value })}
+          />
+          <input
+            required
+            placeholder="Name"
+            className="w-full border rounded px-3 py-2"
+            value={purchaseForm.name}
+            onChange={(e) => setPurchaseForm({ ...purchaseForm, name: e.target.value })}
+          />
+          <input
+            required
+            placeholder="Address"
+            className="w-full border rounded px-3 py-2"
+            value={purchaseForm.address}
+            onChange={(e) => setPurchaseForm({ ...purchaseForm, address: e.target.value })}
+          />
+          <input
+            required
+            placeholder="Area"
+            className="w-full border rounded px-3 py-2"
+            value={purchaseForm.area}
+            onChange={(e) => setPurchaseForm({ ...purchaseForm, area: e.target.value })}
+          />
+          <input
+            required
+            placeholder="Product details (e.g. Wave Krystal TRP RO+UV+UF and Prefilter)"
+            className="w-full border rounded px-3 py-2"
+            value={purchaseForm.productDetails}
+            onChange={(e) => setPurchaseForm({ ...purchaseForm, productDetails: e.target.value })}
+          />
+          <div className="flex gap-2">
+            <input
+              required
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Price"
+              className="w-full border rounded px-3 py-2"
+              value={purchaseForm.price}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, price: e.target.value })}
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Paid so far (optional)"
+              className="w-full border rounded px-3 py-2"
+              value={purchaseForm.paidAmount}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, paidAmount: e.target.value })}
+            />
+          </div>
+          <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+            Record purchase
+          </button>
+        </form>
+      )}
+
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
@@ -108,6 +238,14 @@ export default function InstallationsPage() {
                     {inst.customers.address}, {inst.customers.area}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">Agreed price: ${inst.agreed_price}</p>
+                  {firstOrder(inst.orders) && (
+                    <p className="text-sm text-gray-500">
+                      Paid: ${firstOrder(inst.orders)!.paid_amount}
+                      {firstOrder(inst.orders)!.balance_owed > 0 && (
+                        <span className="text-red-600"> · ${firstOrder(inst.orders)!.balance_owed} owed</span>
+                      )}
+                    </p>
+                  )}
                   <p className="text-sm mt-1">
                     Status: <span className="font-medium">{inst.status}</span>
                     {inst.booked_date && (
@@ -134,7 +272,7 @@ export default function InstallationsPage() {
                       onClick={() => handleCloseAfterConfirm(inst.id)}
                       className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
                     >
-                      Confirm & close (creates order)
+                      Confirm & close
                     </button>
                   )}
                 </div>

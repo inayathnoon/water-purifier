@@ -142,6 +142,56 @@ export async function closeEnquiry(
   throw new ApiError(400, 'Unknown action');
 }
 
+/**
+ * A sale that never went through the call-and-convert enquiry pipeline —
+ * a walk-in or already-decided customer. Produces the exact same shape of
+ * open, unbooked installation ticket that closeEnquiry(..., 'convert')
+ * does, so it enters the normal book → complete → confirm-and-close flow
+ * from here on — no special-casing anywhere else.
+ *
+ * Unlike a converted enquiry, payment can already be in hand at the
+ * moment of sale, so the order is created right here instead of waiting
+ * for the ticket to close (closeTicketAfterConfirmation is guarded
+ * against creating a second one — see below).
+ */
+export async function createDirectPurchase(input: {
+  customerId: string;
+  productDetails: string;
+  price: number;
+  paidAmount: number;
+}) {
+  if (input.price < 0) throw new ApiError(400, 'Price must be zero or more');
+  if (input.paidAmount < 0) throw new ApiError(400, 'Paid amount must be zero or more');
+  if (input.paidAmount > input.price) throw new ApiError(400, 'Paid amount cannot exceed the price');
+
+  const { data: ticket, error: ticketError } = await supabaseAdmin
+    .from('tickets')
+    .insert({
+      customer_id: input.customerId,
+      kind: 'installation',
+      status: 'open',
+      agreed_price: input.price,
+      enquiry_product_interest: input.productDetails || null,
+    })
+    .select('*')
+    .single();
+  if (ticketError) throw new ApiError(500, ticketError.message);
+
+  const { data: order, error: orderError } = await supabaseAdmin
+    .from('orders')
+    .insert({
+      ticket_id: ticket.id,
+      list_price: input.price,
+      sold_price: input.price,
+      paid_amount: input.paidAmount,
+    })
+    .select('*')
+    .single();
+  if (orderError) throw new ApiError(500, orderError.message);
+
+  return { ticket, order };
+}
+
 // ---------------------------------------------------------------------------
 // Installations & service visits (§6) — booking, completion, cancellation
 // ---------------------------------------------------------------------------
@@ -339,6 +389,18 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
   if (closeError) throw new ApiError(500, closeError.message);
 
   if (ticket.kind === 'installation') {
+    // A direct purchase (createDirectPurchase) already created the order
+    // up front, at the moment of sale — don't create a second one now that
+    // it's going through the normal book → complete → close path.
+    const { data: existingOrder } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .maybeSingle();
+    if (existingOrder) {
+      return { ticket: closed, order: existingOrder };
+    }
+
     if (ticket.agreed_price == null) {
       throw new ApiError(400, 'Installation has no agreed price recorded — cannot create order');
     }
