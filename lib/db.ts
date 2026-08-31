@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 function isValidHttpUrl(value: string): boolean {
   try {
@@ -20,13 +21,13 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 // instead of crashing the build.
 const supabaseUrl = isValidHttpUrl(rawUrl) ? rawUrl : 'https://placeholder.supabase.co';
 
-// Client-side Supabase instance (anon key, row-level security enforced)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey || 'placeholder-anon-key', {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+// Client-side Supabase instance (anon key, row-level security enforced).
+// Must be @supabase/ssr's createBrowserClient, not plain @supabase/supabase-js
+// createClient — that stores the session in localStorage only, which the
+// server (middleware, and every requireUser() check in an API route) can
+// never see. createBrowserClient persists the session to cookies too, so a
+// browser login is actually visible server-side on the very next request.
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey || 'placeholder-anon-key');
 
 // Server-side instance (service role key, bypasses RLS for admin operations)
 export const supabaseAdmin = createClient(
