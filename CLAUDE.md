@@ -277,6 +277,32 @@ Four tables + enums:
 
 ---
 
+## Historical Data Import (2026-09-01)
+
+Bulk-imported the business's real records from before this app existed:
+97 sales (Jan–Aug 2026, from their Sales ledger) and ~50 enquiry/service
+entries (August, from their Enquiry sheet) — 148 tickets, 96 orders, 138
+customers total. Imported as a one-off script (not committed — it read
+two CSVs with real customer PII, both deleted after running), writing
+directly to the tables rather than going through the app's own
+book→complete→confirm flow, since these were already-completed sales,
+not new work to schedule.
+
+Key decisions made during cleanup, in case this ever needs auditing:
+- **Sold price = Paid + Balance, not the sheet's own "Price" column.**
+  The sheet's "Price" is closer to a pre-discount quote; the gap
+  between it and (Paid + Balance) was imported as `discount`, matching
+  how `orders.discount` already works.
+- A handful of rows had data gaps the sheets themselves couldn't answer
+  (missing phone numbers, blank Paid/Balance, a phone number typo'd
+  differently between the two sheets) — resolved via direct back-and-
+  forth with the business owner rather than guessed.
+- One sale (Nisar/Panoor, Aug 22) appeared in the Enquiry sheet as
+  "Product Sold" but not obviously in the Sales sheet — turned out to
+  be the same transaction under a one-digit phone typo. Cross-checking
+  matches like this is why a bulk import like this deserves a careful
+  pass rather than a blind row-by-row load.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
