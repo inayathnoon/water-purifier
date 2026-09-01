@@ -32,13 +32,16 @@ const ACTION_LABEL: Record<string, string> = {
   convert: 'Convert',
 };
 
-// Convert and Mark Inactive are the two outcomes worth a glance from
-// across the room — everything else stays neutral.
-const ACTION_SELECTED_STYLE: Record<string, string> = {
-  call_back_later: 'bg-blue-600 text-white border-blue-600',
-  pass_to_owner: 'bg-blue-600 text-white border-blue-600',
+// Every outcome gets its own color, always visible, not just once
+// clicked: yellow for "still open, decide later" (call back / pass to
+// owner), red for the lost sale, green for a sale (convert / link to an
+// existing purchase).
+const ACTION_STYLE: Record<string, string> = {
+  call_back_later: 'bg-yellow-500 text-white border-yellow-500',
+  pass_to_owner: 'bg-yellow-500 text-white border-yellow-500',
   mark_inactive: 'bg-red-600 text-white border-red-600',
   convert: 'bg-green-600 text-white border-green-600',
+  link_existing: 'bg-green-600 text-white border-green-600',
 };
 
 export default function EnquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -226,8 +229,8 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                 <button
                   key={a}
                   onClick={() => setAction(a)}
-                  className={`px-3 py-1.5 rounded-md text-sm border ${
-                    action === a ? ACTION_SELECTED_STYLE[a] : 'bg-white border-gray-300 text-gray-900'
+                  className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE[a]} ${
+                    action === a ? 'ring-2 ring-offset-1 ring-gray-900' : ''
                   }`}
                 >
                   {ACTION_LABEL[a]}
@@ -237,14 +240,14 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                   straight to placing the order (see handleConvertClick above). */}
               <button
                 onClick={handleConvertClick}
-                className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_SELECTED_STYLE.convert}`}
+                className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE.convert}`}
               >
                 {ACTION_LABEL.convert}
               </button>
               <button
                 onClick={handleToggleLinkPicker}
-                className={`px-3 py-1.5 rounded-md text-sm border ${
-                  showLinkPicker ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-300 text-gray-900'
+                className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE.link_existing} ${
+                  showLinkPicker ? 'ring-2 ring-offset-1 ring-gray-900' : ''
                 }`}
               >
                 Link To Existing Purchase

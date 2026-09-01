@@ -38,6 +38,7 @@ export default function TimeOffPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return; // a fast double-tap on Request leave must never send it twice
     setError('');
     setSubmitting(true);
     const res = await fetch('/api/staff/leave', {

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ProductPicker from '@/components/ProductPicker';
 import CustomerFields from '@/components/CustomerFields';
 
@@ -61,6 +61,7 @@ export default function InstallationsPage() {
 function InstallationsPageInner() {
   // Dashboard's "+ New Purchase" links here with ?new=1 to open the form directly.
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [installations, setInstallations] = useState<Installation[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +85,7 @@ function InstallationsPageInner() {
     paidAmount: '',
   });
   const [purchaseError, setPurchaseError] = useState('');
+  const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
   const [purchaseFormKey, setPurchaseFormKey] = useState(0);
   const [error, setError] = useState('');
 
@@ -123,6 +125,8 @@ function InstallationsPageInner() {
 
   const handleCreatePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (purchaseSubmitting) return; // a fast double-click on Record purchase must never record it twice
+    setPurchaseSubmitting(true);
     setPurchaseError('');
     const res = await fetch('/api/admin/installations', {
       method: 'POST',
@@ -134,6 +138,7 @@ function InstallationsPageInner() {
         paidAmount: Number(purchaseForm.paidAmount || 0),
       }),
     });
+    setPurchaseSubmitting(false);
     if (!res.ok) {
       const data = await res.json();
       setPurchaseError(data.error ?? 'Failed to record purchase');
@@ -193,7 +198,16 @@ function InstallationsPageInner() {
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
         <h1 className="text-2xl font-bold">Installations</h1>
         <button
-          onClick={() => setShowPurchaseForm((s) => !s)}
+          onClick={() => {
+            // Cancelling out of a purchase that only exists because Convert
+            // sent us here should return to that enquiry, not strand the
+            // admin on an empty Installations page.
+            if (showPurchaseForm && fromEnquiryId) {
+              router.push(`/admin/enquiries/${fromEnquiryId}`);
+              return;
+            }
+            setShowPurchaseForm((s) => !s);
+          }}
           className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
         >
           {showPurchaseForm ? 'Cancel' : '+ New Purchase'}
@@ -256,8 +270,12 @@ function InstallationsPageInner() {
               onChange={(e) => setPurchaseForm({ ...purchaseForm, paidAmount: e.target.value })}
             />
           </FormRow>
-          <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-            Record purchase
+          <button
+            type="submit"
+            disabled={purchaseSubmitting}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            {purchaseSubmitting ? 'Recording...' : 'Record purchase'}
           </button>
         </form>
       )}

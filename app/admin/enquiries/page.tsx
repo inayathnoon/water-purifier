@@ -67,6 +67,7 @@ function EnquiriesPageInner() {
     referrerName: '',
   });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   // Autofill: a referrer's phone number that's referred before fills in
   // their name automatically, same as a repeat customer's number does.
@@ -101,12 +102,15 @@ function EnquiriesPageInner() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return; // a fast double-click on Create must never create two enquiries
+    setSubmitting(true);
     setError('');
     const res = await fetch('/api/admin/enquiries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     });
+    setSubmitting(false);
     if (!res.ok) {
       const data = await res.json();
       setError(data.error ?? 'Failed to create enquiry');
@@ -228,8 +232,12 @@ function EnquiriesPageInner() {
           <p className="text-xs text-gray-900">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-            Create
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? 'Creating...' : 'Create'}
           </button>
         </form>
       )}
