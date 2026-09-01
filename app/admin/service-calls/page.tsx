@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeLink from '@/components/HomeLink';
 
 interface ServiceCall {
   id: string;
@@ -96,7 +97,8 @@ export default function ServiceCallsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-1">Yearly Service Calls</h1>
+      <HomeLink />
+      <h1 className="text-2xl font-bold mb-1 mt-2">Yearly Service Calls</h1>
       <p className="text-sm text-gray-900 mb-6">
         Created automatically one year after each installation (§8.2) — nobody has to remember.
       </p>

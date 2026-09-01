@@ -55,7 +55,7 @@ supabase/
 ## Hard Rules (§13) — Enforced in Code
 
 1. **Order cannot close while money is owed** → Postgres trigger + CHECK constraint on orders table
-2. **Enquiry closure needs 30+ words & ≥1 prior call** → Server-side validation in `/api/admin/enquiries/close`
+2. **Enquiry closure needs 5+ words & ≥1 prior call** (originally 30, lowered 2026-09-01 — 30 words was slowing staff down for little benefit) → Server-side validation in `/api/admin/enquiries/close`
 3. **No charge inside warranty year** → `charge_amount` computed from `installation_date` at write time
 4. **Service staff never see price/discount/balance** → Supabase RLS policies + server-side field filters
 5. **Jobs only assigned to service staff** → Postgres trigger on `tickets.assigned_to_id` (not a `CHECK` — Postgres CHECK constraints can't contain a subquery)

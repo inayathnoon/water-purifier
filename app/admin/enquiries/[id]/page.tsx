@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use as usePromise } from 'react';
 import { useRouter } from 'next/navigation';
+import HomeLink from '@/components/HomeLink';
 
 interface Call {
   id: string;
@@ -187,6 +188,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+      <HomeLink />
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold">{ticket.customers.name}</h1>
@@ -299,15 +301,15 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                     <textarea
                       required
                       rows={4}
-                      placeholder="Written explanation (30+ words)"
+                      placeholder="Written explanation (5+ words)"
                       className="w-full border rounded px-3 py-2"
                       value={explanation}
                       onChange={(e) => setExplanation(e.target.value)}
                     />
                     <p
-                      className={`text-xs mt-1 ${wordCount(explanation) < 30 ? 'text-red-600' : 'text-green-600'}`}
+                      className={`text-xs mt-1 ${wordCount(explanation) < 5 ? 'text-red-600' : 'text-green-600'}`}
                     >
-                      {wordCount(explanation)} / 30 words minimum
+                      {wordCount(explanation)} / 5 words minimum
                     </p>
                     {action === 'pass_to_owner' && ticket.call_count < 1 && (
                       <p className="text-xs text-red-600 mt-1">

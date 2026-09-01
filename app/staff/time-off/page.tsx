@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeLink from '@/components/HomeLink';
 
 interface LeaveRequest {
   id: string;
@@ -57,7 +58,8 @@ export default function TimeOffPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Time Off</h1>
+      <HomeLink />
+      <h1 className="text-2xl font-bold mb-6 mt-2">Time Off</h1>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 mb-6 space-y-3">
         {error && <p className="text-red-600 text-sm">{error}</p>}

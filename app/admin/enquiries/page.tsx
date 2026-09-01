@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import CustomerFields from '@/components/CustomerFields';
+import HomeLink from '@/components/HomeLink';
 import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
@@ -156,7 +157,8 @@ function EnquiriesPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
+      <HomeLink />
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
         <h1 className="text-2xl font-bold">Enquiries</h1>
         <button
           onClick={() => setShowForm((s) => !s)}

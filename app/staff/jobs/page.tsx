@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeLink from '@/components/HomeLink';
 
 interface Job {
   id: string;
@@ -106,7 +107,8 @@ export default function StaffJobsPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 pb-24">
-      <h1 className="text-2xl font-bold mb-1">My Jobs</h1>
+      <HomeLink />
+      <h1 className="text-2xl font-bold mb-1 mt-2">My Jobs</h1>
       <p className="text-sm text-gray-900 mb-4">
         {showAll ? 'All jobs' : `Today, ${today}`}
         {!showAll && upcomingCount > 0 && (

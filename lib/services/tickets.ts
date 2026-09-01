@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted } from './notifications';
 
-const MIN_EXPLANATION_WORDS = 30;
+const MIN_EXPLANATION_WORDS = 5;
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;

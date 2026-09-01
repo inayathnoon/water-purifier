@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProductPicker from '@/components/ProductPicker';
 import CustomerFields from '@/components/CustomerFields';
+import HomeLink from '@/components/HomeLink';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
@@ -195,7 +196,8 @@ function InstallationsPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
+      <HomeLink />
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
         <h1 className="text-2xl font-bold">Installations</h1>
         <button
           onClick={() => {

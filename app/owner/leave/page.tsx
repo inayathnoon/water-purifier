@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeLink from '@/components/HomeLink';
 
 interface LeaveRequest {
   id: string;
@@ -52,7 +53,8 @@ export default function OwnerLeavePage() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Leave Requests</h1>
+      <HomeLink />
+      <h1 className="text-2xl font-bold mb-6 mt-2">Leave Requests</h1>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {loading ? (

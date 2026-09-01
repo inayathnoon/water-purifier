@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeLink from '@/components/HomeLink';
 
 interface Product {
   id: string;
@@ -52,7 +53,8 @@ export default function ProductsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
+      <HomeLink />
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         <h1 className="text-2xl font-bold">Products</h1>
         <button
           onClick={handleSync}

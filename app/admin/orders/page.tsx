@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeLink from '@/components/HomeLink';
 
 interface Order {
   id: string;
@@ -82,7 +83,8 @@ export default function OrdersPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Orders & Payments</h1>
+      <HomeLink />
+      <h1 className="text-2xl font-bold mb-6 mt-2">Orders & Payments</h1>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
