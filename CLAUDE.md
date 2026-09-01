@@ -303,6 +303,21 @@ Key decisions made during cleanup, in case this ever needs auditing:
   matches like this is why a bulk import like this deserves a careful
   pass rather than a blind row-by-row load.
 
+**Bug found and fixed after the import ran:** every date (`actual_date`,
+`installation_date`, `warranty_expires_at`, plus the date mentioned
+inside each historical `closure_explanation`) landed one day earlier
+than the source sheets said. The import script parsed sheet dates like
+`"Aug 29, 2026"` with plain `new Date(...)`, which treats that string as
+*local* midnight — and the machine running the script was in IST
+(UTC+5:30), so local midnight Aug 29 is `2026-08-28T18:30:00Z`, and
+`.toISOString().slice(0, 10)` reads that back as Aug 28. Corrected
+after the fact by adding one day to every affected field on the 137
+imported tickets that had one (a handful of open enquiries/service
+visits with no date yet were untouched, correctly). Any future script
+parsing plain date strings like this needs to build the date at a fixed
+UTC hour (e.g. `new Date(dateStr + 'T12:00:00Z')`) instead of trusting
+the runtime's local timezone.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import HomeLink from '@/components/HomeLink';
 
 interface Order {
@@ -12,7 +12,28 @@ interface Order {
   discount: number;
   balance_owed: number;
   last_payment_call_at: string | null;
-  tickets: { customers: { name: string; phone_number: string } };
+  created_at: string;
+  tickets: {
+    actual_date: string | null;
+    installation_date: string | null;
+    warranty_expires_at: string | null;
+    enquiry_product_interest: string | null;
+    actual_notes: string | null;
+    customers: { name: string; phone_number: string; address: string; area: string };
+  };
+}
+
+// The date that actually matters for an order is when the job happened,
+// not when the row was written to the DB — falls back to created_at only
+// for the handful of records that never got an actual_date (shouldn't
+// normally happen, but a filter that silently drops rows is worse).
+function orderDate(o: Order): string {
+  return o.tickets.actual_date ?? o.created_at.slice(0, 10);
+}
+
+function csvEscape(value: string | number): string {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export default function OrdersPage() {
@@ -23,6 +44,9 @@ export default function OrdersPage() {
   const [amount, setAmount] = useState('');
   const [callingId, setCallingId] = useState<string | null>(null);
   const [callNote, setCallNote] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +62,17 @@ export default function OrdersPage() {
 
   const daysSince = (d: string | null) =>
     d ? Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24)) : Infinity;
+
+  const filtered = useMemo(
+    () =>
+      orders.filter((o) => {
+        const d = orderDate(o);
+        if (dateFrom && d < dateFrom) return false;
+        if (dateTo && d > dateTo) return false;
+        return true;
+      }),
+    [orders, dateFrom, dateTo]
+  );
 
   const handlePay = async (orderId: string) => {
     setError('');
@@ -81,106 +116,206 @@ export default function OrdersPage() {
     load();
   };
 
+  const handleDownload = () => {
+    const headers = [
+      'Date', 'Customer', 'Phone', 'Address', 'Area', 'Product', 'List Price', 'Sold Price',
+      'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
+    ];
+    const rows = filtered.map((o) => [
+      orderDate(o),
+      o.tickets.customers.name,
+      o.tickets.customers.phone_number,
+      o.tickets.customers.address,
+      o.tickets.customers.area,
+      o.tickets.enquiry_product_interest ?? '',
+      o.list_price,
+      o.sold_price,
+      o.discount,
+      o.paid_amount,
+      o.balance_owed,
+      o.status,
+      o.tickets.warranty_expires_at ?? '',
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM so Excel reads UTF-8 correctly
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const suffix = dateFrom || dateTo ? `_${dateFrom || 'start'}_to_${dateTo || 'end'}` : '';
+    a.href = url;
+    a.download = `orders${suffix}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
+    <div className="max-w-6xl mx-auto py-8 px-4">
       <HomeLink />
-      <h1 className="text-2xl font-bold mb-6 mt-2">Orders & Payments</h1>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4 mt-2">
+        <h1 className="text-2xl font-bold">Orders & Payments</h1>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <label className="text-gray-900">From</label>
+          <input type="date" className="border rounded px-2 py-1" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <label className="text-gray-900">To</label>
+          <input type="date" className="border rounded px-2 py-1" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-blue-600 hover:underline">
+              Clear
+            </button>
+          )}
+          <button
+            onClick={handleDownload}
+            disabled={filtered.length === 0}
+            className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            Download Excel
+          </button>
+        </div>
+      </div>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
         <p>Loading...</p>
-      ) : orders.length === 0 ? (
-        <p className="text-gray-900">No orders yet.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-gray-900">No orders {orders.length > 0 ? 'in this date range.' : 'yet.'}</p>
       ) : (
-        <div className="space-y-4">
-          {orders.map((o) => {
-            const overdueCall = o.status === 'open' && daysSince(o.last_payment_call_at) >= 3;
-            return (
-              <div
-                key={o.id}
-                className={`bg-white rounded-lg shadow p-4 ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium">
-                      {o.tickets.customers.name} — {o.tickets.customers.phone_number}
-                    </p>
-                    <p className="text-sm text-gray-900">
-                      List: ₹{o.list_price} · Sold: ₹{o.sold_price} · Discount: ₹{o.discount}
-                    </p>
-                    <p className="text-sm mt-1">
-                      Paid: ₹{o.paid_amount} ·{' '}
-                      <span className={o.balance_owed > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                        Balance owed: ₹{o.balance_owed}
-                      </span>
-                      {' · '}
-                      <span className="capitalize">{o.status}</span>
-                    </p>
-                    {overdueCall && (
-                      <p className="text-xs text-orange-600 mt-1">
-                        Overdue for a payment call (§7.3 — call every 3 days while owed)
-                      </p>
+        <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="p-3">Date</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Product</th>
+                <th className="p-3 text-right">List</th>
+                <th className="p-3 text-right">Sold</th>
+                <th className="p-3 text-right">Paid</th>
+                <th className="p-3 text-right">Balance</th>
+                <th className="p-3">Status</th>
+                <th className="p-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((o) => {
+                const overdueCall = o.status === 'open' && daysSince(o.last_payment_call_at) >= 3;
+                const isExpanded = expandedId === o.id;
+                return (
+                  <Fragment key={o.id}>
+                    <tr
+                      onClick={() => setExpandedId(isExpanded ? null : o.id)}
+                      className={`border-t cursor-pointer hover:bg-gray-50 ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
+                    >
+                      <td className="p-3 whitespace-nowrap">{orderDate(o)}</td>
+                      <td className="p-3">
+                        <p className="font-medium">{o.tickets.customers.name}</p>
+                        <p className="text-xs text-gray-600">{o.tickets.customers.phone_number}</p>
+                      </td>
+                      <td className="p-3 max-w-xs truncate">{o.tickets.enquiry_product_interest || '—'}</td>
+                      <td className="p-3 text-right">₹{o.list_price}</td>
+                      <td className="p-3 text-right">₹{o.sold_price}</td>
+                      <td className="p-3 text-right">₹{o.paid_amount}</td>
+                      <td className="p-3 text-right">
+                        <span className={o.balance_owed > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                          ₹{o.balance_owed}
+                        </span>
+                      </td>
+                      <td className="p-3 capitalize">{o.status}</td>
+                      <td className="p-3 text-blue-600 whitespace-nowrap">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="border-t bg-gray-50">
+                        <td colSpan={9} className="p-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
+                            <div>
+                              <p className="text-gray-600 text-xs">Address</p>
+                              <p>{o.tickets.customers.address}, {o.tickets.customers.area}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600 text-xs">Discount</p>
+                              <p>₹{o.discount}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600 text-xs">Installed</p>
+                              <p>{o.tickets.installation_date ?? '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600 text-xs">Warranty until</p>
+                              <p>{o.tickets.warranty_expires_at ?? '—'}</p>
+                            </div>
+                            {o.tickets.actual_notes && (
+                              <div className="col-span-2 sm:col-span-4">
+                                <p className="text-gray-600 text-xs">Notes</p>
+                                <p>{o.tickets.actual_notes}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {overdueCall && (
+                            <p className="text-xs text-orange-600 mb-2">
+                              Overdue for a payment call (§7.3 — call every 3 days while owed)
+                            </p>
+                          )}
+
+                          {o.status === 'open' && (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCallingId(callingId === o.id ? null : o.id); }}
+                                className="px-3 py-1.5 border rounded-md text-sm bg-white"
+                              >
+                                Log call
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setPayingId(payingId === o.id ? null : o.id); }}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                              >
+                                Record payment
+                              </button>
+                              {o.balance_owed === 0 && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleClose(o.id); }}
+                                  className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                                >
+                                  Close order
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {payingId === o.id && (
+                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t flex gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Amount"
+                                className="border rounded px-3 py-2 flex-1 bg-white"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                              />
+                              <button onClick={() => handlePay(o.id)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
+                                Submit
+                              </button>
+                            </div>
+                          )}
+
+                          {callingId === o.id && (
+                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t flex gap-2">
+                              <input
+                                placeholder="What did they say?"
+                                className="border rounded px-3 py-2 flex-1 bg-white"
+                                value={callNote}
+                                onChange={(e) => setCallNote(e.target.value)}
+                              />
+                              <button onClick={() => handleCall(o.id)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
+                                Log
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </div>
-
-                  {o.status === 'open' && (
-                    <div className="space-x-2">
-                      <button
-                        onClick={() => setCallingId(callingId === o.id ? null : o.id)}
-                        className="px-3 py-1.5 border rounded-md text-sm"
-                      >
-                        Log call
-                      </button>
-                      <button
-                        onClick={() => setPayingId(payingId === o.id ? null : o.id)}
-                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                      >
-                        Record payment
-                      </button>
-                      {o.balance_owed === 0 && (
-                        <button
-                          onClick={() => handleClose(o.id)}
-                          className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
-                        >
-                          Close order
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {payingId === o.id && (
-                  <div className="mt-3 pt-3 border-t flex gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount"
-                      className="border rounded px-3 py-2 flex-1"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                    />
-                    <button onClick={() => handlePay(o.id)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
-                      Submit
-                    </button>
-                  </div>
-                )}
-
-                {callingId === o.id && (
-                  <div className="mt-3 pt-3 border-t flex gap-2">
-                    <input
-                      placeholder="What did they say?"
-                      className="border rounded px-3 py-2 flex-1"
-                      value={callNote}
-                      onChange={(e) => setCallNote(e.target.value)}
-                    />
-                    <button onClick={() => handleCall(o.id)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
-                      Log
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
