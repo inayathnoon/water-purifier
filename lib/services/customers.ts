@@ -2,10 +2,20 @@ import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 
 /**
- * §4.1/§4.2: a customer is identified only by phone number. Typing a
- * number that already exists attaches the new ticket to that customer;
- * an unknown number creates one on the spot. Nobody should ever type or
- * remember a customer code.
+ * §4.1/§4.2 (revised): phone number is still how staff look a customer
+ * up, but one number can now have more than one address on file (a
+ * customer who moved, or two households sharing a number) — so it's no
+ * longer a guarantee of exactly one customer record.
+ *
+ * - `customerId` set: the admin already picked a specific address from
+ *   the lookup UI — just use that record directly.
+ * - `forceNewAddress` true: the admin explicitly chose "add a new
+ *   address" for a number that already has one (or more) on file.
+ * - Neither set: the common case — reuse the one existing match if
+ *   there's exactly one, same as before multiple addresses existed.
+ *   Zero matches, or an unexpected multiple-match tie with nothing to
+ *   disambiguate on, both fall through to creating a new record rather
+ *   than guessing which existing one was meant.
  *
  * Name/address/area are stored uppercase by a DB trigger (§4.4), not here —
  * so it holds no matter what other code path writes to this table later.
@@ -15,20 +25,29 @@ export async function findOrCreateCustomer(input: {
   name: string;
   address: string;
   area: string;
+  customerId?: string;
+  forceNewAddress?: boolean;
 }) {
+  if (input.customerId) {
+    const { data, error } = await supabaseAdmin.from('customers').select('*').eq('id', input.customerId).single();
+    if (error || !data) throw new ApiError(404, 'Selected customer not found');
+    return data;
+  }
+
   const phoneNumber = input.phoneNumber.trim();
   if (!phoneNumber) {
     throw new ApiError(400, 'Phone number is required');
   }
 
-  const { data: existing, error: findError } = await supabaseAdmin
-    .from('customers')
-    .select('*')
-    .eq('phone_number', phoneNumber)
-    .maybeSingle();
+  if (!input.forceNewAddress) {
+    const { data: matches, error: findError } = await supabaseAdmin
+      .from('customers')
+      .select('*')
+      .eq('phone_number', phoneNumber);
 
-  if (findError) throw new ApiError(500, findError.message);
-  if (existing) return existing;
+    if (findError) throw new ApiError(500, findError.message);
+    if (matches && matches.length === 1) return matches[0];
+  }
 
   const { data: created, error: createError } = await supabaseAdmin
     .from('customers')
@@ -43,6 +62,17 @@ export async function findOrCreateCustomer(input: {
 
   if (createError) throw new ApiError(500, createError.message);
   return created;
+}
+
+/** Every address on file for a phone number — backs the "which address?" picker. */
+export async function findCustomersByPhone(phoneNumber: string) {
+  const { data, error } = await supabaseAdmin
+    .from('customers')
+    .select('id, phone_number, name, address, area')
+    .eq('phone_number', phoneNumber.trim());
+
+  if (error) throw new ApiError(500, error.message);
+  return data ?? [];
 }
 
 export async function getCustomerWithHistory(customerId: string) {

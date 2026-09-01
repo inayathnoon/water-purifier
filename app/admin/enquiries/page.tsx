@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import AreaSelect from '@/components/AreaSelect';
+import CustomerFields from '@/components/CustomerFields';
 import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
@@ -59,6 +59,8 @@ function EnquiriesPageInner() {
     name: '',
     address: '',
     area: '',
+    customerId: null as string | null,
+    forceNewAddress: false,
     productInterest: '',
     source: 'general' as 'general' | 'water_test' | 'ready_to_buy' | 'referral',
     referrerPhone: '',
@@ -110,7 +112,18 @@ function EnquiriesPageInner() {
       setError(data.error ?? 'Failed to create enquiry');
       return;
     }
-    setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '', source: 'general', referrerPhone: '', referrerName: '' });
+    setForm({
+      phoneNumber: '',
+      name: '',
+      address: '',
+      area: '',
+      customerId: null,
+      forceNewAddress: false,
+      productInterest: '',
+      source: 'general',
+      referrerPhone: '',
+      referrerName: '',
+    });
     setShowForm(false);
     load();
   };
@@ -154,33 +167,17 @@ function EnquiriesPageInner() {
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
           {error && <p className="text-red-600 text-sm">{error}</p>}
-          <FormRow label="Phone number">
-            <input
-              required
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={form.phoneNumber}
-              onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
-            />
-          </FormRow>
-          <FormRow label="Name">
-            <input
-              required
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </FormRow>
-          <FormRow label="Address">
-            <input
-              required
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </FormRow>
-          <FormRow label="Area">
-            <AreaSelect required value={form.area} onChange={(area) => setForm({ ...form, area })} />
-          </FormRow>
+          <CustomerFields
+            value={{
+              phoneNumber: form.phoneNumber,
+              name: form.name,
+              address: form.address,
+              area: form.area,
+              customerId: form.customerId,
+              forceNewAddress: form.forceNewAddress,
+            }}
+            onChange={(v) => setForm({ ...form, ...v })}
+          />
           <FormRow label="Interested in">
             <select
               className="w-full border rounded px-3 py-2 text-gray-900"

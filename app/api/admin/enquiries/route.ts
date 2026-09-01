@@ -15,6 +15,8 @@ export async function POST(request: Request) {
       name: body.name,
       address: body.address,
       area: body.area,
+      customerId: body.customerId,
+      forceNewAddress: body.forceNewAddress,
     });
 
     const ticket = await createEnquiry({
