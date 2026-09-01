@@ -66,11 +66,15 @@ function InstallationsPageInner() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookForm, setBookForm] = useState({ assignedToId: '', bookedDate: '', bookedHalfDay: 'morning', location: 'home' });
   const [showPurchaseForm, setShowPurchaseForm] = useState(searchParams.get('new') === '1');
+  // Set when arriving via an enquiry's Convert button — the enquiry stays
+  // open and visible in its own list right up until this purchase is
+  // actually submitted, at which point it's the one that closes it out.
+  const [fromEnquiryId] = useState(searchParams.get('fromEnquiry'));
   const [purchaseForm, setPurchaseForm] = useState({
-    phoneNumber: '',
-    name: '',
-    address: '',
-    area: '',
+    phoneNumber: searchParams.get('phoneNumber') ?? '',
+    name: searchParams.get('name') ?? '',
+    address: searchParams.get('address') ?? '',
+    area: searchParams.get('area') ?? '',
     productDetails: '',
     extraDetails: '',
     price: '',
@@ -132,6 +136,21 @@ function InstallationsPageInner() {
       setPurchaseError(data.error ?? 'Failed to record purchase');
       return;
     }
+
+    // The purchase is real now — this is the moment the source enquiry
+    // (if there was one) actually moves out of Enquiries, not any earlier.
+    if (fromEnquiryId) {
+      await fetch(`/api/admin/enquiries/${fromEnquiryId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'convert' }),
+      }).catch(() => {
+        // The purchase itself already succeeded — a failure closing the
+        // old enquiry record is a loose end to tidy up, not a reason to
+        // tell the admin their purchase didn't go through.
+      });
+    }
+
     setPurchaseForm({ phoneNumber: '', name: '', address: '', area: '', productDetails: '', extraDetails: '', price: '', paidAmount: '' });
     setPurchaseFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
     setShowPurchaseForm(false);
@@ -170,7 +189,9 @@ function InstallationsPageInner() {
       {showPurchaseForm && (
         <form onSubmit={handleCreatePurchase} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
           <p className="text-sm text-gray-900">
-            For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech.
+            {fromEnquiryId
+              ? "Converting this enquiry — it stays in Enquiries until you submit this purchase, then moves out for real."
+              : "For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech."}
           </p>
           {purchaseError && <p className="text-red-600 text-sm">{purchaseError}</p>}
           <FormRow label="Phone number">

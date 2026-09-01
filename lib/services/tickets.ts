@@ -110,12 +110,14 @@ export async function closeEnquiry(
   }
 
   if (action === 'convert') {
-    if (input.agreedPrice == null || input.agreedPrice < 0) {
-      throw new ApiError(400, 'A valid agreed price is required to convert');
-    }
-
-    // §5.7: price is recorded now, at the moment the customer says yes —
-    // even though installation may happen a week later.
+    // §5.7 (revised): "convert" no longer fires on its own — clicking
+    // Convert takes the admin straight to the New Purchase form,
+    // pre-filled with this customer, and createDirectPurchase() is what
+    // actually creates the installation + records the price, at the
+    // moment the order is genuinely placed, not just at the click.
+    // This call only marks the enquiry itself as closed, once that
+    // purchase has actually gone through — see
+    // app/admin/installations/page.tsx's fromEnquiry handling.
     const { data: closedEnquiry, error: closeError } = await supabaseAdmin
       .from('tickets')
       .update({ status: 'closed', closure_reason: 'convert' })
@@ -124,19 +126,7 @@ export async function closeEnquiry(
       .single();
     if (closeError) throw new ApiError(500, closeError.message);
 
-    const { data: installation, error: installError } = await supabaseAdmin
-      .from('tickets')
-      .insert({
-        customer_id: closedEnquiry.customer_id,
-        kind: 'installation',
-        status: 'open', // not yet booked to a tech/date
-        agreed_price: input.agreedPrice,
-      })
-      .select('*')
-      .single();
-    if (installError) throw new ApiError(500, installError.message);
-
-    return installation;
+    return closedEnquiry;
   }
 
   throw new ApiError(400, 'Unknown action');

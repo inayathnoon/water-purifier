@@ -17,16 +17,31 @@ interface Ticket {
   customers: { name: string; phone_number: string; address: string; area: string };
 }
 
+const ACTION_LABEL: Record<string, string> = {
+  call_back_later: 'Call Back Later',
+  pass_to_owner: 'Pass To Owner',
+  mark_inactive: 'Mark Inactive',
+  convert: 'Convert',
+};
+
+// Convert and Mark Inactive are the two outcomes worth a glance from
+// across the room — everything else stays neutral.
+const ACTION_SELECTED_STYLE: Record<string, string> = {
+  call_back_later: 'bg-blue-600 text-white border-blue-600',
+  pass_to_owner: 'bg-blue-600 text-white border-blue-600',
+  mark_inactive: 'bg-red-600 text-white border-red-600',
+  convert: 'bg-green-600 text-white border-green-600',
+};
+
 export default function EnquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
   const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [calls, setCalls] = useState<Call[]>([]);
   const [callNote, setCallNote] = useState('');
-  const [action, setAction] = useState<'call_back_later' | 'pass_to_owner' | 'mark_inactive' | 'convert' | ''>('');
+  const [action, setAction] = useState<'call_back_later' | 'pass_to_owner' | 'mark_inactive' | ''>('');
   const [explanation, setExplanation] = useState('');
   const [callbackDate, setCallbackDate] = useState('');
-  const [agreedPrice, setAgreedPrice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -67,23 +82,32 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
     const res = await fetch(`/api/admin/enquiries/${id}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action,
-        explanation,
-        callbackDate,
-        agreedPrice: agreedPrice ? Number(agreedPrice) : undefined,
-      }),
+      body: JSON.stringify({ action, explanation, callbackDate }),
     });
     if (!res.ok) {
       const data = await res.json();
       setError(data.error);
       return;
     }
-    if (action === 'convert') {
-      router.push('/admin/installations');
-    } else {
-      router.push('/admin/enquiries');
-    }
+    router.push('/admin/enquiries');
+  };
+
+  // Convert doesn't close anything here — it takes the admin straight to
+  // placing the order, pre-filled with this customer. The enquiry stays
+  // open and visible in the list until that purchase actually goes
+  // through (see fromEnquiry handling in the Installations page); only
+  // then does it move out of Enquiries for real.
+  const handleConvertClick = () => {
+    if (!ticket) return;
+    const params = new URLSearchParams({
+      new: '1',
+      fromEnquiry: id,
+      phoneNumber: ticket.customers.phone_number,
+      name: ticket.customers.name,
+      address: ticket.customers.address,
+      area: ticket.customers.area,
+    });
+    router.push(`/admin/installations?${params.toString()}`);
   };
 
   const handleDelete = async () => {
@@ -146,17 +170,25 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-semibold mb-3">Close this enquiry</h2>
             <div className="flex gap-2 mb-3 flex-wrap">
-              {(['call_back_later', 'pass_to_owner', 'mark_inactive', 'convert'] as const).map((a) => (
+              {(['call_back_later', 'pass_to_owner', 'mark_inactive'] as const).map((a) => (
                 <button
                   key={a}
                   onClick={() => setAction(a)}
                   className={`px-3 py-1.5 rounded-md text-sm border ${
-                    action === a ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300'
+                    action === a ? ACTION_SELECTED_STYLE[a] : 'bg-white border-gray-300 text-gray-900'
                   }`}
                 >
-                  {a.replace(/_/g, ' ')}
+                  {ACTION_LABEL[a]}
                 </button>
               ))}
+              {/* Convert doesn't reveal an inline form like the others — it goes
+                  straight to placing the order (see handleConvertClick above). */}
+              <button
+                onClick={handleConvertClick}
+                className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_SELECTED_STYLE.convert}`}
+              >
+                {ACTION_LABEL.convert}
+              </button>
             </div>
 
             {action && (
@@ -194,20 +226,8 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 )}
 
-                {action === 'convert' && (
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="Agreed price"
-                    className="border rounded px-3 py-2"
-                    value={agreedPrice}
-                    onChange={(e) => setAgreedPrice(e.target.value)}
-                  />
-                )}
-
                 <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                  Confirm: {action.replace(/_/g, ' ')}
+                  Confirm: {ACTION_LABEL[action]}
                 </button>
               </form>
             )}
