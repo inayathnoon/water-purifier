@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import ProductPicker from '@/components/ProductPicker';
 
 interface Enquiry {
   id: string;
@@ -60,7 +59,6 @@ function EnquiriesPageInner() {
     productInterest: '',
     source: 'general' as 'general' | 'water_test' | 'ready_to_buy',
   });
-  const [formKey, setFormKey] = useState(0);
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -92,7 +90,6 @@ function EnquiriesPageInner() {
       return;
     }
     setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '', source: 'general' });
-    setFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
     setShowForm(false);
     load();
   };
@@ -169,13 +166,16 @@ function EnquiriesPageInner() {
             />
           </FormRow>
           <FormRow label="Interested in">
-            <div className="flex-1">
-              <ProductPicker
-                key={formKey}
-                onChange={(picked) => setForm({ ...form, productInterest: picked?.display ?? '' })}
-              />
-              <p className="text-xs text-gray-900 mt-1">Optional — leave blank if not decided yet.</p>
-            </div>
+            <select
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.productInterest}
+              onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
+            >
+              <option value="">(optional — not decided yet)</option>
+              <option value="Kitchen">Kitchen</option>
+              <option value="Vessel">Vessel</option>
+              <option value="Commercial">Commercial</option>
+            </select>
           </FormRow>
           <FormRow label="How did this come in?">
             <select
