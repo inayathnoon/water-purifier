@@ -21,6 +21,7 @@ interface OwnerDashboardData {
   pendingLeaveCount: number;
   passedToOwner: { id: string; closure_explanation: string; customers: { name: string; phone_number: string } }[];
   overdueOrders: { id: string; balance_owed: number; created_at: string; tickets: { customers: { name: string; phone_number: string } } }[];
+  commercialVesselEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
 }
 
 function daysAgo(iso: string) {
@@ -250,6 +251,24 @@ function OwnerDashboard() {
         >
           {data.passedToOwner.slice(0, 5).map((e) => (
             <Row key={e.id} href={`/admin/enquiries/${e.id}`} primary={e.customers.name} secondary={e.closure_explanation?.slice(0, 60) + '...'} />
+          ))}
+        </DashboardCard>
+
+        <DashboardCard
+          title="Commercial / Vessel enquiries"
+          badge={data.commercialVesselEnquiries.length > 0 ? `${data.commercialVesselEnquiries.length}` : undefined}
+          badgeColor="bg-purple-100 text-purple-800"
+          emptyText="None open right now."
+          viewAllHref="/admin/enquiries"
+        >
+          {data.commercialVesselEnquiries.slice(0, 5).map((e) => (
+            <Row
+              key={e.id}
+              href={`/admin/enquiries/${e.id}`}
+              primary={e.customers.name}
+              secondary={e.customers.phone_number}
+              tag={e.enquiry_product_interest}
+            />
           ))}
         </DashboardCard>
 

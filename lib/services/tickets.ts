@@ -16,8 +16,14 @@ export async function createEnquiry(input: {
   customerId: string;
   productInterest: string;
   createdBy: string;
-  source?: 'general' | 'water_test' | 'ready_to_buy';
+  source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
+  referrerName?: string;
+  referrerPhone?: string;
 }) {
+  if (input.source === 'referral' && !input.referrerPhone?.trim()) {
+    throw new ApiError(400, 'A referrer phone number is required for a referral');
+  }
+
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .insert({
@@ -26,6 +32,8 @@ export async function createEnquiry(input: {
       status: 'open',
       enquiry_product_interest: input.productInterest,
       enquiry_source: input.source ?? 'general',
+      referrer_name: input.source === 'referral' ? input.referrerName ?? null : null,
+      referrer_phone: input.source === 'referral' ? input.referrerPhone ?? null : null,
     })
     .select('*')
     .single();

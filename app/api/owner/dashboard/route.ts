@@ -17,7 +17,7 @@ export async function GET() {
     const monthStartISO = monthStart.toISOString().slice(0, 10);
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-    const [todaysJobs, monthOrders, pendingLeave, passedToOwner, overdueOrders] = await Promise.all([
+    const [todaysJobs, monthOrders, pendingLeave, passedToOwner, overdueOrders, commercialVesselEnquiries] = await Promise.all([
       // What's happening today — every job booked for today, by technician.
       supabaseAdmin
         .from('tickets')
@@ -44,6 +44,16 @@ export async function GET() {
         .select('id, balance_owed, created_at, tickets(customers(name, phone_number))')
         .eq('status', 'open')
         .lte('created_at', sevenDaysAgo),
+
+      // Commercial/Vessel enquiries are automatically flagged for the
+      // owner's eye — a bigger sale than a routine kitchen unit, worth
+      // knowing about even before the admin decides it needs passing up.
+      supabaseAdmin
+        .from('tickets')
+        .select('id, created_at, enquiry_product_interest, customers(name, phone_number)')
+        .eq('kind', 'enquiry')
+        .eq('status', 'open')
+        .in('enquiry_product_interest', ['Vessel', 'Commercial']),
     ]);
 
     const whoIsBusy: Record<string, number> = {};
@@ -68,6 +78,7 @@ export async function GET() {
       pendingLeaveCount: pendingLeave.data?.length ?? 0,
       passedToOwner: passedToOwner.data ?? [],
       overdueOrders: overdueOrders.data ?? [],
+      commercialVesselEnquiries: commercialVesselEnquiries.data ?? [],
     });
   } catch (err) {
     return handleApiError(err);

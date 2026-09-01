@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProductPicker from '@/components/ProductPicker';
+import AreaSelect from '@/components/AreaSelect';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
@@ -219,12 +220,7 @@ function InstallationsPageInner() {
             />
           </FormRow>
           <FormRow label="Area">
-            <input
-              required
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={purchaseForm.area}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, area: e.target.value })}
-            />
+            <AreaSelect required value={purchaseForm.area} onChange={(area) => setPurchaseForm({ ...purchaseForm, area })} />
           </FormRow>
           <FormRow label="Product">
             <div className="flex-1">

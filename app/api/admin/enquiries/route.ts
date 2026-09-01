@@ -22,6 +22,8 @@ export async function POST(request: Request) {
       productInterest: body.productInterest ?? '',
       createdBy: user.id,
       source: body.source,
+      referrerName: body.referrerName,
+      referrerPhone: body.referrerPhone,
     });
 
     return Response.json({ customer, ticket }, { status: 201 });

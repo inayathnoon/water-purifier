@@ -2,12 +2,13 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import AreaSelect from '@/components/AreaSelect';
 import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
   id: string;
   enquiry_product_interest: string;
-  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | null;
+  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | null;
   call_count: number;
   created_at: string;
   customers: { name: string; phone_number: string; area: string };
@@ -17,12 +18,14 @@ const SOURCE_LABEL: Record<string, string> = {
   general: 'General enquiry',
   water_test: 'Brought water for testing',
   ready_to_buy: 'Ready to buy',
+  referral: 'Referral',
 };
 
 const SOURCE_BADGE: Record<string, string> = {
   general: 'bg-gray-100 text-gray-900',
   water_test: 'bg-yellow-100 text-yellow-800',
   ready_to_buy: 'bg-green-100 text-green-800',
+  referral: 'bg-blue-100 text-blue-800',
 };
 
 // Label on the left, the field on the right — placeholder text alone was
@@ -57,9 +60,27 @@ function EnquiriesPageInner() {
     address: '',
     area: '',
     productInterest: '',
-    source: 'general' as 'general' | 'water_test' | 'ready_to_buy',
+    source: 'general' as 'general' | 'water_test' | 'ready_to_buy' | 'referral',
+    referrerPhone: '',
+    referrerName: '',
   });
   const [error, setError] = useState('');
+
+  // Autofill: a referrer's phone number that's referred before fills in
+  // their name automatically, same as a repeat customer's number does.
+  useEffect(() => {
+    const phone = form.referrerPhone.trim();
+    if (form.source !== 'referral' || phone.length < 6) return;
+    const timeout = setTimeout(() => {
+      fetch(`/api/admin/enquiries/referrer-lookup?phone=${encodeURIComponent(phone)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.referrerName) setForm((f) => ({ ...f, referrerName: data.referrerName }));
+        });
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.referrerPhone, form.source]);
 
   const load = async () => {
     setLoading(true);
@@ -89,7 +110,7 @@ function EnquiriesPageInner() {
       setError(data.error ?? 'Failed to create enquiry');
       return;
     }
-    setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '', source: 'general' });
+    setForm({ phoneNumber: '', name: '', address: '', area: '', productInterest: '', source: 'general', referrerPhone: '', referrerName: '' });
     setShowForm(false);
     load();
   };
@@ -158,12 +179,7 @@ function EnquiriesPageInner() {
             />
           </FormRow>
           <FormRow label="Area">
-            <input
-              required
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={form.area}
-              onChange={(e) => setForm({ ...form, area: e.target.value })}
-            />
+            <AreaSelect required value={form.area} onChange={(area) => setForm({ ...form, area })} />
           </FormRow>
           <FormRow label="Interested in">
             <select
@@ -186,8 +202,32 @@ function EnquiriesPageInner() {
               <option value="general">General enquiry</option>
               <option value="water_test">Brought water for testing</option>
               <option value="ready_to_buy">Ready to buy</option>
+              <option value="referral">Referral</option>
             </select>
           </FormRow>
+          {form.source === 'referral' && (
+            <>
+              <FormRow label="Referrer's phone">
+                <input
+                  required
+                  className="w-full border rounded px-3 py-2 text-gray-900"
+                  value={form.referrerPhone}
+                  onChange={(e) => setForm({ ...form, referrerPhone: e.target.value })}
+                />
+              </FormRow>
+              <FormRow label="Referrer's name">
+                <input
+                  required
+                  className="w-full border rounded px-3 py-2 text-gray-900"
+                  value={form.referrerName}
+                  onChange={(e) => setForm({ ...form, referrerName: e.target.value })}
+                />
+              </FormRow>
+              <p className="text-xs text-gray-600 -mt-2">
+                A referrer's phone number that's referred before fills in their name automatically.
+              </p>
+            </>
+          )}
           <p className="text-xs text-gray-900">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
