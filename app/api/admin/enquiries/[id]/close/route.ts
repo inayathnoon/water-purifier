@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const result = await closeEnquiry(id, body.action, {
       explanation: body.explanation,
       callbackDate: body.callbackDate,
-      agreedPrice: body.agreedPrice,
+      linkedPurchaseNote: body.linkedPurchaseNote,
     });
 
     return Response.json({ ticket: result });

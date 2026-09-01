@@ -71,7 +71,7 @@ async function getTicketOrThrow(ticketId: string) {
 export async function closeEnquiry(
   ticketId: string,
   action: 'call_back_later' | 'pass_to_owner' | 'mark_inactive' | 'convert',
-  input: { explanation?: string; callbackDate?: string; agreedPrice?: number }
+  input: { explanation?: string; callbackDate?: string; linkedPurchaseNote?: string }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.kind !== 'enquiry') throw new ApiError(400, 'Not an enquiry');
@@ -128,7 +128,13 @@ export async function closeEnquiry(
     // app/admin/installations/page.tsx's fromEnquiry handling.
     const { data: closedEnquiry, error: closeError } = await supabaseAdmin
       .from('tickets')
-      .update({ status: 'closed', closure_reason: 'convert' })
+      .update({
+        status: 'closed',
+        closure_reason: 'convert',
+        // Set only via "Link to Existing Purchase" — a plain New Purchase
+        // conversion leaves no note, since there's nothing to explain.
+        closure_explanation: input.linkedPurchaseNote ?? null,
+      })
       .eq('id', ticketId)
       .select('*')
       .single();

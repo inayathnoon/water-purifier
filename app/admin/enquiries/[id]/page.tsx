@@ -17,6 +17,14 @@ interface Ticket {
   customers: { name: string; phone_number: string; address: string; area: string };
 }
 
+interface RecentPurchase {
+  id: string;
+  status: string;
+  agreed_price: number;
+  created_at: string;
+  customers: { name: string; phone_number: string };
+}
+
 const ACTION_LABEL: Record<string, string> = {
   call_back_later: 'Call Back Later',
   pass_to_owner: 'Pass To Owner',
@@ -44,6 +52,9 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [callbackDate, setCallbackDate] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
+  const [linking, setLinking] = useState(false);
 
   const load = async () => {
     const res = await fetch(`/api/admin/enquiries/${id}`);
@@ -108,6 +119,47 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       area: ticket.customers.area,
     });
     router.push(`/admin/installations?${params.toString()}`);
+  };
+
+  const handleToggleLinkPicker = async () => {
+    const opening = !showLinkPicker;
+    setShowLinkPicker(opening);
+    if (opening && recentPurchases.length === 0) {
+      const res = await fetch('/api/admin/installations/recent');
+      const data = await res.json();
+      setRecentPurchases(data.installations ?? []);
+    }
+  };
+
+  const handleLinkToPurchase = async (purchase: RecentPurchase) => {
+    if (!ticket) return;
+    const phoneMatches = purchase.customers.phone_number === ticket.customers.phone_number;
+    const nameMatches = purchase.customers.name.trim().toLowerCase() === ticket.customers.name.trim().toLowerCase();
+    if (!phoneMatches || !nameMatches) {
+      const mismatch = !phoneMatches ? 'phone number' : 'name';
+      const ok = window.confirm(
+        `Heads up — the ${mismatch} doesn't match.\n\nThis enquiry: ${ticket.customers.name}, ${ticket.customers.phone_number}\nSelected purchase: ${purchase.customers.name}, ${purchase.customers.phone_number}\n\nLink anyway?`
+      );
+      if (!ok) return;
+    }
+
+    setLinking(true);
+    setError('');
+    const res = await fetch(`/api/admin/enquiries/${id}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'convert',
+        linkedPurchaseNote: `Linked to existing purchase for ${purchase.customers.name} (${purchase.customers.phone_number})`,
+      }),
+    });
+    setLinking(false);
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? 'Failed to link');
+      return;
+    }
+    router.push('/admin/enquiries');
   };
 
   const handleDelete = async () => {
@@ -189,7 +241,43 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
               >
                 {ACTION_LABEL.convert}
               </button>
+              <button
+                onClick={handleToggleLinkPicker}
+                className={`px-3 py-1.5 rounded-md text-sm border ${
+                  showLinkPicker ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                Link To Existing Purchase
+              </button>
             </div>
+
+            {showLinkPicker && (
+              <div className="border rounded-md">
+                <p className="text-xs text-gray-600 p-2 border-b bg-gray-50">
+                  This turned out to already be a purchase recorded separately — pick it below instead of creating a new one.
+                </p>
+                <div className="max-h-72 overflow-y-auto divide-y">
+                  {recentPurchases.length === 0 ? (
+                    <p className="text-sm text-gray-600 p-3">No recent purchases yet.</p>
+                  ) : (
+                    recentPurchases.map((p) => (
+                      <button
+                        key={p.id}
+                        disabled={linking}
+                        onClick={() => handleLinkToPurchase(p)}
+                        className="w-full text-left p-3 hover:bg-gray-50 flex justify-between items-center disabled:opacity-50"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{p.customers.name}</p>
+                          <p className="text-xs text-gray-600">{p.customers.phone_number} · ₹{p.agreed_price}</p>
+                        </div>
+                        <p className="text-xs text-gray-600">{new Date(p.created_at).toLocaleDateString()}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             {action && (
               <form onSubmit={handleClose} className="space-y-3">

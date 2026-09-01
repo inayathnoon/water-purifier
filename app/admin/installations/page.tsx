@@ -83,7 +83,33 @@ function InstallationsPageInner() {
   });
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseFormKey, setPurchaseFormKey] = useState(0);
+  const [knownCustomer, setKnownCustomer] = useState(false);
   const [error, setError] = useState('');
+
+  // Autofill: a phone number that's already a customer fills in their
+  // name/address/area, so re-typing a repeat customer's details never
+  // has a chance to accidentally create a duplicate/conflicting record.
+  useEffect(() => {
+    const phone = purchaseForm.phoneNumber.trim();
+    if (phone.length < 6) {
+      setKnownCustomer(false);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      fetch(`/api/admin/customers/lookup?phone=${encodeURIComponent(phone)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.customer) {
+            setKnownCustomer(true);
+            setPurchaseForm((f) => ({ ...f, name: data.customer.name, address: data.customer.address, area: data.customer.area }));
+          } else {
+            setKnownCustomer(false);
+          }
+        });
+    }, 400);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseForm.phoneNumber]);
 
   const load = async () => {
     setLoading(true);
@@ -153,6 +179,7 @@ function InstallationsPageInner() {
     }
 
     setPurchaseForm({ phoneNumber: '', name: '', address: '', area: '', productDetails: '', extraDetails: '', price: '', paidAmount: '' });
+    setKnownCustomer(false);
     setPurchaseFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
     setShowPurchaseForm(false);
     load();
@@ -196,12 +223,17 @@ function InstallationsPageInner() {
           </p>
           {purchaseError && <p className="text-red-600 text-sm">{purchaseError}</p>}
           <FormRow label="Phone number">
-            <input
-              required
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={purchaseForm.phoneNumber}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, phoneNumber: e.target.value })}
-            />
+            <div className="flex-1">
+              <input
+                required
+                className="w-full border rounded px-3 py-2 text-gray-900"
+                value={purchaseForm.phoneNumber}
+                onChange={(e) => setPurchaseForm({ ...purchaseForm, phoneNumber: e.target.value })}
+              />
+              {knownCustomer && (
+                <p className="text-xs text-green-700 mt-1">Known customer — details filled in below.</p>
+              )}
+            </div>
           </FormRow>
           <FormRow label="Name">
             <input
