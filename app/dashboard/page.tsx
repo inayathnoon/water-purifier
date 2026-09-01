@@ -70,15 +70,15 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
-        <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Water Purifier Service</h1>
-          <div className="flex items-center gap-4">
+        <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-2">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Water Purifier Service</h1>
+          <div className="flex items-center gap-3 sm:gap-4">
             <span className="text-sm text-gray-900">
               {user.name} ({user.role})
             </span>
             <button
               onClick={handleSignOut}
-              className="px-3 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shrink-0"
             >
               Sign out
             </button>
@@ -110,9 +110,9 @@ function AdminDashboard() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
           <Link
@@ -212,9 +212,9 @@ function OwnerDashboard() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Business overview</h2>
-        <div className="flex gap-3 text-sm">
+        <div className="flex flex-wrap gap-3 text-sm">
           <Link href="/admin/enquiries" className="text-green-700 hover:underline">Enquiries</Link>
           <Link href="/admin/installations" className="text-green-700 hover:underline">Installations</Link>
           <Link href="/admin/orders" className="text-green-700 hover:underline">Orders</Link>

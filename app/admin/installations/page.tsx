@@ -157,7 +157,7 @@ function InstallationsPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
         <h1 className="text-2xl font-bold">Installations</h1>
         <button
           onClick={() => setShowPurchaseForm((s) => !s)}
