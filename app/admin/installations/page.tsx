@@ -21,6 +21,7 @@ interface Installation {
   id: string;
   status: string;
   agreed_price: number;
+  planned_installation_date: string | null;
   assigned_to_id: string | null;
   booked_date: string | null;
   booked_half_day: string | null;
@@ -84,6 +85,7 @@ function InstallationsPageInner() {
     extraDetails: '',
     price: '',
     paidAmount: '',
+    plannedInstallationDate: '',
   });
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
@@ -171,6 +173,7 @@ function InstallationsPageInner() {
       extraDetails: '',
       price: '',
       paidAmount: '',
+      plannedInstallationDate: '',
     });
     setPurchaseFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
     setShowPurchaseForm(false);
@@ -272,6 +275,14 @@ function InstallationsPageInner() {
               onChange={(e) => setPurchaseForm({ ...purchaseForm, paidAmount: e.target.value })}
             />
           </FormRow>
+          <FormRow label="Planned installation">
+            <input
+              type="date"
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.plannedInstallationDate}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, plannedInstallationDate: e.target.value })}
+            />
+          </FormRow>
           <button
             type="submit"
             disabled={purchaseSubmitting}
@@ -301,6 +312,9 @@ function InstallationsPageInner() {
                     {inst.customers.address}, {inst.customers.area}
                   </p>
                   <p className="text-sm text-gray-900 mt-1">Agreed price: ₹{inst.agreed_price}</p>
+                  {inst.planned_installation_date && !inst.booked_date && (
+                    <p className="text-sm text-blue-700">Planned for: {inst.planned_installation_date}</p>
+                  )}
                   {firstOrder(inst.orders) && (
                     <p className="text-sm text-gray-900">
                       Paid: ₹{firstOrder(inst.orders)!.paid_amount}

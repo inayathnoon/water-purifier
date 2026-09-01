@@ -163,6 +163,7 @@ export async function createDirectPurchase(input: {
   productDetails: string;
   price: number;
   paidAmount: number;
+  plannedInstallationDate?: string;
 }) {
   if (input.price < 0) throw new ApiError(400, 'Price must be zero or more');
   if (input.paidAmount < 0) throw new ApiError(400, 'Paid amount must be zero or more');
@@ -176,6 +177,7 @@ export async function createDirectPurchase(input: {
       status: 'open',
       agreed_price: input.price,
       enquiry_product_interest: input.productDetails || null,
+      planned_installation_date: input.plannedInstallationDate || null,
     })
     .select('*')
     .single();

@@ -14,6 +14,7 @@ interface Order {
   last_payment_call_at: string | null;
   created_at: string;
   tickets: {
+    planned_installation_date: string | null;
     actual_date: string | null;
     installation_date: string | null;
     warranty_expires_at: string | null;
@@ -118,11 +119,12 @@ export default function OrdersPage() {
 
   const handleDownload = () => {
     const headers = [
-      'Date', 'Customer', 'Phone', 'Address', 'Area', 'Product', 'List Price', 'Sold Price',
-      'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
+      'Installation Completed Date', 'Planned Installation Date', 'Customer', 'Phone', 'Address', 'Area', 'Product',
+      'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
     ];
     const rows = filtered.map((o) => [
       orderDate(o),
+      o.tickets.planned_installation_date ?? '',
       o.tickets.customers.name,
       o.tickets.customers.phone_number,
       o.tickets.customers.address,
@@ -182,7 +184,7 @@ export default function OrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="p-3">Date</th>
+                <th className="p-3">Completed</th>
                 <th className="p-3">Customer</th>
                 <th className="p-3">Product</th>
                 <th className="p-3 text-right">List</th>
@@ -232,9 +234,15 @@ export default function OrdersPage() {
                               <p className="text-gray-600 text-xs">Discount</p>
                               <p>₹{o.discount}</p>
                             </div>
+                            {o.tickets.planned_installation_date && (
+                              <div>
+                                <p className="text-gray-600 text-xs">Planned installation</p>
+                                <p>{o.tickets.planned_installation_date}</p>
+                              </div>
+                            )}
                             <div>
-                              <p className="text-gray-600 text-xs">Installed</p>
-                              <p>{o.tickets.installation_date ?? '—'}</p>
+                              <p className="text-gray-600 text-xs">Installation completed</p>
+                              <p>{o.tickets.actual_date ?? '—'}</p>
                             </div>
                             <div>
                               <p className="text-gray-600 text-xs">Warranty until</p>

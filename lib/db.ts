@@ -86,6 +86,7 @@ export type Database = {
           closure_reason: string | null;
           closure_explanation: string | null;
           // Installation/Service fields
+          planned_installation_date: string | null; // set at sale time, before a tech/date is actually booked
           booked_date: string | null;
           booked_half_day: 'morning' | 'afternoon' | 'evening' | null;
           location: 'home' | 'office' | null;

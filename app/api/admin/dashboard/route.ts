@@ -56,10 +56,17 @@ export async function GET() {
       return days >= 3;
     }).length;
 
+    // A completed job sitting unconfirmed for a week is a customer who
+    // finished the work days ago and nobody's called to close the loop.
+    const overdueConfirmationCount = (awaitingConfirmation.data ?? []).filter(
+      (t) => t.actual_date && Math.floor((Date.now() - new Date(t.actual_date).getTime()) / 86400000) >= 7
+    ).length;
+
     return Response.json({
       newEnquiries: newEnquiries.data ?? [],
       oldEnquiryCount,
       awaitingConfirmation: awaitingConfirmation.data ?? [],
+      overdueConfirmationCount,
       serviceCallsDue: serviceCallsDue.data ?? [],
       paymentsOutstanding: paymentsOutstanding.data ?? [],
       overdueCallCount,

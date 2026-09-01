@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       productDetails: body.productDetails ?? '',
       price: Number(body.price),
       paidAmount: Number(body.paidAmount ?? 0),
+      plannedInstallationDate: body.plannedInstallationDate || undefined,
     });
 
     return Response.json({ customer, ...result }, { status: 201 });

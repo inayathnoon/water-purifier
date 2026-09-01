@@ -12,6 +12,7 @@ interface AdminDashboardData {
   serviceCallsDue: { id: string; warranty_expires_at: string; customers: { name: string; phone_number: string } }[];
   paymentsOutstanding: { id: string; sold_price: number; discount: number; balance_owed: number; last_payment_call_at: string | null; tickets: { customers: { name: string; phone_number: string } } }[];
   overdueCallCount: number;
+  overdueConfirmationCount: number;
 }
 
 interface OwnerDashboardData {
@@ -153,18 +154,24 @@ function AdminDashboard() {
 
         <DashboardCard
           title="Confirm finished work"
+          badge={data.overdueConfirmationCount > 0 ? `${data.overdueConfirmationCount} over 7 days` : undefined}
+          badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing waiting on a confirmation call."
           viewAllHref="/admin/installations"
         >
-          {data.awaitingConfirmation.slice(0, 5).map((t) => (
-            <Row
-              key={t.id}
-              href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
-              primary={t.customers.name}
-              secondary={t.customers.phone_number}
-              tag={t.kind === 'installation' ? 'Installation' : 'Service visit'}
-            />
-          ))}
+          {data.awaitingConfirmation.slice(0, 5).map((t) => {
+            const age = daysAgo(t.actual_date);
+            return (
+              <Row
+                key={t.id}
+                href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
+                primary={t.customers.name}
+                secondary={t.customers.phone_number}
+                tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 7 ? ' — overdue' : ''}`}
+                tagColor={age >= 7 ? 'text-red-600' : undefined}
+              />
+            );
+          })}
         </DashboardCard>
 
         <DashboardCard title="Yearly service calls due" emptyText="None due." viewAllHref="/admin/service-calls">
