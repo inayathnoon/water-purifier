@@ -24,12 +24,13 @@ interface Order {
   };
 }
 
-// The date that actually matters for an order is when the job happened,
-// not when the row was written to the DB — falls back to created_at only
-// for the handful of records that never got an actual_date (shouldn't
-// normally happen, but a filter that silently drops rows is worse).
-function orderDate(o: Order): string {
-  return o.tickets.actual_date ?? o.created_at.slice(0, 10);
+// Two genuinely different dates: Bill Date is when the sale itself was
+// recorded (order.created_at — backfilled to the real historical date
+// for imported records, not left at the day the import script ran), and
+// Installation Completed is when the technician actually finished the
+// job (actual_date) — for a live sale these can be days or weeks apart.
+function billDate(o: Order): string {
+  return o.created_at.slice(0, 10);
 }
 
 function csvEscape(value: string | number): string {
@@ -67,7 +68,7 @@ export default function OrdersPage() {
   const filtered = useMemo(
     () =>
       orders.filter((o) => {
-        const d = orderDate(o);
+        const d = billDate(o);
         if (dateFrom && d < dateFrom) return false;
         if (dateTo && d > dateTo) return false;
         return true;
@@ -119,12 +120,13 @@ export default function OrdersPage() {
 
   const handleDownload = () => {
     const headers = [
-      'Installation Completed Date', 'Planned Installation Date', 'Customer', 'Phone', 'Address', 'Area', 'Product',
-      'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
+      'Bill Date', 'Planned Installation Date', 'Installation Completed Date', 'Customer', 'Phone', 'Address', 'Area',
+      'Product', 'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
     ];
     const rows = filtered.map((o) => [
-      orderDate(o),
+      billDate(o),
       o.tickets.planned_installation_date ?? '',
+      o.tickets.actual_date ?? '',
       o.tickets.customers.name,
       o.tickets.customers.phone_number,
       o.tickets.customers.address,
@@ -184,6 +186,7 @@ export default function OrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
+                <th className="p-3">Bill Date</th>
                 <th className="p-3">Completed</th>
                 <th className="p-3">Customer</th>
                 <th className="p-3">Product</th>
@@ -205,7 +208,8 @@ export default function OrdersPage() {
                       onClick={() => setExpandedId(isExpanded ? null : o.id)}
                       className={`border-t cursor-pointer hover:bg-gray-50 ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
                     >
-                      <td className="p-3 whitespace-nowrap">{orderDate(o)}</td>
+                      <td className="p-3 whitespace-nowrap">{billDate(o)}</td>
+                      <td className="p-3 whitespace-nowrap">{o.tickets.actual_date ?? '—'}</td>
                       <td className="p-3">
                         <p className="font-medium">{o.tickets.customers.name}</p>
                         <p className="text-xs text-gray-600">{o.tickets.customers.phone_number}</p>
@@ -224,7 +228,7 @@ export default function OrdersPage() {
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-gray-50">
-                        <td colSpan={9} className="p-4">
+                        <td colSpan={10} className="p-4">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
                             <div>
                               <p className="text-gray-600 text-xs">Address</p>
