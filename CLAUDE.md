@@ -310,6 +310,50 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Historical Sales Data Corrected — Full Wipe & Reimport (2026-09-02)
+
+The original 2026-09-01 historical import had no product linkage at all
+(`product_code` null on every row) and, per the business, some
+underlying data errors. The business supplied a corrected CSV (real
+SKUs matching the actual product catalog, corrected prices/payments) and
+explicitly asked for a full wipe first — **every** customer, ticket,
+order, and enquiry was deleted (not just the historical sales subset),
+keeping only staff accounts and the product catalog, then the 96
+corrected rows were reimported directly against the service layer:
+
+- SKUs resolved case-insensitively against `products.code` before
+  touching the DB (`Dosing` vs `DOSING`, `UVChamber` vs `UVCHAMBER` —
+  3 of 33 unique SKUs only differed by case) — all 96 rows matched a
+  real product, verified before any destructive step ran.
+- One customer per unique phone number (92 unique across 96 rows — a
+  few repeat customers), `tickets.status = 'closed'` for all of them
+  (installation already completed historically), `orders.status` from
+  whether balance_owed is actually 0 — matching the business's own
+  clarified model: ticket status tracks "is the job done," order status
+  tracks "is it paid off," and closing either one is just a status flip
+  once its condition is met, not a separate business event.
+- Pushed to the Sales sheet via the actual application code
+  (`syncOrderToSalesSheet()`, not a bypass script) per explicit
+  instruction — DB first, confirm, then let the app do the sheet write.
+
+**Real bug hit during this run**: bulk-syncing 96 orders in a tight
+sequential loop (~3 Sheets API calls each) tripped Google's per-minute
+read-request quota, and partway through, `values.get` on the header
+range started returning an effectively empty response without throwing
+— every remaining sync in that first pass failed with "header row is
+empty," and a follow-up check found the sheet's data rows gone too
+(only the old stray tail-column labels survived). Root cause looks like
+quota exhaustion producing a degraded read rather than any write in
+this app's own code — `upsertRowByHeader`/`appendRowByHeader` never
+write to row 1 or clear ranges in any code path. Recovered by restoring
+the header manually, then re-running the sync with a 70s upfront delay,
+1.2s pacing between orders, and up to 3 backoff retries (30s each) on
+any quota-flavored error. Worth remembering for any future bulk
+operation against this sheet: pace it, don't fire dozens of calls back
+to back. **Final result, verified live: 96/96 orders synced, 0
+failures** — Sales sheet now has exactly 97 rows (header + 96), matching
+the database exactly, with real brand/category/variant/SKU on every row.
+
 ## Editable Bill Date on New Purchase + Sales Sheet Backfill (2026-09-02)
 
 New Purchase's Bill Date defaults to today (IST) but can be changed —
