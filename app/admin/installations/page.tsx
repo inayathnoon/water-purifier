@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProductPicker from '@/components/ProductPicker';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
+import { todayIST } from '@/lib/dates';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
@@ -95,6 +96,7 @@ function InstallationsPageInner() {
     area: searchParams.get('area') ?? '',
     customerId: null as string | null,
     forceNewAddress: false,
+    billDate: todayIST(),
     plannedInstallationDate: '',
   });
   // Usually one product, but a Vessel sale can come with a free Kitchen
@@ -197,6 +199,7 @@ function InstallationsPageInner() {
       area: '',
       customerId: null,
       forceNewAddress: false,
+      billDate: todayIST(),
       plannedInstallationDate: '',
     });
     // Fresh id (not reused) so the ProductPicker below remounts and clears
@@ -348,6 +351,15 @@ function InstallationsPageInner() {
               row in Orders, just with nothing owed.
             </p>
           </div>
+          <FormRow label="Bill date">
+            <input
+              required
+              type="date"
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={purchaseForm.billDate}
+              onChange={(e) => setPurchaseForm({ ...purchaseForm, billDate: e.target.value })}
+            />
+          </FormRow>
           <FormRow label="Planned installation">
             <input
               type="date"

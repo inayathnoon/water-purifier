@@ -169,6 +169,10 @@ export async function closeEnquiry(
 export async function createDirectPurchase(input: {
   customerId: string;
   plannedInstallationDate?: string;
+  // Defaults to now (today) if not given — the till slip almost always
+  // matches "now," but a sale entered a day or two after it actually
+  // happened (or backdated for correction) needs to say so explicitly.
+  billDate?: string;
   items: {
     productDetails: string;
     productCode?: string;
@@ -177,6 +181,10 @@ export async function createDirectPurchase(input: {
   }[];
 }) {
   if (input.items.length === 0) throw new ApiError(400, 'At least one product is required');
+  // Noon UTC, not midnight — a plain date-only value parsed at midnight
+  // shifts a day in either direction depending on server timezone (the
+  // exact bug documented in the historical-import note above).
+  const billCreatedAt = input.billDate ? `${input.billDate}T12:00:00Z` : undefined;
 
   const results: { ticket: unknown; order: unknown }[] = [];
   for (const item of input.items) {
@@ -208,6 +216,11 @@ export async function createDirectPurchase(input: {
         list_price: item.price,
         sold_price: item.price,
         paid_amount: item.paidAmount,
+        // Bill Date — order.created_at is what the Orders page and Sales
+        // sheet both read as "Bill Date"; only overridden when the admin
+        // explicitly picked a different one, otherwise the DB default
+        // (now()) applies as before.
+        ...(billCreatedAt ? { created_at: billCreatedAt } : {}),
       })
       .select('*')
       .single();

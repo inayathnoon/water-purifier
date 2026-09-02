@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const results = await createDirectPurchase({
       customerId: customer.id,
       plannedInstallationDate: body.plannedInstallationDate || undefined,
+      billDate: body.billDate || undefined,
       items,
     });
 

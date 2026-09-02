@@ -132,7 +132,7 @@ export type Database = {
           Database['public']['Tables']['orders']['Row'],
           'ticket_id' | 'list_price' | 'sold_price'
         > &
-          Partial<Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'paid_amount'>>;
+          Partial<Pick<Database['public']['Tables']['orders']['Row'], 'status' | 'paid_amount' | 'created_at'>>;
         Update: Partial<
           Omit<Database['public']['Tables']['orders']['Row'], 'discount' | 'balance_owed'>
         >;

@@ -310,6 +310,25 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Editable Bill Date on New Purchase + Sales Sheet Backfill (2026-09-02)
+
+New Purchase's Bill Date defaults to today (IST) but can be changed —
+`createDirectPurchase()` now takes an optional `billDate`, applied as
+the order's `created_at` (what "Bill Date" reads everywhere: Orders
+page, Sales sheet) at noon UTC rather than midnight, same reasoning as
+the historical-import date-shift fix — a plain midnight value shifts a
+day depending on server timezone. Verified live: a backdated purchase
+landed exactly on the given date; an ordinary one still defaults to now.
+
+**Backfilled the real Sales sheet from the live DB** now that Editor
+access is actually granted (verified with a real write). The sheet's 97
+rows were pasted in by hand during the original historical import, never
+written by the app — cleared them and wrote fresh from `orders` (joined
+through tickets/customers/products), so the sheet now exactly mirrors
+the database (98 rows incl. header, matching the DB's 97 orders exactly)
+instead of a static one-time paste. Every sale from here on keeps it in
+sync automatically via the write-back already built above.
+
 ## Yearly Service Calls Due for the Whole Anniversary Week (2026-09-02)
 
 `checkAndCreateYearlyServiceCalls()` used to only create a follow-up
