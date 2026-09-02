@@ -310,6 +310,31 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Multi-Product Purchases / "Free" Line Items (2026-09-02)
+
+New Purchase used to record exactly one product per submission. Real
+business need: a Vessel sale sometimes comes with a free Kitchen unit
+thrown in for inventory reasons, and that free unit still needs its own
+installation ticket (a tech has to fit it, its own warranty clock has to
+start) — so it needs to be its own row in Orders, not a note buried
+inside the Vessel sale.
+
+- `createDirectPurchase()` now takes an `items[]` array instead of a
+  single product/price/paidAmount — one ticket+order pair is created per
+  item, all sharing the same customer and planned installation date, so
+  they land as adjacent rows in `/admin/orders`.
+- The New Purchase form has a "+ Add another product" button (one
+  product box by default, only shows the per-item chrome/remove button
+  once a second is added).
+- Each item's Price field has a "Free" checkbox next to it — checking it
+  forces that item's price and paid amount to 0 and disables both inputs,
+  rather than relying on someone typing "free" into a number field.
+- Verified live against Supabase: a two-item purchase (₹90,000 paid item
+  + a free item) produced exactly two tickets and two orders, the free
+  one at list/sold/paid/balance all `0`, both `open` (an admin can still
+  close the free one manually from Orders since nothing is owed) — then
+  cleaned up.
+
 ## Historical Data Import (2026-09-01)
 
 Bulk-imported the business's real records from before this app existed:

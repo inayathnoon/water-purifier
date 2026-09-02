@@ -39,6 +39,20 @@ function firstOrder(orders: Installation['orders']): { paid_amount: number; bala
   return Array.isArray(orders) ? (orders[0] ?? null) : orders;
 }
 
+interface PurchaseItem {
+  id: number;
+  productDetails: string;
+  productCode: string;
+  extraDetails: string;
+  price: string;
+  paidAmount: string;
+  isFree: boolean;
+}
+
+function emptyPurchaseItem(id: number): PurchaseItem {
+  return { id, productDetails: '', productCode: '', extraDetails: '', price: '', paidAmount: '', isFree: false };
+}
+
 interface StaffMember {
   id: string;
   name: string;
@@ -81,17 +95,27 @@ function InstallationsPageInner() {
     area: searchParams.get('area') ?? '',
     customerId: null as string | null,
     forceNewAddress: false,
-    productDetails: '',
-    productCode: '',
-    extraDetails: '',
-    price: '',
-    paidAmount: '',
     plannedInstallationDate: '',
   });
+  // Usually one product, but a Vessel sale can come with a free Kitchen
+  // unit thrown in for inventory reasons — each still needs its own
+  // ticket/order, so the form supports adding more than one product.
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([emptyPurchaseItem(0)]);
+  const [nextItemId, setNextItemId] = useState(1);
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
-  const [purchaseFormKey, setPurchaseFormKey] = useState(0);
   const [error, setError] = useState('');
+
+  const updatePurchaseItem = (id: number, patch: Partial<PurchaseItem>) =>
+    setPurchaseItems((items) => items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+
+  const addPurchaseItem = () => {
+    setPurchaseItems((items) => [...items, emptyPurchaseItem(nextItemId)]);
+    setNextItemId((n) => n + 1);
+  };
+
+  const removePurchaseItem = (id: number) =>
+    setPurchaseItems((items) => (items.length > 1 ? items.filter((it) => it.id !== id) : items));
 
   const load = async () => {
     setLoading(true);
@@ -137,9 +161,12 @@ function InstallationsPageInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...purchaseForm,
-        productDetails: [purchaseForm.productDetails, purchaseForm.extraDetails].filter(Boolean).join(' — '),
-        price: Number(purchaseForm.price),
-        paidAmount: Number(purchaseForm.paidAmount || 0),
+        items: purchaseItems.map((it) => ({
+          productDetails: [it.productDetails, it.extraDetails].filter(Boolean).join(' — '),
+          productCode: it.productCode || undefined,
+          price: it.isFree ? 0 : Number(it.price || 0),
+          paidAmount: it.isFree ? 0 : Number(it.paidAmount || 0),
+        })),
       }),
     });
     setPurchaseSubmitting(false);
@@ -170,14 +197,12 @@ function InstallationsPageInner() {
       area: '',
       customerId: null,
       forceNewAddress: false,
-      productDetails: '',
-      productCode: '',
-      extraDetails: '',
-      price: '',
-      paidAmount: '',
       plannedInstallationDate: '',
     });
-    setPurchaseFormKey((k) => k + 1); // remounts ProductPicker so its own brand/name/variant state clears too
+    // Fresh id (not reused) so the ProductPicker below remounts and clears
+    // its own brand/name/variant state instead of appearing stale.
+    setPurchaseItems([emptyPurchaseItem(nextItemId)]);
+    setNextItemId((n) => n + 1);
     setShowPurchaseForm(false);
     load();
   };
@@ -240,45 +265,89 @@ function InstallationsPageInner() {
             }}
             onChange={(v) => setPurchaseForm({ ...purchaseForm, ...v })}
           />
-          <FormRow label="Product">
-            <div className="flex-1">
-              <ProductPicker
-                key={purchaseFormKey}
-                required
-                onChange={(picked) =>
-                  setPurchaseForm({ ...purchaseForm, productDetails: picked?.display ?? '', productCode: picked?.code ?? '' })
-                }
-              />
-              <input
-                placeholder="Extra details (optional — e.g. 'and Prefilter')"
-                className="w-full border rounded px-3 py-2 text-gray-900 mt-2 text-sm"
-                value={purchaseForm.extraDetails}
-                onChange={(e) => setPurchaseForm({ ...purchaseForm, extraDetails: e.target.value })}
-              />
-            </div>
-          </FormRow>
-          <FormRow label="Price">
-            <input
-              required
-              type="number"
-              step="0.01"
-              min="0"
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={purchaseForm.price}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, price: e.target.value })}
-            />
-          </FormRow>
-          <FormRow label="Paid so far">
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="optional"
-              className="w-full border rounded px-3 py-2 text-gray-900"
-              value={purchaseForm.paidAmount}
-              onChange={(e) => setPurchaseForm({ ...purchaseForm, paidAmount: e.target.value })}
-            />
-          </FormRow>
+          <div className="space-y-4">
+            {purchaseItems.map((item, idx) => (
+              <div key={item.id} className={purchaseItems.length > 1 ? 'border rounded-md p-3 space-y-3' : 'space-y-3'}>
+                {purchaseItems.length > 1 && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs font-medium text-gray-600">Product {idx + 1}</p>
+                    <button
+                      type="button"
+                      onClick={() => removePurchaseItem(item.id)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                <FormRow label="Product">
+                  <div className="flex-1">
+                    <ProductPicker
+                      key={item.id}
+                      required
+                      onChange={(picked) =>
+                        updatePurchaseItem(item.id, { productDetails: picked?.display ?? '', productCode: picked?.code ?? '' })
+                      }
+                    />
+                    <input
+                      placeholder="Extra details (optional — e.g. 'and Prefilter')"
+                      className="w-full border rounded px-3 py-2 text-gray-900 mt-2 text-sm"
+                      value={item.extraDetails}
+                      onChange={(e) => updatePurchaseItem(item.id, { extraDetails: e.target.value })}
+                    />
+                  </div>
+                </FormRow>
+                <FormRow label="Price">
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      required={!item.isFree}
+                      disabled={item.isFree}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
+                      value={item.isFree ? '0' : item.price}
+                      onChange={(e) => updatePurchaseItem(item.id, { price: e.target.value })}
+                    />
+                    <label className="flex items-center gap-1 text-sm text-gray-900 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={item.isFree}
+                        onChange={(e) =>
+                          updatePurchaseItem(item.id, { isFree: e.target.checked, price: '0', paidAmount: '0' })
+                        }
+                      />
+                      Free
+                    </label>
+                  </div>
+                </FormRow>
+                <FormRow label="Paid so far">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    disabled={item.isFree}
+                    placeholder="optional"
+                    className="w-full border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
+                    value={item.isFree ? '0' : item.paidAmount}
+                    onChange={(e) => updatePurchaseItem(item.id, { paidAmount: e.target.value })}
+                  />
+                </FormRow>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addPurchaseItem}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              + Add another product
+            </button>
+            <p className="text-xs text-gray-600 -mt-2">
+              Use "Free" for a product thrown in with another sale (e.g. a free Kitchen unit with
+              a Vessel purchase) — it still gets its own installation ticket and shows as its own
+              row in Orders, just with nothing owed.
+            </p>
+          </div>
           <FormRow label="Planned installation">
             <input
               type="date"

@@ -157,49 +157,65 @@ export async function closeEnquiry(
  * moment of sale, so the order is created right here instead of waiting
  * for the ticket to close (closeTicketAfterConfirmation is guarded
  * against creating a second one — see below).
+ *
+ * One purchase can cover several products at once (e.g. a Vessel sale
+ * that comes with a free Kitchen unit thrown in for inventory reasons) —
+ * each item still needs its own installation ticket (a tech has to fit
+ * it, warranty has to start on it) and its own order, so `items` produces
+ * one ticket+order pair per line, sharing the customer and planned
+ * installation date. They land in the orders table as adjacent rows.
  */
 export async function createDirectPurchase(input: {
   customerId: string;
-  productDetails: string;
-  productCode?: string;
-  price: number;
-  paidAmount: number;
   plannedInstallationDate?: string;
+  items: {
+    productDetails: string;
+    productCode?: string;
+    price: number;
+    paidAmount: number;
+  }[];
 }) {
-  if (input.price < 0) throw new ApiError(400, 'Price must be zero or more');
-  if (input.paidAmount < 0) throw new ApiError(400, 'Paid amount must be zero or more');
-  if (input.paidAmount > input.price) throw new ApiError(400, 'Paid amount cannot exceed the price');
+  if (input.items.length === 0) throw new ApiError(400, 'At least one product is required');
 
-  const { data: ticket, error: ticketError } = await supabaseAdmin
-    .from('tickets')
-    .insert({
-      customer_id: input.customerId,
-      kind: 'installation',
-      status: 'open',
-      agreed_price: input.price,
-      enquiry_product_interest: input.productDetails || null,
-      // Only set when ProductPicker resolved to an actual product row —
-      // "Other" purchases and hand-typed extra details never have a code.
-      product_code: input.productCode || null,
-      planned_installation_date: input.plannedInstallationDate || null,
-    })
-    .select('*')
-    .single();
-  if (ticketError) throw new ApiError(500, ticketError.message);
+  const results: { ticket: unknown; order: unknown }[] = [];
+  for (const item of input.items) {
+    if (item.price < 0) throw new ApiError(400, 'Price must be zero or more');
+    if (item.paidAmount < 0) throw new ApiError(400, 'Paid amount must be zero or more');
+    if (item.paidAmount > item.price) throw new ApiError(400, 'Paid amount cannot exceed the price');
 
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from('orders')
-    .insert({
-      ticket_id: ticket.id,
-      list_price: input.price,
-      sold_price: input.price,
-      paid_amount: input.paidAmount,
-    })
-    .select('*')
-    .single();
-  if (orderError) throw new ApiError(500, orderError.message);
+    const { data: ticket, error: ticketError } = await supabaseAdmin
+      .from('tickets')
+      .insert({
+        customer_id: input.customerId,
+        kind: 'installation',
+        status: 'open',
+        agreed_price: item.price,
+        enquiry_product_interest: item.productDetails || null,
+        // Only set when ProductPicker resolved to an actual product row —
+        // "Other" purchases and hand-typed extra details never have a code.
+        product_code: item.productCode || null,
+        planned_installation_date: input.plannedInstallationDate || null,
+      })
+      .select('*')
+      .single();
+    if (ticketError) throw new ApiError(500, ticketError.message);
 
-  return { ticket, order };
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert({
+        ticket_id: ticket.id,
+        list_price: item.price,
+        sold_price: item.price,
+        paid_amount: item.paidAmount,
+      })
+      .select('*')
+      .single();
+    if (orderError) throw new ApiError(500, orderError.message);
+
+    results.push({ ticket, order });
+  }
+
+  return results;
 }
 
 // ---------------------------------------------------------------------------

@@ -20,16 +20,20 @@ export async function POST(request: Request) {
       forceNewAddress: body.forceNewAddress,
     });
 
-    const result = await createDirectPurchase({
+    const items = (Array.isArray(body.items) ? body.items : []).map((item: Record<string, unknown>) => ({
+      productDetails: (item.productDetails as string) ?? '',
+      productCode: (item.productCode as string) || undefined,
+      price: Number(item.price),
+      paidAmount: Number(item.paidAmount ?? 0),
+    }));
+
+    const results = await createDirectPurchase({
       customerId: customer.id,
-      productDetails: body.productDetails ?? '',
-      productCode: body.productCode || undefined,
-      price: Number(body.price),
-      paidAmount: Number(body.paidAmount ?? 0),
       plannedInstallationDate: body.plannedInstallationDate || undefined,
+      items,
     });
 
-    return Response.json({ customer, ...result }, { status: 201 });
+    return Response.json({ customer, results }, { status: 201 });
   } catch (err) {
     return handleApiError(err);
   }
