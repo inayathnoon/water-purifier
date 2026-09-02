@@ -115,7 +115,6 @@ function AdminDashboard() {
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Link href="/admin/enquiries" className="text-blue-600 hover:underline">Enquiries</Link>
-          <Link href="/admin/installations" className="text-blue-600 hover:underline">Installations</Link>
           <Link href="/admin/customers" className="text-blue-600 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
@@ -226,7 +225,7 @@ function OwnerDashboard() {
         <h2 className="text-lg font-semibold text-gray-900">Business overview</h2>
         <div className="flex flex-wrap gap-3 text-sm">
           <Link href="/admin/enquiries" className="text-green-700 hover:underline">Enquiries</Link>
-          <Link href="/admin/installations" className="text-green-700 hover:underline">Installations</Link>
+          <Link href="/admin/installations" className="text-green-700 hover:underline">New Purchase</Link>
           <Link href="/admin/customers" className="text-green-700 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-green-700 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-green-700 hover:underline">Products</Link>

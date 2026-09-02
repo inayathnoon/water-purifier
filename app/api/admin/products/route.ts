@@ -1,6 +1,6 @@
 import { requireUser, handleApiError, ApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { appendProductToSheet, syncProductsFromSheet, updateProductListPriceInSheet } from '@/lib/services/products';
+import { appendProductToSheet, generateSku, syncProductsFromSheet, updateProductListPriceInSheet } from '@/lib/services/products';
 
 // The spreadsheet stays the source of truth — this writes the new
 // product into the sheet first, then re-syncs immediately so it shows up
@@ -10,15 +10,22 @@ export async function POST(request: Request) {
     await requireUser(['admin', 'owner']);
     const body = await request.json();
 
-    const sku = (body.sku ?? '').trim();
     const category = (body.category ?? '').trim();
     const brand = (body.brand ?? '').trim();
     const productName = (body.productName ?? '').trim();
     const variant = (body.variant ?? '').trim();
     const listPrice = body.listPrice === '' || body.listPrice == null ? null : Number(body.listPrice);
 
-    if (!sku || !category || !brand || !productName) {
-      throw new ApiError(400, 'SKU, category, brand, and product name are all required');
+    if (!category || !brand || !productName) {
+      throw new ApiError(400, 'Category, brand, and product name are all required');
+    }
+
+    // SKU is generated, never typed in — see generateSku() for the rule.
+    const sku = generateSku(brand, productName, variant);
+
+    const { data: existing } = await supabaseAdmin.from('products').select('id').ilike('code', sku).maybeSingle();
+    if (existing) {
+      throw new ApiError(409, `A product with SKU "${sku}" already exists — not adding a duplicate.`);
     }
 
     await appendProductToSheet({ sku, category, brand, productName, variant, listPrice });

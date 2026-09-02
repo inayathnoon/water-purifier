@@ -188,9 +188,12 @@ export default function CustomerFields({
       <Row label="Name" required>
         <input
           required
-          className="w-full border rounded px-3 py-2 text-gray-900"
+          className="w-full border rounded px-3 py-2 text-gray-900 uppercase"
           value={value.name}
-          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          // Forced uppercase as you type, not just display — the DB
+          // trigger normalizes this anyway, but matching it live avoids
+          // ever showing mixed case just before it saves.
+          onChange={(e) => onChange({ ...value, name: e.target.value.toUpperCase() })}
         />
       </Row>
       <Row label="Address" required>

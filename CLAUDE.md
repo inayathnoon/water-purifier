@@ -310,6 +310,39 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Auto-Generated SKU, "New Purchase" Naming, Address Casing (2026-09-02)
+
+- **SKU is now generated, never typed.** `generateSku(brand, name, variant)`
+  = `UPPER(no spaces/quotes)` for each of brand/name/variant, joined with
+  `-`, variant omitted if blank — verified against the live catalog: 31
+  of 47 existing codes match this exactly (e.g. `AQUA-JADE-UV`,
+  `BLUEMOUNT-GRAVITY`); the other 16 diverge because whoever typed them
+  by hand also made one-off editorial calls (dropped a parenthetical,
+  folded the variant into the name for disambiguation) — expected, SKUs
+  are immutable once created (§9.4), this only governs new ones. "+ Add
+  Product" now shows a live SKU preview instead of an input, and the API
+  refuses to add a product whose generated SKU already exists
+  (case-insensitive) rather than silently duplicating.
+- **"Installations" renamed to "New Purchase"** everywhere it's a page
+  title or nav label — the page is reached almost entirely via the
+  "+ New Purchase" action, so a heading that still said "Installations"
+  after that redirect was a real inconsistency. The admin dashboard's
+  plain nav link duplicated the adjacent "+ New Purchase" button once
+  both said the same thing, so that redundant link was removed outright
+  (the owner dashboard's link stays — it has no separate button next to
+  it). The page's *content* below the form — a queue of installations
+  awaiting booking — is untouched and still correctly described as such.
+- **`customers.address` no longer forced uppercase.** The existing
+  `normalize_customer_text()` trigger uppercased name/address/area
+  together; business wants name and area normalized but address left
+  exactly as typed. Migration `013` drops address from that trigger.
+  Restored the 92 historical customers' addresses (already uppercased by
+  the old trigger before this fix landed) back to their original mixed
+  case from the source CSV, then re-ran the Sales-sheet sync so the
+  sheet's address column matches. The Name field in `CustomerFields`
+  (shared by New Purchase and New Enquiry) now forces uppercase as you
+  type too, not just on save — Address is untouched.
+
 ## Historical Sales Data Corrected — Full Wipe & Reimport (2026-09-02)
 
 The original 2026-09-01 historical import had no product linkage at all

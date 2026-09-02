@@ -17,7 +17,14 @@ interface Product {
   last_synced_at: string | null;
 }
 
-const emptyNewProduct = { sku: '', category: '', brand: '', productName: '', variant: '', listPrice: '' };
+const emptyNewProduct = { category: '', brand: '', productName: '', variant: '', listPrice: '' };
+
+// Mirrors generateSku() in lib/services/products.ts — shown as a live
+// preview only; the server generates the real value it actually writes.
+function previewSku(brand: string, productName: string, variant: string): string {
+  const seg = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/"/g, '');
+  return [seg(brand), seg(productName), variant.trim() ? seg(variant) : ''].filter(Boolean).join('-');
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -64,9 +71,6 @@ export default function ProductsPage() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adding) return; // a fast double-click must never add the product twice
-    if (products.some((p) => p.code.toLowerCase() === newProduct.sku.trim().toLowerCase())) {
-      if (!window.confirm(`SKU "${newProduct.sku}" already exists — add it anyway?`)) return;
-    }
     setAdding(true);
     setAddError('');
     const res = await fetch('/api/admin/products', {
@@ -143,13 +147,6 @@ export default function ProductsPage() {
           <div className="grid grid-cols-2 gap-3">
             <input
               required
-              placeholder="SKU (e.g. AQUA-JADE-UV)"
-              className="border rounded px-3 py-2 text-gray-900 font-mono text-sm"
-              value={newProduct.sku}
-              onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-            />
-            <input
-              required
               placeholder="Category (e.g. Kitchen)"
               className="border rounded px-3 py-2 text-gray-900"
               value={newProduct.category}
@@ -185,6 +182,13 @@ export default function ProductsPage() {
               onChange={(e) => setNewProduct({ ...newProduct, listPrice: e.target.value })}
             />
           </div>
+          {newProduct.brand.trim() && newProduct.productName.trim() && (
+            <p className="text-sm text-gray-600">
+              SKU (generated): <span className="font-mono text-gray-900">
+                {previewSku(newProduct.brand, newProduct.productName, newProduct.variant)}
+              </span>
+            </p>
+          )}
           <button
             type="submit"
             disabled={adding}

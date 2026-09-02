@@ -242,7 +242,7 @@ function InstallationsPageInner() {
     <div className="max-w-5xl mx-auto py-8 px-4">
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
-        <h1 className="text-2xl font-bold">Installations</h1>
+        <h1 className="text-2xl font-bold">New Purchase</h1>
         <button
           onClick={() => {
             // Cancelling out of a purchase that only exists because Convert

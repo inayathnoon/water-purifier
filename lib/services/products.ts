@@ -180,6 +180,25 @@ export async function syncProductsFromSheet(): Promise<{ upserted: number; deact
  * matching column by name, rather than assuming a fixed column order —
  * the same reasoning as parseRows() reading columns by name, not position.
  */
+// SKU is generated, never typed in — UPPER(no spaces or quote marks) for
+// each of brand/name/variant, joined with "-", variant omitted if blank.
+// Matches how the great majority of the real catalog's codes already
+// read (e.g. `AQUA-JADE-UV`, `BLUEMOUNT-GRAVITY`) — a minority of legacy
+// codes diverge from this because whoever typed them by hand also made
+// one-off editorial calls (dropping a parenthetical, folding the variant
+// into the name for disambiguation) that a mechanical rule won't
+// reproduce; that's fine, SKUs are immutable once created (§9.4), this
+// only governs newly generated ones.
+function skuSegment(s: string): string {
+  return s.toUpperCase().replace(/\s+/g, '').replace(/"/g, '');
+}
+
+export function generateSku(brand: string, productName: string, variant: string): string {
+  return [skuSegment(brand), skuSegment(productName), variant.trim() ? skuSegment(variant) : '']
+    .filter(Boolean)
+    .join('-');
+}
+
 export async function appendProductToSheet(product: {
   sku: string;
   category: string;
