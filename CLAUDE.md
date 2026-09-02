@@ -180,7 +180,9 @@ Four tables + enums:
          hits `/api/jobs/yearly-service-check`, secret-protected via `CRON_SECRET`
    - [x] Auto-creates a `service_visit` ticket per installation whose
          warranty just expired, guarded by `parent_installation_id` so a
-         installation is only ever followed up once
+         installation is only ever followed up once (revised 2026-09-02 —
+         see the note below the §15 section: this no longer fires once at
+         the 1-year mark, it repeats every year starting at 1.5 years)
    - [x] Admin flow at `/admin/service-calls`: call → decline (§8.6) or book
          → tech completes → admin confirms & closes (reuses the same
          `bookJob`/`completeJob`/`closeTicketAfterConfirmation` as installations)
@@ -276,6 +278,21 @@ Four tables + enums:
    area for a 3-technician team.
 
 ---
+
+## Service Reminder Schedule Change (2026-09-02)
+
+The nightly yearly-service job (§8.2) no longer fires once at the
+1-year warranty mark. Business decision: follow-up service calls now
+repeat every year starting at **1.5 years** post-install — 1.5, 2.5,
+3.5, and so on — for as long as the installation exists. `checkAndCreateYearlyServiceCalls()`
+computes each installation's next-due anniversary as `installation_date
++ (1.5 + number of prior follow-ups already created)` years, so the
+same duplicate-guard (`parent_installation_id`) now allows a growing
+chain of follow-ups instead of just one. Nice side effect: since every
+reminder now lands at 1.5+ years, none of them can ever land inside the
+1-year warranty window, so §13.3's "no charge inside the warranty year"
+override never has to fight with a freshly-created reminder the way it
+theoretically could have at the exact 1-year boundary before.
 
 ## Historical Data Import (2026-09-01)
 

@@ -20,6 +20,15 @@ interface CustomerMatch {
   area: string;
 }
 
+interface DuplicateWarnings {
+  openEnquiries: { id: string; created_at: string; enquiry_product_interest: string | null }[];
+  recentPurchases: { id: string; created_at: string; agreed_price: number | null; enquiry_product_interest: string | null }[];
+}
+
+function daysAgo(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
 // Label on the left, the field on the right — matches FormRow elsewhere,
 // duplicated here so this component doesn't depend on either page's
 // local FormRow definition.
@@ -48,11 +57,13 @@ export default function CustomerFields({
 }) {
   const [matches, setMatches] = useState<CustomerMatch[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [warnings, setWarnings] = useState<DuplicateWarnings | null>(null);
 
   useEffect(() => {
     const phone = value.phoneNumber.trim();
     if (phone.length < 6) {
       setMatches([]);
+      setWarnings(null);
       return;
     }
     const timeout = setTimeout(() => {
@@ -61,6 +72,7 @@ export default function CustomerFields({
         .then((data) => {
           const found: CustomerMatch[] = data.customers ?? [];
           setMatches(found);
+          setWarnings(data.warnings ?? null);
           if (found.length === 1 && !value.customerId) {
             onChange({
               ...value,
@@ -78,6 +90,8 @@ export default function CustomerFields({
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.phoneNumber]);
+
+  const hasWarnings = !!warnings && (warnings.openEnquiries.length > 0 || warnings.recentPurchases.length > 0);
 
   const pickAddress = (m: CustomerMatch) => {
     setShowPicker(false);
@@ -117,6 +131,25 @@ export default function CustomerFields({
           )}
         </div>
       </Row>
+
+      {hasWarnings && (
+        <div className="ml-[calc(10rem+0.75rem)] bg-orange-50 border border-orange-200 rounded-md p-3 text-sm">
+          <p className="font-medium text-orange-800 mb-1">Heads up — this number already has activity:</p>
+          <ul className="space-y-1 text-orange-800">
+            {warnings!.openEnquiries.map((e) => (
+              <li key={e.id}>
+                • An open enquiry ({e.enquiry_product_interest || 'no product noted'}), {daysAgo(e.created_at)}d ago
+              </li>
+            ))}
+            {warnings!.recentPurchases.map((p) => (
+              <li key={p.id}>
+                • A purchase recorded {daysAgo(p.created_at)}d ago ({p.enquiry_product_interest || 'no product noted'}
+                {p.agreed_price != null ? `, ₹${p.agreed_price}` : ''})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {showPicker && matches.length > 1 && (
         <div className="border rounded-md ml-[calc(10rem+0.75rem)]">

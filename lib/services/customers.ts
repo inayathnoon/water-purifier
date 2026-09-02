@@ -98,6 +98,44 @@ export async function getCustomerWithHistory(customerId: string) {
 }
 
 /**
+ * Warns the admin before they create a second enquiry/purchase for a
+ * number that already has one in flight — an already-open enquiry, or a
+ * purchase recorded in the last 7 days. Covers every customer record
+ * sharing this phone number, not just one address.
+ */
+export async function getDuplicateWarnings(phoneNumber: string) {
+  const phone = phoneNumber.trim();
+  if (!phone) return { openEnquiries: [], recentPurchases: [] };
+
+  const matches = await findCustomersByPhone(phone);
+  if (matches.length === 0) return { openEnquiries: [], recentPurchases: [] };
+  const customerIds = matches.map((c) => c.id);
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+  const [{ data: openEnquiries, error: enquiryError }, { data: recentPurchases, error: purchaseError }] =
+    await Promise.all([
+      supabaseAdmin
+        .from('tickets')
+        .select('id, created_at, enquiry_product_interest')
+        .in('customer_id', customerIds)
+        .eq('kind', 'enquiry')
+        .eq('status', 'open'),
+      supabaseAdmin
+        .from('tickets')
+        .select('id, created_at, agreed_price, enquiry_product_interest')
+        .in('customer_id', customerIds)
+        .eq('kind', 'installation')
+        .gte('created_at', sevenDaysAgo),
+    ]);
+
+  if (enquiryError) throw new ApiError(500, enquiryError.message);
+  if (purchaseError) throw new ApiError(500, purchaseError.message);
+
+  return { openEnquiries: openEnquiries ?? [], recentPurchases: recentPurchases ?? [] };
+}
+
+/**
  * Backs the admin customer directory search — phone number or name,
  * either partial. A phone number can now have more than one address on
  * file (§4.1 revised), so this returns every matching customer record,
