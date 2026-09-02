@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import HomeLink from '@/components/HomeLink';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { getCurrentUser, signOut, type User } from '@/lib/auth';
 
 interface LeaveRequest {
   id: string;
@@ -19,6 +21,8 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export default function TimeOffPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ startDate: '', endDate: '', reason: '' });
@@ -34,8 +38,14 @@ export default function TimeOffPage() {
   };
 
   useEffect(() => {
+    getCurrentUser().then(setUser);
     load();
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/auth/login');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +68,20 @@ export default function TimeOffPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <HomeLink />
+      <div className="flex justify-between items-center gap-2">
+        <span className="text-sm text-gray-900">{user?.name}</span>
+        <div className="flex items-center gap-3">
+          <Link href="/staff/jobs" className="text-sm text-blue-600 hover:underline">
+            My Jobs
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="px-3 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
       <h1 className="text-2xl font-bold mb-6 mt-2">Time Off</h1>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 mb-6 space-y-3">

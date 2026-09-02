@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import HomeLink from '@/components/HomeLink';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { getCurrentUser, signOut, type User } from '@/lib/auth';
 
 interface Job {
   id: string;
@@ -39,6 +41,8 @@ function nowHHMM() {
 }
 
 export default function StaffJobsPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -56,6 +60,7 @@ export default function StaffJobsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    getCurrentUser().then((u) => !cancelled && setUser(u));
     fetch('/api/staff/jobs')
       .then((res) => res.json())
       .then((data) => {
@@ -67,6 +72,11 @@ export default function StaffJobsPage() {
       cancelled = true;
     };
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/auth/login');
+  };
 
   const reload = async () => {
     const res = await fetch('/api/staff/jobs');
@@ -113,7 +123,20 @@ export default function StaffJobsPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 pb-24">
-      <HomeLink />
+      <div className="flex justify-between items-center gap-2">
+        <span className="text-sm text-gray-900">{user?.name}</span>
+        <div className="flex items-center gap-3">
+          <Link href="/staff/time-off" className="text-sm text-blue-600 hover:underline">
+            Time Off
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="px-3 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
       <h1 className="text-2xl font-bold mb-1 mt-2">My Jobs</h1>
       <p className="text-sm text-gray-900 mb-4">
         {showAll ? 'All jobs' : `Today, ${today}`}

@@ -897,6 +897,19 @@ Service Calls Due — Confirm Finished Work, Payments Outstanding, and
 Yearly Service Calls Due all shifted down one slot from where they sat
 before to make room.
 
+## Staff Dashboard Gap: No Sign Out, No Way to Reach Time Off (2026-09-04)
+
+Going back to the staff dashboard (deferred earlier this session for other
+work): found that `/staff/jobs` — the *only* screen a technician ever
+lands on (§15.2 redirects them straight past `/dashboard`) — had no Sign
+Out button anywhere, and no link to `/staff/time-off` either. Sign Out
+only ever existed on `/dashboard`'s header, which service_staff never
+sees. `/staff/time-off` was only reachable by typing its URL directly —
+nothing in the app linked to it. Both pages now get a small header (name,
+a link to the other staff page, Sign Out), matching the same pattern
+`/dashboard` already uses for admin/owner. Verified with `next build` —
+compiles clean, no new warnings.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
