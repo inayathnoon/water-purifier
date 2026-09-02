@@ -115,6 +115,7 @@ function AdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
         <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Link href="/admin/customers" className="text-blue-600 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
           <Link
@@ -225,6 +226,7 @@ function OwnerDashboard() {
         <div className="flex flex-wrap gap-3 text-sm">
           <Link href="/admin/enquiries" className="text-green-700 hover:underline">Enquiries</Link>
           <Link href="/admin/installations" className="text-green-700 hover:underline">Installations</Link>
+          <Link href="/admin/customers" className="text-green-700 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-green-700 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-green-700 hover:underline">Products</Link>
         </div>

@@ -84,14 +84,36 @@ export async function getCustomerWithHistory(customerId: string) {
 
   if (customerError) throw new ApiError(404, 'Customer not found');
 
-  // §4.3: full ticket history visible on one page
+  // §4.3: full ticket history visible on one page — orders joined in too,
+  // so "what they bought" shows price/payment status without a second trip.
   const { data: tickets, error: ticketsError } = await supabaseAdmin
     .from('tickets')
-    .select('*')
+    .select('*, orders(*)')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false });
 
   if (ticketsError) throw new ApiError(500, ticketsError.message);
 
   return { customer, tickets: tickets ?? [] };
+}
+
+/**
+ * Backs the admin customer directory search — phone number or name,
+ * either partial. A phone number can now have more than one address on
+ * file (§4.1 revised), so this returns every matching customer record,
+ * not just one.
+ */
+export async function searchCustomers(query: string) {
+  const q = query.trim();
+  if (!q) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('customers')
+    .select('*')
+    .or(`phone_number.ilike.%${q}%,name.ilike.%${q}%`)
+    .order('name')
+    .limit(30);
+
+  if (error) throw new ApiError(500, error.message);
+  return data ?? [];
 }
