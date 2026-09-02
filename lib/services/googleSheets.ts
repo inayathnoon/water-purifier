@@ -19,6 +19,37 @@ export function quotedTab(tab: string): string {
   return /^[A-Za-z0-9_]+$/.test(tab) ? tab : `'${tab}'`;
 }
 
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/**
+ * A cell written as "2026-09-02" (USER_ENTERED) comes back from a later
+ * read as "Sep 2, 2026" — Sheets recognizes it as a real date and
+ * reformats it for display. Matching a freshly-computed "YYYY-MM-DD"
+ * against that reformatted string with plain equality never succeeds, so
+ * date-shaped match columns (bill_date, etc.) go through this first.
+ * Deliberately does its own string parsing rather than `new Date(...)` —
+ * that constructor treats a bare "YYYY-MM-DD" as UTC midnight but
+ * "Sep 2, 2026" as *local* midnight (spec behavior), which would
+ * silently disagree by a day outside UTC — the exact class of bug
+ * documented in CLAUDE.md's historical-import timezone note.
+ * Anything not matching either shape is returned unchanged (lowercased).
+ */
+export function normalizeForMatch(value: string): string {
+  const v = (value ?? '').trim();
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const display = v.match(/^([A-Za-z]{3})[a-z]*\s+(\d{1,2}),\s*(\d{4})$/);
+  if (display) {
+    const monthIdx = MONTHS.indexOf(display[1].toLowerCase());
+    if (monthIdx !== -1) {
+      return `${display[3]}-${String(monthIdx + 1).padStart(2, '0')}-${display[2].padStart(2, '0')}`;
+    }
+  }
+
+  return v.toLowerCase();
+}
+
 // 0-indexed column number → spreadsheet letter (A, B, ... Z, AA, AB, ...).
 export function columnLetter(index: number): string {
   let n = index + 1;
@@ -66,38 +97,120 @@ export function writeSheetsClient() {
 }
 
 /**
+ * Reads a tab's header row and truncates it at the first blank cell —
+ * some of this spreadsheet's tabs have old, no-longer-used formula
+ * columns sitting past the real header (blank cell, then leftover
+ * labels), which confuses both column-by-name lookups and (worse)
+ * Sheets' own values.append table-detection into misaligning an
+ * appended row's columns entirely. Truncating gives every write path a
+ * single, reliable idea of how wide the real table actually is.
+ */
+async function readRealHeader(tab: string): Promise<{ headers: string[]; qtab: string; sheets: ReturnType<typeof writeSheetsClient>['sheets']; sheetId: string }> {
+  const { sheets, sheetId } = writeSheetsClient();
+  const qtab = quotedTab(tab);
+
+  let rawHeader: string[];
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!1:1` });
+    rawHeader = (res.data.values?.[0] ?? []).map((h) => h.trim().toLowerCase());
+  } catch (e) {
+    throw new ApiError(500, `Could not read the "${tab}" sheet's header row: ${(e as Error).message}`);
+  }
+  const blankAt = rawHeader.findIndex((h) => h === '');
+  const headers = blankAt === -1 ? rawHeader : rawHeader.slice(0, blankAt);
+  if (headers.length === 0) {
+    throw new ApiError(422, `The "${tab}" sheet's header row is empty — nothing to write against.`);
+  }
+  return { headers, qtab, sheets, sheetId };
+}
+
+/**
  * Appends one row to `tab`, placed under whichever columns the sheet's
  * own header row actually has (by name, not position) — so this doesn't
  * need to assume or hard-code a column order for a sheet a human can
  * reorder at any time. Silently drops values whose column doesn't exist
  * in the sheet.
+ *
+ * Writes with an explicit values.update to the first empty row rather
+ * than values.append — append's own "find the table" detection isn't
+ * reliable on a sheet with stray data far outside the real table (see
+ * readRealHeader above), and lands the row in the wrong columns.
  */
 export async function appendRowByHeader(tab: string, valuesByColumn: Record<string, string>): Promise<void> {
-  const { sheets, sheetId } = writeSheetsClient();
-  const qtab = quotedTab(tab);
+  const { headers, qtab, sheets, sheetId } = await readRealHeader(tab);
+  const lastCol = columnLetter(headers.length - 1);
 
-  let headerRow: string[];
+  let dataRowCount: number;
   try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!1:1` });
-    headerRow = (res.data.values?.[0] ?? []).map((h) => h.trim().toLowerCase());
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!A2:${lastCol}` });
+    dataRowCount = (res.data.values ?? []).length;
   } catch (e) {
-    throw new ApiError(500, `Could not read the "${tab}" sheet's header row: ${(e as Error).message}`);
-  }
-  if (headerRow.length === 0) {
-    throw new ApiError(422, `The "${tab}" sheet's header row is empty — nothing to append against.`);
+    throw new ApiError(500, `Could not read the "${tab}" sheet: ${(e as Error).message}`);
   }
 
-  const row = headerRow.map((h) => valuesByColumn[h] ?? '');
+  const row = headers.map((h) => valuesByColumn[h] ?? '');
+  const nextRow = dataRowCount + 2; // +1 for the header row, +1 for 1-indexing
 
   try {
-    await sheets.spreadsheets.values.append({
+    await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${qtab}!A:Z`,
+      range: `${qtab}!A${nextRow}:${lastCol}${nextRow}`,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [row] },
     });
   } catch (e) {
     throw permissionAwareError(e, `add a row to "${tab}"`);
   }
+}
+
+/**
+ * Like appendRowByHeader, but first looks for an existing row matching on
+ * `matchColumns` (e.g. phone_number + bill_date + sold_price for a sale)
+ * and updates it in place instead of adding a duplicate — for a sheet
+ * that's meant to track one row per real-world thing (a sale) as it
+ * changes over time (a payment recorded, warranty dates stamped later),
+ * rather than one row per event.
+ */
+export async function upsertRowByHeader(
+  tab: string,
+  valuesByColumn: Record<string, string>,
+  matchColumns: string[]
+): Promise<'inserted' | 'updated'> {
+  const { headers, qtab, sheets, sheetId } = await readRealHeader(tab);
+  const lastCol = columnLetter(headers.length - 1);
+
+  const matchIdx = matchColumns.map((c) => headers.indexOf(c));
+  const missingMatchCols = matchColumns.filter((_, i) => matchIdx[i] === -1);
+  if (missingMatchCols.length > 0) {
+    throw new ApiError(422, `The "${tab}" sheet is missing column(s) needed to match rows: ${missingMatchCols.join(', ')}`);
+  }
+
+  let dataRows: string[][];
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!A2:${lastCol}` });
+    dataRows = res.data.values ?? [];
+  } catch (e) {
+    throw new ApiError(500, `Could not read the "${tab}" sheet: ${(e as Error).message}`);
+  }
+
+  const rowIdx = dataRows.findIndex((r) =>
+    matchColumns.every(
+      (col, i) => normalizeForMatch(r[matchIdx[i]] ?? '') === normalizeForMatch(valuesByColumn[col] ?? '')
+    )
+  );
+
+  const row = headers.map((h) => valuesByColumn[h] ?? '');
+  const targetRow = rowIdx === -1 ? dataRows.length + 2 : rowIdx + 2; // +1 header, +1 1-indexing
+
+  try {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${qtab}!A${targetRow}:${lastCol}${targetRow}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [row] },
+    });
+  } catch (e) {
+    throw permissionAwareError(e, rowIdx === -1 ? `add a row to "${tab}"` : `update a row in "${tab}"`);
+  }
+  return rowIdx === -1 ? 'inserted' : 'updated';
 }

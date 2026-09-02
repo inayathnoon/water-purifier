@@ -53,6 +53,24 @@ export async function GET() {
       return days >= 3;
     }).length;
 
+    // One row per customer, not per order — the same customer can have
+    // more than one order outstanding, and "who owes what" is a
+    // per-person question, not a per-order one (matches the owner
+    // dashboard's overdue-by-person list).
+    const owedByCustomer = new Map<string, { name: string; phoneNumber: string; totalBalance: number; orderCount: number }>();
+    for (const o of paymentsOutstanding.data ?? []) {
+      const customer = (o.tickets as unknown as { customers: { name: string; phone_number: string } }).customers;
+      const key = customer.phone_number;
+      const existing = owedByCustomer.get(key);
+      if (existing) {
+        existing.totalBalance += Number(o.balance_owed);
+        existing.orderCount += 1;
+      } else {
+        owedByCustomer.set(key, { name: customer.name, phoneNumber: key, totalBalance: Number(o.balance_owed), orderCount: 1 });
+      }
+    }
+    const paymentsOutstandingByPerson = [...owedByCustomer.values()].sort((a, b) => b.totalBalance - a.totalBalance);
+
     // A completed job sitting unconfirmed for a week is a customer who
     // finished the work days ago and nobody's called to close the loop.
     const overdueConfirmationCount = (awaitingConfirmation.data ?? []).filter(
@@ -65,7 +83,7 @@ export async function GET() {
       awaitingConfirmation: awaitingConfirmation.data ?? [],
       overdueConfirmationCount,
       serviceCallsDue: serviceCallsDue.data ?? [],
-      paymentsOutstanding: paymentsOutstanding.data ?? [],
+      paymentsOutstanding: paymentsOutstandingByPerson,
       overdueCallCount,
       today,
     });

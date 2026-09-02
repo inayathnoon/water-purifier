@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 
 interface Customer {
@@ -19,6 +20,7 @@ interface Order {
   paid_amount: number;
   discount: number;
   balance_owed: number;
+  payment_history: { amount: number; date: string }[];
 }
 
 interface Ticket {
@@ -53,7 +55,19 @@ const KIND_BADGE: Record<string, string> = {
 };
 
 export default function CustomerDirectoryPage() {
-  const [query, setQuery] = useState('');
+  return (
+    <Suspense fallback={<p className="p-8">Loading...</p>}>
+      <CustomerDirectoryPageInner />
+    </Suspense>
+  );
+}
+
+function CustomerDirectoryPageInner() {
+  // The dashboard's "Payments outstanding" list links here with
+  // ?phone=... so clicking a name goes straight to their orders instead
+  // of landing on an empty search box.
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get('phone') ?? '');
   const [results, setResults] = useState<Customer[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -62,17 +76,20 @@ export default function CustomerDirectoryPage() {
   const [loadingHistory, setLoadingHistory] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const runSearch = async (e?: React.FormEvent) => {
+  const runSearch = async (e?: React.FormEvent, overrideQuery?: string) => {
     e?.preventDefault();
-    if (!query.trim()) return;
+    const q = overrideQuery ?? query;
+    if (!q.trim()) return;
     setSearching(true);
     setError('');
-    const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(query.trim())}`);
+    const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(q.trim())}`);
     const data = await res.json();
-    setResults(data.customers ?? []);
+    const customers: Customer[] = data.customers ?? [];
+    setResults(customers);
     setSearching(false);
     setSearched(true);
     setExpandedId(null);
+    return customers;
   };
 
   const toggleExpand = async (customer: Customer) => {
@@ -93,6 +110,17 @@ export default function CustomerDirectoryPage() {
       setLoadingHistory(null);
     }
   };
+
+  // Arriving via ?phone=... — search automatically and open the first
+  // match's history right away, rather than making it a two-step process.
+  useEffect(() => {
+    const phone = searchParams.get('phone');
+    if (!phone) return;
+    runSearch(undefined, phone).then((customers) => {
+      if (customers && customers.length > 0) toggleExpand(customers[0]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -180,13 +208,23 @@ export default function CustomerDirectoryPage() {
                                 </p>
                               )}
                               {order && (
-                                <p className="mt-1 text-gray-600">
-                                  List ₹{order.list_price} · Sold ₹{order.sold_price} · Discount ₹{order.discount} · Paid ₹
-                                  {order.paid_amount} ·{' '}
-                                  <span className={order.balance_owed > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
-                                    Balance ₹{order.balance_owed}
-                                  </span>
-                                </p>
+                                <>
+                                  <p className="mt-1 text-gray-600">
+                                    List ₹{order.list_price} · Sold ₹{order.sold_price} · Discount ₹{order.discount} · Paid ₹
+                                    {order.paid_amount} ·{' '}
+                                    <span className={order.balance_owed > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                                      Balance ₹{order.balance_owed}
+                                    </span>
+                                  </p>
+                                  {order.payment_history?.length > 0 && (
+                                    <div className="mt-1 text-xs text-gray-600">
+                                      Payments:{' '}
+                                      {order.payment_history
+                                        .map((p) => `₹${p.amount} on ${p.date.slice(0, 10)}`)
+                                        .join(', ')}
+                                    </div>
+                                  )}
+                                </>
                               )}
                               {t.enquiry_source && t.enquiry_source !== 'general' && (
                                 <p className="mt-1 text-xs text-gray-600 capitalize">Source: {t.enquiry_source.replace('_', ' ')}</p>

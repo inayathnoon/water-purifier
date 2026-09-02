@@ -1,6 +1,20 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 
+// The exact anniversary date can land on any weekday — rounding down to
+// that week's Monday means the follow-up shows as due for the whole
+// week it falls in (matching "last year's same week"), not just the one
+// exact day, while still comparing with <= (not ==) so a cron that
+// missed a run still catches up correctly rather than skipping the year.
+function startOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const diffFromMonday = (day + 6) % 7;
+  d.setDate(d.getDate() - diffFromMonday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 /**
  * §8.2 (revised 2026-09-02): follow-up service calls repeat on every
  * *half* anniversary after the first year — 1.5 years post-install, then
@@ -50,8 +64,11 @@ export async function checkAndCreateYearlyServiceCalls(): Promise<{ created: num
   const due = installations
     .map((installation) => {
       const priorVisits = followUpCounts.get(installation.id) ?? 0;
-      const nextDue = new Date(installation.installation_date as string);
-      nextDue.setMonth(nextDue.getMonth() + Math.round((1.5 + priorVisits) * 12));
+      const anniversary = new Date(installation.installation_date as string);
+      anniversary.setMonth(anniversary.getMonth() + Math.round((1.5 + priorVisits) * 12));
+      // Due from the Monday of the anniversary's week, not the exact day —
+      // shows as due throughout that whole week.
+      const nextDue = startOfWeek(anniversary);
       return { installation, nextDue };
     })
     .filter(({ nextDue }) => nextDue <= today);

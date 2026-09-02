@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { appendClosedOrderToSalesSheet } from './salesSheet';
-import { logNotification } from './notifications';
+import { syncOrderToSalesSheetSafely } from './salesSheet';
 
 async function getOrderOrThrow(orderId: string) {
   const { data, error } = await supabaseAdmin.from('orders').select('*').eq('id', orderId).single();
@@ -19,14 +18,26 @@ export async function recordPayment(orderId: string, amount: number) {
     throw new ApiError(400, 'Payment would exceed the sold price');
   }
 
+  // A dated entry per payment, not just the running total — lets the
+  // admin see payments against date later, not just "how much is paid
+  // so far right now". Kept as a column on orders itself (not a separate
+  // table) so there's nowhere else "how much was paid" can drift from
+  // orders.paid_amount.
+  const paymentHistory = [...(order.payment_history ?? []), { amount, date: new Date().toISOString() }];
+
   const { data, error } = await supabaseAdmin
     .from('orders')
-    .update({ paid_amount: newPaid })
+    .update({ paid_amount: newPaid, payment_history: paymentHistory })
     .eq('id', orderId)
     .select('*')
     .single();
 
   if (error) throw new ApiError(500, error.message);
+
+  // Keep the Sales sheet's paid/balance in sync the moment a payment is
+  // recorded, not just when the order eventually closes.
+  await syncOrderToSalesSheetSafely(orderId);
+
   return data;
 }
 
@@ -73,15 +84,10 @@ export async function closeOrder(orderId: string) {
 
   if (error) throw new ApiError(500, error.message);
 
-  // Mirror to the Sales sheet after the close has already committed —
-  // same fail-safe shape as Telegram notifications (§10.5): a Sheets
-  // outage or permission problem gets logged, never blocks the order
-  // from actually closing.
-  try {
-    await appendClosedOrderToSalesSheet(orderId);
-  } catch (sheetError) {
-    await logNotification('sales_sheet_failed', 'failed', (sheetError as Error).message);
-  }
+  // Redundant with the sync already done in recordPayment() (balance is
+  // already 0 by now) — kept as a final safety net, since "closed" is
+  // just orders.status flipping, not a separate business event.
+  await syncOrderToSalesSheetSafely(orderId);
 
   return data;
 }

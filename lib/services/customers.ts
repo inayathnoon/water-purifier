@@ -84,8 +84,9 @@ export async function getCustomerWithHistory(customerId: string) {
 
   if (customerError) throw new ApiError(404, 'Customer not found');
 
-  // §4.3: full ticket history visible on one page — orders joined in too,
-  // so "what they bought" shows price/payment status without a second trip.
+  // §4.3: full ticket history visible on one page — orders joined in too
+  // (payment_history column included for free), so "what they bought"
+  // and "when did each payment come in" both show without a second trip.
   const { data: tickets, error: ticketsError } = await supabaseAdmin
     .from('tickets')
     .select('*, orders(*)')

@@ -11,7 +11,7 @@ interface AdminDashboardData {
   oldEnquiryCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: { id: string; warranty_expires_at: string; customers: { name: string; phone_number: string } }[];
-  paymentsOutstanding: { id: string; sold_price: number; discount: number; balance_owed: number; last_payment_call_at: string | null; tickets: { customers: { name: string; phone_number: string } } }[];
+  paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number }[];
   overdueCallCount: number;
   overdueConfirmationCount: number;
 }
@@ -191,11 +191,11 @@ function AdminDashboard() {
         >
           {data.paymentsOutstanding.slice(0, 5).map((o) => (
             <Row
-              key={o.id}
-              href="/admin/orders"
-              primary={o.tickets.customers.name}
-              secondary={`Discount: ₹${o.discount}`}
-              tag={`₹${o.balance_owed} owed`}
+              key={o.phoneNumber}
+              href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
+              primary={o.name}
+              secondary={o.orderCount > 1 ? `${o.orderCount} orders` : o.phoneNumber}
+              tag={`₹${o.totalBalance} owed`}
               tagColor="text-red-600"
             />
           ))}

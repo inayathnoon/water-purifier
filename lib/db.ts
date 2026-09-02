@@ -122,6 +122,7 @@ export type Database = {
           paid_amount: number;
           discount: number; // generated column, read-only
           balance_owed: number; // generated column, read-only
+          payment_history: { amount: number; date: string }[];
           last_payment_call_at: string | null;
           owner_notified_at: string | null;
           created_at: string;

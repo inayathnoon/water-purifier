@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted } from './notifications';
+import { syncOrderToSalesSheetSafely } from './salesSheet';
 
 const MIN_EXPLANATION_WORDS = 5;
 
@@ -211,6 +212,11 @@ export async function createDirectPurchase(input: {
       .select('*')
       .single();
     if (orderError) throw new ApiError(500, orderError.message);
+
+    // The sale is registered the moment it's made, not when it later
+    // happens to close — "closed" is just orders.status flipping once
+    // balance_owed hits 0, not a separate business event.
+    await syncOrderToSalesSheetSafely(order.id);
 
     results.push({ ticket, order });
   }
@@ -424,6 +430,10 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
       .eq('ticket_id', ticketId)
       .maybeSingle();
     if (existingOrder) {
+      // installation_date/warranty_expires_at were just stamped above —
+      // the sale's sheet row already exists (from createDirectPurchase),
+      // this just updates those two columns on it.
+      await syncOrderToSalesSheetSafely(existingOrder.id);
       return { ticket: closed, order: existingOrder };
     }
 
@@ -440,6 +450,7 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
       .select('*')
       .single();
     if (orderError) throw new ApiError(500, orderError.message);
+    await syncOrderToSalesSheetSafely(order.id);
     return { ticket: closed, order };
   }
 

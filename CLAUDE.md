@@ -310,41 +310,119 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Yearly Service Calls Due for the Whole Anniversary Week (2026-09-02)
+
+`checkAndCreateYearlyServiceCalls()` used to only create a follow-up
+ticket on the *exact* anniversary day (e.g. installation_date + 1.5
+years lands on a Wednesday → only due that Wednesday) — too narrow for
+a real calling schedule, where the business wants to work through
+everyone due "this week," not chase an exact date. Added `startOfWeek()`
+and round the anniversary down to that week's Monday before the `<=
+today` comparison — the follow-up becomes due from Monday of the
+matching week and stays visible all week (and after, until handled),
+while still comparing with `<=` rather than `==` so a cron run that gets
+skipped one day still catches up correctly instead of silently missing
+that customer's reminder for a year. Verified live: an installation
+whose anniversary fell within the current week correctly created a
+follow-up; one whose anniversary fell in the *next* week correctly did
+not (yet) — both cleaned up after.
+
+## Payments-Outstanding Grouped by Person + Payment History (2026-09-02)
+
+Admin dashboard's "Payments outstanding" card was listing one row per
+*order* — a customer with two open orders (e.g. Riyas Mayan, ₹75,000 +
+₹64,000) showed up twice. Grouped by customer (phone number) instead,
+same pattern as the owner dashboard's overdue-by-person list from
+earlier this session: `app/api/admin/dashboard/route.ts` now returns
+`{name, phoneNumber, totalBalance, orderCount}[]`. Verified live: Riyas
+Mayan's two orders correctly merge into one ₹139,000 row.
+
+Each row's name links to `/admin/customers?phone=<number>` — the
+existing Customer Directory now reads that query param, runs the search
+automatically, and opens the first match's history immediately, so
+clicking a name goes straight to "what they bought and what they've
+paid" instead of landing on an empty search box.
+
+**Payment history, considered two ways.** First built a dedicated
+`payments` table (id, order_id, amount, created_at) with its own RLS
+policies — then reconsidered: that's a second place "how much was paid"
+can live, and could drift from `orders.paid_amount` if anything ever
+touches the DB directly, for no real benefit here (nothing needs
+SQL-level aggregation across payments, just a per-customer display
+list). Replaced it with `orders.payment_history` (JSONB, default `[]`)
+instead — `recordPayment()` appends `{amount, date}` to it in the same
+update that changes `paid_amount`, so there's exactly one write, one
+column, no new table, and no query anywhere else needed to change since
+every existing `select('*, orders(*))` already returns it. Migration 011
+created the table; 012 drops it and adds the column — both applied live,
+011 was never used by anything real (created and reverted in the same
+session).
+
 ## Sales Sheet Write-Back (2026-09-02)
 
-Same idea as "+ Add Product," applied to sales: when an order **closes**,
-`appendClosedOrderToSalesSheet()` mirrors it into the spreadsheet's
-`Sales` tab (same spreadsheet as `Product List`) — `bill_date, name,
-place, phone_number, sku, address` come straight from the order/ticket/
-customer, and `category, brand, product_name, variant, list_price,
-discount, balance_owed, warranty_expires_at` are filled in automatically
-(joined from `products` via `tickets.product_code`, or Postgres's own
-generated `discount`/`balance_owed` columns) — nothing for the business
-to type by hand.
+Same idea as "+ Add Product," applied to sales: a sale is mirrored into
+the spreadsheet's `Sales` tab (same spreadsheet as `Product List`) —
+`bill_date, name, place, phone_number, sku, address` come straight from
+the order/ticket/customer, and `category, brand, product_name, variant,
+list_price, discount, balance_owed, warranty_expires_at` are filled in
+automatically (joined from `products` via `tickets.product_code`, or
+Postgres's own generated `discount`/`balance_owed` columns) — nothing
+for the business to type by hand.
 
-Deliberately triggered on **close**, not on sale creation: that's the one
-point every column is actually settled — `paid_amount == sold_price`
-(an order can't close otherwise, §13.1) and `installation_date` /
-`warranty_expires_at` are already stamped (§8.1). The DB stays the
-source of truth for sales (unlike products, which genuinely live in the
-sheet) — this is a one-way log, so the business keeps the same running
-ledger they had before this app existed, without re-typing anything.
+**Registered the moment the sale is made, not when it later happens to
+close** — first built this triggered on order-close, but that was wrong:
+"closed" isn't a separate business event, it's just what `orders.status`
+reads once `balance_owed` hits 0. `syncOrderToSalesSheet()` is an
+*upsert*, keyed on `phone_number + bill_date + sold_price` (stable for a
+sale's whole lifetime, since sold_price never changes after the sale is
+made), called from every DB write that changes something the sheet
+shows: `createDirectPurchase()` (the row first exists), `recordPayment()`
+(paid/balance change), `closeTicketAfterConfirmation()`
+(installation_date/warranty_expires_at get stamped), and `closeOrder()`
+(a final, redundant sync as a safety net). The DB stays the source of
+truth for sales (unlike products, which genuinely live in the sheet) —
+this is a one-way log, so the business keeps the same running ledger
+they had before this app existed, updated live as a sale progresses,
+without re-typing anything.
 
-Fail-safe the same way as every Telegram notification (§10.5): the sheet
-write happens *after* the order's `closed` status has already committed,
-wrapped in its own try/catch — a Sheets outage or the same Editor-access
-permission problem "+ Add Product" has never blocks a real order from
-closing, it just logs to `notifications_log` as `sales_sheet_failed`
-(new enum value, migration `010`). **Verified live**: closed a real test
-order end to end — it closed successfully and the sheet write failed
-with the expected permission message, logged, order unaffected. Needs
-the same Editor-access grant as "+ Add Product" before it actually
-writes to the sheet.
+Fail-safe the same way as every Telegram notification (§10.5): every
+sync call happens *after* its own DB write has already committed,
+wrapped in `syncOrderToSalesSheetSafely()` — a Sheets outage or the
+Editor-access permission problem "+ Add Product" has never blocks the
+real operation (a sale being made, a payment recorded, a job closed)
+that triggered it, it just logs to `notifications_log` as
+`sales_sheet_failed` (new enum value, migration `010`).
+
+**Real bug found and fixed while verifying this against the live sheet**:
+the `Sales` tab has stray leftover header labels sitting past the real
+18 columns (old formula residue: a blank cell, then duplicate
+`category`/`brand`/`product_name`/`variant`/`list_price` labels around
+columns U–Y) — reading the header unbounded picked up all 25 "columns",
+and worse, `values.append`'s own table-detection got confused by sparse
+data far outside the real table and landed entire rows starting around
+column U instead of column A. Fixed by (1) truncating the header at the
+first blank cell (`readRealHeader()` in `googleSheets.ts`) so every write
+path has one reliable idea of how wide the real table is, and (2)
+dropping `values.append` entirely in favor of an explicit
+`values.update` to a deterministically computed row number — no more
+relying on Sheets' own append auto-detection at all. Also found and
+fixed: the upsert's match-by-`bill_date` never actually matched anything
+on a second sync, because a date written as `"2026-09-02"` reads back
+formatted as `"Sep 2, 2026"` — added `normalizeForMatch()`, which parses
+both shapes with hand-written regexes rather than `new Date(...)`
+(deliberately, since that constructor treats a bare `YYYY-MM-DD` as UTC
+midnight but a display string like `"Sep 2, 2026"` as *local* midnight —
+the same class of bug as the historical-import timezone note above).
+**Verified live end-to-end** with a real 4-step lifecycle (create →
+partial payment → full payment → close): exactly one sheet row the
+whole way through, updating in place each time, correct final values —
+all test rows cleaned from both the sheet and the DB afterward.
 
 Refactored the Google Sheets plumbing shared between this and
 `products.ts` into `lib/services/googleSheets.ts` (`sheetCredentials`,
-`quotedTab`, `columnLetter`, `permissionAwareError`, and a generic
-`appendRowByHeader()`) rather than duplicating it a second time.
+`quotedTab`, `columnLetter`, `permissionAwareError`, `readRealHeader`,
+`normalizeForMatch`, and generic `appendRowByHeader()`/
+`upsertRowByHeader()`) rather than duplicating it a second time.
 
 ## Editable List Price, Display Cleanup, Pre-Launch Product Cleanup (2026-09-02)
 
