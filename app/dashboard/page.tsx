@@ -21,7 +21,7 @@ interface OwnerDashboardData {
   monthRevenue: { sold: number; discount: number; collected: number };
   pendingLeaveCount: number;
   passedToOwner: { id: string; closure_explanation: string; customers: { name: string; phone_number: string } }[];
-  overdueOrders: { id: string; balance_owed: number; created_at: string; tickets: { customers: { name: string; phone_number: string } } }[];
+  overdueOrders: { name: string; phoneNumber: string; totalBalance: number; oldestCreatedAt: string; orderCount: number }[];
   commercialVesselEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
 }
 
@@ -288,11 +288,11 @@ function OwnerDashboard() {
         >
           {data.overdueOrders.slice(0, 5).map((o) => (
             <Row
-              key={o.id}
+              key={o.phoneNumber}
               href="/admin/orders"
-              primary={o.tickets.customers.name}
-              secondary={`${daysAgo(o.created_at)} days`}
-              tag={`₹${o.balance_owed}`}
+              primary={o.name}
+              secondary={`${daysAgo(o.oldestCreatedAt)} days${o.orderCount > 1 ? ` · ${o.orderCount} orders` : ''}`}
+              tag={`₹${o.totalBalance}`}
               tagColor="text-red-600"
             />
           ))}

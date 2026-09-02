@@ -56,6 +56,34 @@ export async function GET() {
         .in('enquiry_product_interest', ['Vessel', 'Commercial']),
     ]);
 
+    // Grouped per person, not per order — a customer with two overdue
+    // orders (e.g. two separate purchases) is one line showing what they
+    // owe in total, not two separate rows that undersell how much is
+    // actually outstanding with them.
+    const overdueByCustomer = new Map<
+      string,
+      { name: string; phoneNumber: string; totalBalance: number; oldestCreatedAt: string; orderCount: number }
+    >();
+    for (const o of overdueOrders.data ?? []) {
+      const customer = (o.tickets as unknown as { customers: { name: string; phone_number: string } }).customers;
+      const key = customer.phone_number;
+      const existing = overdueByCustomer.get(key);
+      if (existing) {
+        existing.totalBalance += Number(o.balance_owed);
+        existing.orderCount += 1;
+        if (o.created_at < existing.oldestCreatedAt) existing.oldestCreatedAt = o.created_at;
+      } else {
+        overdueByCustomer.set(key, {
+          name: customer.name,
+          phoneNumber: customer.phone_number,
+          totalBalance: Number(o.balance_owed),
+          oldestCreatedAt: o.created_at,
+          orderCount: 1,
+        });
+      }
+    }
+    const overdueByPerson = [...overdueByCustomer.values()].sort((a, b) => b.totalBalance - a.totalBalance);
+
     const whoIsBusy: Record<string, number> = {};
     for (const job of todaysJobs.data ?? []) {
       const name = (job.users as unknown as { name: string } | null)?.name ?? 'Unassigned';
@@ -77,7 +105,7 @@ export async function GET() {
       monthRevenue,
       pendingLeaveCount: pendingLeave.data?.length ?? 0,
       passedToOwner: passedToOwner.data ?? [],
-      overdueOrders: overdueOrders.data ?? [],
+      overdueOrders: overdueByPerson,
       commercialVesselEnquiries: commercialVesselEnquiries.data ?? [],
     });
   } catch (err) {
