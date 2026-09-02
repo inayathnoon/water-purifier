@@ -127,6 +127,7 @@ function AdminDashboard() {
           <Link href="/admin/customers" className="text-blue-600 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
+          <Link href="/admin/service-calls" className="text-blue-600 hover:underline">Service Calls</Link>
           <Link
             href="/admin/enquiries?new=1"
             className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -270,6 +271,7 @@ function OwnerDashboard() {
           <Link href="/admin/customers" className="text-green-700 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-green-700 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-green-700 hover:underline">Products</Link>
+          <Link href="/admin/service-calls" className="text-green-700 hover:underline">Service Calls</Link>
         </div>
       </div>
 
