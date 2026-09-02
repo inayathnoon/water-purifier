@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, signOut, type User } from '@/lib/auth';
+import { daysAgoIST } from '@/lib/dates';
 
 interface AdminDashboardData {
   newEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
@@ -25,9 +26,7 @@ interface OwnerDashboardData {
   commercialVesselEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
 }
 
-function daysAgo(iso: string) {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-}
+const daysAgo = daysAgoIST;
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -115,6 +114,8 @@ function AdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
         <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Link href="/admin/enquiries" className="text-blue-600 hover:underline">Enquiries</Link>
+          <Link href="/admin/installations" className="text-blue-600 hover:underline">Installations</Link>
           <Link href="/admin/customers" className="text-blue-600 hover:underline">Customers</Link>
           <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>

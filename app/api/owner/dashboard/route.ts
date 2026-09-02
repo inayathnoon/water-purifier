@@ -1,5 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
+import { todayIST, daysAgoISTThreshold, monthStartISTThreshold } from '@/lib/dates';
 
 /**
  * §15.3: an owner should be able to answer three questions without asking
@@ -11,11 +12,9 @@ export async function GET() {
   try {
     await requireUser(['owner']);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    const monthStartISO = monthStart.toISOString().slice(0, 10);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const today = todayIST();
+    const monthStartISO = monthStartISTThreshold();
+    const sevenDaysAgo = daysAgoISTThreshold(7);
 
     const [todaysJobs, monthOrders, pendingLeave, passedToOwner, overdueOrders, commercialVesselEnquiries] = await Promise.all([
       // What's happening today — every job booked for today, by technician.

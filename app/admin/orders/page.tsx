@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import HomeLink from '@/components/HomeLink';
+import { daysAgoIST } from '@/lib/dates';
 
 interface Order {
   id: string;
@@ -62,8 +63,7 @@ export default function OrdersPage() {
     load();
   }, []);
 
-  const daysSince = (d: string | null) =>
-    d ? Math.floor((Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24)) : Infinity;
+  const daysSince = (d: string | null) => (d ? daysAgoIST(d) : Infinity);
 
   const filtered = useMemo(
     () =>

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
+import { daysAgoIST } from '@/lib/dates';
 import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
@@ -98,8 +99,7 @@ function EnquiriesPageInner() {
     load();
   }, []);
 
-  const daysOld = (createdAt: string) =>
-    Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+  const daysOld = daysAgoIST;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AreaSelect from './AreaSelect';
+import { daysAgoIST } from '@/lib/dates';
 
 export interface CustomerFieldsValue {
   phoneNumber: string;
@@ -25,9 +26,7 @@ interface DuplicateWarnings {
   recentPurchases: { id: string; created_at: string; agreed_price: number | null; enquiry_product_interest: string | null }[];
 }
 
-function daysAgo(iso: string): number {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-}
+const daysAgo = daysAgoIST;
 
 // Label on the left, the field on the right — matches FormRow elsewhere,
 // duplicated here so this component doesn't depend on either page's

@@ -1,5 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
+import { daysAgoIST, todayIST } from '@/lib/dates';
 
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
@@ -10,7 +11,7 @@ import { supabaseAdmin } from '@/lib/db';
 export async function GET() {
   try {
     await requireUser(['admin', 'owner']);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIST();
 
     const [newEnquiries, awaitingConfirmation, serviceCallsDue, paymentsOutstanding] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
@@ -45,21 +46,17 @@ export async function GET() {
         .order('balance_owed', { ascending: false }),
     ]);
 
-    const oldEnquiryCount = (newEnquiries.data ?? []).filter(
-      (e) => Math.floor((Date.now() - new Date(e.created_at).getTime()) / 86400000) >= 14
-    ).length;
+    const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => daysAgoIST(e.created_at) >= 14).length;
 
     const overdueCallCount = (paymentsOutstanding.data ?? []).filter((o) => {
-      const days = o.last_payment_call_at
-        ? Math.floor((Date.now() - new Date(o.last_payment_call_at).getTime()) / 86400000)
-        : Infinity;
+      const days = o.last_payment_call_at ? daysAgoIST(o.last_payment_call_at) : Infinity;
       return days >= 3;
     }).length;
 
     // A completed job sitting unconfirmed for a week is a customer who
     // finished the work days ago and nobody's called to close the loop.
     const overdueConfirmationCount = (awaitingConfirmation.data ?? []).filter(
-      (t) => t.actual_date && Math.floor((Date.now() - new Date(t.actual_date).getTime()) / 86400000) >= 7
+      (t) => t.actual_date && daysAgoIST(t.actual_date) >= 7
     ).length;
 
     return Response.json({
