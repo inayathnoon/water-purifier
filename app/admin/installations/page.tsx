@@ -9,10 +9,21 @@ import { todayIST } from '@/lib/dates';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
-function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FormRow({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">{label}</label>
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">
+        {label}
+        {required && <span className="text-red-600"> *</span>}
+      </label>
       {children}
     </div>
   );
@@ -283,7 +294,7 @@ function InstallationsPageInner() {
                     </button>
                   </div>
                 )}
-                <FormRow label="Product">
+                <FormRow label="Product" required>
                   <div className="flex-1">
                     <ProductPicker
                       key={item.id}
@@ -300,7 +311,7 @@ function InstallationsPageInner() {
                     />
                   </div>
                 </FormRow>
-                <FormRow label="Price">
+                <FormRow label="Sold price" required>
                   <div className="flex-1 flex items-center gap-2">
                     <input
                       required={!item.isFree}
@@ -324,13 +335,13 @@ function InstallationsPageInner() {
                     </label>
                   </div>
                 </FormRow>
-                <FormRow label="Paid so far">
+                <FormRow label="Paid so far" required>
                   <input
+                    required
                     type="number"
                     step="0.01"
                     min="0"
                     disabled={item.isFree}
-                    placeholder="optional"
                     className="w-full border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
                     value={item.isFree ? '0' : item.paidAmount}
                     onChange={(e) => updatePurchaseItem(item.id, { paidAmount: e.target.value })}
@@ -351,7 +362,7 @@ function InstallationsPageInner() {
               row in Orders, just with nothing owed.
             </p>
           </div>
-          <FormRow label="Bill date">
+          <FormRow label="Bill date" required>
             <input
               required
               type="date"

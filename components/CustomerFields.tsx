@@ -31,10 +31,21 @@ const daysAgo = daysAgoIST;
 // Label on the left, the field on the right — matches FormRow elsewhere,
 // duplicated here so this component doesn't depend on either page's
 // local FormRow definition.
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">{label}</label>
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">
+        {label}
+        {required && <span className="text-red-600"> *</span>}
+      </label>
       {children}
     </div>
   );
@@ -104,7 +115,7 @@ export default function CustomerFields({
 
   return (
     <>
-      <Row label="Phone number">
+      <Row label="Phone number" required>
         <div className="flex-1">
           <input
             required
@@ -174,7 +185,7 @@ export default function CustomerFields({
         </div>
       )}
 
-      <Row label="Name">
+      <Row label="Name" required>
         <input
           required
           className="w-full border rounded px-3 py-2 text-gray-900"
@@ -182,7 +193,7 @@ export default function CustomerFields({
           onChange={(e) => onChange({ ...value, name: e.target.value })}
         />
       </Row>
-      <Row label="Address">
+      <Row label="Address" required>
         <input
           required
           className="w-full border rounded px-3 py-2 text-gray-900"
@@ -190,7 +201,7 @@ export default function CustomerFields({
           onChange={(e) => onChange({ ...value, address: e.target.value })}
         />
       </Row>
-      <Row label="Area">
+      <Row label="Area" required>
         <AreaSelect required value={value.area} onChange={(area) => onChange({ ...value, area })} />
       </Row>
     </>
