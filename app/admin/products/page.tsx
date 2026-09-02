@@ -16,12 +16,18 @@ interface Product {
   last_synced_at: string | null;
 }
 
+const emptyNewProduct = { sku: '', category: '', brand: '', productName: '', variant: '', listPrice: '' };
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [lastResult, setLastResult] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newProduct, setNewProduct] = useState(emptyNewProduct);
+  const [addError, setAddError] = useState('');
+  const [adding, setAdding] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -51,22 +57,114 @@ export default function ProductsPage() {
     load();
   };
 
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adding) return; // a fast double-click must never add the product twice
+    if (products.some((p) => p.code.toLowerCase() === newProduct.sku.trim().toLowerCase())) {
+      if (!window.confirm(`SKU "${newProduct.sku}" already exists — add it anyway?`)) return;
+    }
+    setAdding(true);
+    setAddError('');
+    const res = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newProduct),
+    });
+    const data = await res.json();
+    setAdding(false);
+    if (!res.ok) {
+      setAddError(data.error ?? 'Failed to add product');
+      return;
+    }
+    setNewProduct(emptyNewProduct);
+    setShowAddForm(false);
+    setLastResult(`Added ${data.added} to the sheet and synced it in.`);
+    load();
+  };
+
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         <h1 className="text-2xl font-bold">Products</h1>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-          {syncing ? 'Syncing...' : 'Sync now'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddForm((s) => !s)}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            {showAddForm ? 'Cancel' : '+ Add Product'}
+          </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {syncing ? 'Syncing...' : 'Sync now'}
+          </button>
+        </div>
       </div>
       <p className="text-sm text-gray-900 mb-6">
-        Copied nightly from the product spreadsheet, or on demand here (§9.2).
+        Copied nightly from the product spreadsheet, or on demand here (§9.2). Adding one here
+        writes it into the spreadsheet too, so the sheet stays the single source of truth.
       </p>
+
+      {showAddForm && (
+        <form onSubmit={handleAddProduct} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
+          {addError && <p className="text-red-600 text-sm">{addError}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              required
+              placeholder="SKU (e.g. AQUA-JADE-UV)"
+              className="border rounded px-3 py-2 text-gray-900 font-mono text-sm"
+              value={newProduct.sku}
+              onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
+            />
+            <input
+              required
+              placeholder="Category (e.g. Kitchen)"
+              className="border rounded px-3 py-2 text-gray-900"
+              value={newProduct.category}
+              onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+            />
+            <input
+              required
+              placeholder="Brand"
+              className="border rounded px-3 py-2 text-gray-900"
+              value={newProduct.brand}
+              onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+            />
+            <input
+              required
+              placeholder="Product name"
+              className="border rounded px-3 py-2 text-gray-900"
+              value={newProduct.productName}
+              onChange={(e) => setNewProduct({ ...newProduct, productName: e.target.value })}
+            />
+            <input
+              placeholder="Variant (optional)"
+              className="border rounded px-3 py-2 text-gray-900"
+              value={newProduct.variant}
+              onChange={(e) => setNewProduct({ ...newProduct, variant: e.target.value })}
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="List price (optional)"
+              className="border rounded px-3 py-2 text-gray-900"
+              value={newProduct.listPrice}
+              onChange={(e) => setNewProduct({ ...newProduct, listPrice: e.target.value })}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={adding}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+          >
+            {adding ? 'Adding...' : 'Add to sheet'}
+          </button>
+        </form>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-4">

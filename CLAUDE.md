@@ -310,6 +310,48 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Product Sheet Restructure #2 + "+ Add Product" Write-Back (2026-09-02)
+
+**Sync was broken in production** ("Sync failed — Internal server error")
+because the business rebuilt the product spreadsheet again: the tab is
+now named `Product List` (not `Products`, not `Untitled`), while
+`GOOGLE_SHEETS_RANGE` was still pointing at `Untitled!A:F` from the
+previous restructure. `spreadsheets.values.get` throws a plain (non-
+`ApiError`) exception for an unparseable range, which `handleApiError()`
+correctly turns into a generic 500 rather than a helpful message — the
+same failure mode documented in Stage 5, just a different wrong tab
+name. Fixed by setting `GOOGLE_SHEETS_RANGE` to `'Product List'!A:F`
+(both locally and as a Railway variable) and defaulting the code to that
+same tab name instead of `Products!A:F`.
+
+While fixing it: the new sheet also dropped `master_sku` entirely and
+added `list_price` back (columns are now `sku, category, brand,
+product_name, variant, list_price`) — the exact opposite of the Stage 5
+restructure. Rather than hard-code either shape again, `master_sku` and
+`list_price` are now both **optional** columns: only `sku`, `category`,
+`brand`, `product_name`, `variant` are required to exist; whichever of
+the other two are present in a given sheet get read and written,
+whichever aren't get left out of the upsert (not nulled) so an existing
+DB value survives a sheet that stops carrying that column. Verified live:
+47 real products synced correctly with prices, and 14 stale/test product
+codes from before this restructure were deactivated (not deleted), same
+as any normal sync.
+
+**New: "+ Add Product" on `/admin/products`.** The spreadsheet stays the
+single source of truth — adding a product in the app appends a row to
+the actual sheet first (`appendProductToSheet()`, matched to the sheet's
+real header order so column order doesn't need to be assumed), then
+immediately re-syncs so it shows up on the page right away instead of
+waiting for the nightly cron. This needed a second, write-scoped Google
+auth client (`spreadsheets`, not `spreadsheets.readonly`) — every other
+call in `products.ts` only ever reads. **Not yet usable in production**:
+appending failed live with "The caller does not have permission" — the
+service account (`sheets-reader@...`) is only shared as a Viewer on the
+sheet. Needs the sheet shared with that account as an **Editor** before
+"+ Add Product" will actually write; the route surfaces that exact
+permission error back to the admin if it happens again rather than a
+generic failure.
+
 ## Multi-Product Purchases / "Free" Line Items (2026-09-02)
 
 New Purchase used to record exactly one product per submission. Real
