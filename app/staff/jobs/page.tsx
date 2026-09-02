@@ -10,13 +10,19 @@ interface Job {
   booked_date: string;
   booked_half_day: string;
   location: 'home' | 'office';
+  parent_installation_id: string | null;
   customers: { name: string; address: string; area: string; phone_number: string };
 }
 
-const KIND_LABEL: Record<Job['kind'], string> = {
-  installation: 'Installation',
-  service_visit: 'Service visit',
-};
+// A service_visit with a parent_installation_id came from the 18-month-and-up
+// yearly schedule (§8.2) — everything else (installations, and ad-hoc "New
+// Service" calls with no parent) is visually distinct so a tech can tell a
+// routine warranty check-up from a customer's own reported problem at a glance.
+function jobBadge(job: Job): { label: string; classes: string } {
+  if (job.kind === 'installation') return { label: 'Installation', classes: 'bg-blue-100 text-blue-800' };
+  if (job.parent_installation_id) return { label: 'Yearly Service', classes: 'bg-purple-100 text-purple-800' };
+  return { label: 'Service Call', classes: 'bg-orange-100 text-orange-800' };
+}
 
 const HALF_DAY_LABEL: Record<string, string> = {
   morning: 'Morning',
@@ -136,8 +142,8 @@ export default function StaffJobsPage() {
           {visibleJobs.map((job) => (
             <div key={job.id} className="bg-white rounded-xl shadow p-4">
               <div className="flex justify-between items-start mb-2">
-                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {KIND_LABEL[job.kind]}
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${jobBadge(job).classes}`}>
+                  {jobBadge(job).label}
                 </span>
                 <span className="text-sm text-gray-900">
                   {job.booked_date} · {HALF_DAY_LABEL[job.booked_half_day] ?? job.booked_half_day}

@@ -794,6 +794,72 @@ parsing plain date strings like this needs to build the date at a fixed
 UTC hour (e.g. `new Date(dateStr + 'T12:00:00Z')`) instead of trusting
 the runtime's local timezone.
 
+## Full Regression Pass Before Staff Dashboard Work (2026-09-03)
+
+Before starting any staff-dashboard changes, ran a 27-check regression suite
+directly against the live service layer (`lib/services/*.ts`) and DB triggers
+in production — same methodology as the original Stage-verification pass,
+re-run now because several hard-rule-adjacent code paths (`parent_installation_id`,
+`confirmation_status`, the yearly-service math) were added or changed after
+that original pass. **27/27 passed**, covering:
+
+- §13.1 (order-close-while-owed), §13.5 (job-assignment-to-non-staff), §11.4
+  (leave-denial-needs-a-reason) — each tried at both the service-layer guard
+  and by writing straight to the table, confirming the DB trigger/constraint
+  catches it independently.
+- §5.4/§5.5/§13.2 enquiry closure (word-count minimum, "must have called
+  once" for pass-to-owner) and confirmation that a closed enquiry drops off
+  the `status='open'` dashboard query used by both bulk-imported and
+  individually-created enquiries.
+- §13.3/§13.4 warranty override (in-warranty charge forced to 0, out-of-
+  warranty charge preserved) and that `completeJob`'s response object has no
+  `agreed_price`/`sold_price` key at all.
+- New yearly-service due-list math (18-months-ago due, 17-months-ago not),
+  `createServiceRequest` correctly removing an installation from the due
+  list once requested, and `declineYearlyService`'s required-note rule.
+- The ad-hoc "New Service" form producing a ticket with no
+  `parent_installation_id` (so it can't corrupt the yearly-cycle counter),
+  and the new order-satisfaction follow-up's 3-word-minimum note rule.
+
+**Bug found in the test script itself, not the app** (documented since it's
+a real trap worth knowing for any future cleanup script): `tickets.
+parent_installation_id` has no `ON DELETE CASCADE`, so a cleanup routine
+that deletes a parent installation ticket before its `service_visit`
+children silently fails that one delete (Supabase's JS client doesn't throw
+on a single failed row in a loop unless the error is checked) — leaving an
+orphaned parent ticket, and in turn a customer row that then also can't be
+deleted because the orphaned ticket still references it. Caught both times
+by cross-checking table row counts against expectations before and after,
+not by any thrown error. Doesn't affect the app itself — nothing in the UI
+ever deletes an installation ticket — but worth remembering for any future
+one-off script that touches `tickets` and `parent_installation_id` together.
+
+**RLS re-confirmed statically** (no code change needed, but checked before
+building the staff dashboard on top of it): `orders_read` restricts the
+whole `orders` table to owner/admin, and `tickets_read` restricts
+`service_staff` to rows where `assigned_to_id = auth.uid()` — so none of
+this session's new columns (`confirmation_status`, `parent_installation_id`,
+etc.) introduce any new price/status leak to technicians.
+
+## Staff Job List: Distinguish Yearly Service from Ad-Hoc Service Calls (2026-09-03)
+
+`/staff/jobs` already labelled a job "Installation" or "Service visit" but
+couldn't tell a tech whether a service visit was a routine 18-month-and-up
+warranty check-up or a customer's own reported problem — both looked
+identical. Since `service_visit` tickets created off the yearly schedule
+(`createServiceRequest` in `warranty.ts`) always carry `parent_installation_id`
+and ad-hoc ones (`createAdHocServiceRequest`) never do, that field alone is
+enough to tell them apart with no new column needed. `jobBadge()` in
+`app/staff/jobs/page.tsx` now renders three distinct badges — Installation
+(blue), Yearly Service (purple), Service Call (orange) — and
+`/api/staff/jobs` was extended to select `parent_installation_id` (no
+price/business-sensitive data in it, so no RLS concern). Verified live: a
+real installation, a real yearly-service ticket (spawned from a backdated
+closed installation via `createServiceRequest`), and a real ad-hoc request
+all booked to the same technician and queried through the exact same
+query the API route uses — came back Installation / Yearly Service /
+Service Call in that order, then cleaned up.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
