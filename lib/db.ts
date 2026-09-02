@@ -123,6 +123,9 @@ export type Database = {
           discount: number; // generated column, read-only
           balance_owed: number; // generated column, read-only
           payment_history: { amount: number; date: string }[];
+          confirmation_status: 'pending' | 'completed';
+          confirmation_note: string | null;
+          confirmed_at: string | null;
           last_payment_call_at: string | null;
           owner_notified_at: string | null;
           created_at: string;

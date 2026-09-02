@@ -310,6 +310,34 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Follow-Up Satisfaction Call Tracking (2026-09-02)
+
+New, separate from Installation status: a follow-up satisfaction call
+made sometime *after* installation is already confirmed — not "was the
+job done right" (that's what stamps `installation_date`), but "checking
+in a few weeks later." New `orders.confirmation_status`
+(pending/completed, default `pending` — including all 96 reimported
+orders, deliberately not backfilled as already-confirmed since no such
+call was ever specifically logged for them), plus `confirmation_note`
+and `confirmed_at`.
+
+- Admin dashboard's "Confirm finished work" card now shows two kinds of
+  entries: jobs still awaiting the original install-confirmation
+  (unchanged), plus orders installed in the last 30 days still pending
+  this new follow-up call — both link into `/admin/orders`.
+- `/admin/orders`: new "Follow-up" column (Pending/Completed) and a "Log
+  follow-up call" button (shown once an order is actually installed and
+  still pending) that requires a 3+ word note before it'll save —
+  mirrors §5.4/§5.5's word-count rule for enquiry closure, so this can't
+  be clicked through as a bare formality.
+- CSV export gained Follow-up Call Status/Note columns.
+
+Verified live: rejected a 1-word note, accepted a real one and confirmed
+`confirmation_status`/`confirmation_note`/`confirmed_at` all set
+correctly (then reverted the test change on real data); the 30-day
+window query correctly narrows the 96 reimported orders down to the 6
+actually installed within the last 30 days.
+
 ## Orders: Split Payment/Installation Status (2026-09-02)
 
 `/admin/orders` had a single "Status" column (the raw `orders.status`

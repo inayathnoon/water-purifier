@@ -14,6 +14,7 @@ interface AdminDashboardData {
   paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number }[];
   overdueCallCount: number;
   overdueConfirmationCount: number;
+  satisfactionCallsDue: { orderId: string; installationDate: string; customers: { name: string; phone_number: string } }[];
 }
 
 interface OwnerDashboardData {
@@ -158,21 +159,35 @@ function AdminDashboard() {
           badge={data.overdueConfirmationCount > 0 ? `${data.overdueConfirmationCount} over 7 days` : undefined}
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing waiting on a confirmation call."
-          viewAllHref="/admin/installations"
+          viewAllHref="/admin/orders"
         >
-          {data.awaitingConfirmation.slice(0, 5).map((t) => {
-            const age = daysAgo(t.actual_date);
-            return (
+          {[
+            ...data.awaitingConfirmation.slice(0, 5).map((t) => {
+              const age = daysAgo(t.actual_date);
+              return (
+                <Row
+                  key={`job-${t.id}`}
+                  href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
+                  primary={t.customers.name}
+                  secondary={t.customers.phone_number}
+                  tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 7 ? ' — overdue' : ''}`}
+                  tagColor={age >= 7 ? 'text-red-600' : undefined}
+                />
+              );
+            }),
+            // Separate from the above — installed within the last 30 days,
+            // still needing the follow-up satisfaction call (not the
+            // original "was it done right" confirmation).
+            ...data.satisfactionCallsDue.slice(0, 5).map((s) => (
               <Row
-                key={t.id}
-                href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
-                primary={t.customers.name}
-                secondary={t.customers.phone_number}
-                tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 7 ? ' — overdue' : ''}`}
-                tagColor={age >= 7 ? 'text-red-600' : undefined}
+                key={`satisfaction-${s.orderId}`}
+                href="/admin/orders"
+                primary={s.customers.name}
+                secondary={s.customers.phone_number}
+                tag={`Follow-up call · installed ${daysAgo(s.installationDate)}d ago`}
               />
-            );
-          })}
+            )),
+          ]}
         </DashboardCard>
 
         <DashboardCard title="Yearly service calls due" emptyText="None due." viewAllHref="/admin/service-calls">

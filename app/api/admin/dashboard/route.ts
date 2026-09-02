@@ -2,6 +2,15 @@ import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
 import { daysAgoIST, todayIST } from '@/lib/dates';
 
+// installation_date is a plain DATE (no time/timezone component) — doing
+// calendar-day subtraction directly on the date string avoids the
+// timestamptz-threshold helpers built for created_at-style columns.
+function dateMinusDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
  * enquiries, customers to confirm finished work with, yearly service
@@ -13,7 +22,7 @@ export async function GET() {
     await requireUser(['admin', 'owner']);
     const today = todayIST();
 
-    const [newEnquiries, awaitingConfirmation, serviceCallsDue, paymentsOutstanding] = await Promise.all([
+    const [newEnquiries, awaitingConfirmation, serviceCallsDue, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
@@ -44,6 +53,16 @@ export async function GET() {
         .select('id, sold_price, discount, balance_owed, last_payment_call_at, tickets(customers(name, phone_number))')
         .eq('status', 'open')
         .order('balance_owed', { ascending: false }),
+
+      // Follow-up satisfaction call, separate from the install-confirm
+      // step — due for anything installed in the last 30 days that
+      // hasn't had this specific call logged yet.
+      supabaseAdmin
+        .from('orders')
+        .select('id, tickets!inner(installation_date, customers(name, phone_number))')
+        .eq('confirmation_status', 'pending')
+        .not('tickets.installation_date', 'is', null)
+        .gte('tickets.installation_date', dateMinusDays(today, 30)),
     ]);
 
     const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => daysAgoIST(e.created_at) >= 14).length;
@@ -77,6 +96,14 @@ export async function GET() {
       (t) => t.actual_date && daysAgoIST(t.actual_date) >= 7
     ).length;
 
+    const satisfactionCallsDueList = (satisfactionCallsDue.data ?? [])
+      .map((o: any) => ({
+        orderId: o.id,
+        installationDate: o.tickets.installation_date as string,
+        customers: o.tickets.customers,
+      }))
+      .sort((a, b) => a.installationDate.localeCompare(b.installationDate));
+
     return Response.json({
       newEnquiries: newEnquiries.data ?? [],
       oldEnquiryCount,
@@ -85,6 +112,7 @@ export async function GET() {
       serviceCallsDue: serviceCallsDue.data ?? [],
       paymentsOutstanding: paymentsOutstandingByPerson,
       overdueCallCount,
+      satisfactionCallsDue: satisfactionCallsDueList,
       today,
     });
   } catch (err) {
