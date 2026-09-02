@@ -310,6 +310,50 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Ad-Hoc "New Service" Form + Historical Service Import (2026-09-02/03)
+
+**"+ New Service" now opens a real form**, not just a link to the
+due-list page — for a customer calling in with a problem any time, not
+tied to the 18-month schedule (that flow is still the "Mark service
+requested" button on the due-this-month list, unchanged). Same shape as
+New Enquiry: `CustomerFields` + a product dropdown + a required issue
+note, creating an **open** `service_visit` ticket with no
+`parent_installation_id` — deliberately not linked to an installation,
+since linking an ad-hoc repair call would corrupt the yearly-due cycle
+counting (`getYearlyServiceDueThisMonth()` counts every `service_visit`
+against `parent_installation_id` to know which cycles are already
+handled).
+
+**New Service sheet sync** (`lib/services/serviceSheet.ts`, mirroring
+`salesSheet.ts`): every service_visit ticket is pushed to the
+spreadsheet's `Service` tab on creation, decline, and confirm-close —
+matched on `phone_number + date`, upserted in place as it moves through
+its lifecycle. New `service_sheet_failed` event type (migration 015)
+for fail-safe logging, same shape as every other sheet sync.
+
+**Imported 42 historical service rows** from the real `Service` tab
+(discovered while building this — the business had been tracking ad-hoc
+repair calls there all along). Same care as the Sales/Enquiry imports:
+cross-checked all 40 unique phone numbers against existing customers (2
+already on file — Bright School, Anwer Sadik — linked to those; 37 new),
+applied the same precedents already set for this kind of data (Farhan's
+stray `91` country-code prefix stripped; a blank-phone row and a
+blank-name row skipped, matching the Enquiry import's exact precedent
+for those same two categories of bad row). Rows with no recorded stage
+imported as still-open (unresolved).
+
+**Real bug hit and fixed during the sheet sync**: `Farhan`'s corrected
+phone number changed his match key, so the sync couldn't find his
+original sheet row and inserted a new one instead of updating in place
+— leaving both the stale (wrong-phone) and corrected rows sitting side
+by side. Not a code bug so much as an inherent limit of phone-based
+matching when the phone itself is the thing being corrected; caught it
+by diffing the sheet's row count against expectations, deleted the
+stale row directly. Final state verified directly: 45 sheet rows (1
+header + 44 data, matching the original sheet's count exactly — 41
+matched-and-updated in place, 1 corrected Farhan, 2 untouched skip-rows)
+and exactly 42 service_visit tickets in the database.
+
 ## Yearly Service: From Nightly Cron to Admin-Driven "New Service" (2026-09-02)
 
 Replaced the whole mechanism, not just the schedule. Previously a

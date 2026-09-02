@@ -1,7 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
+import CustomerFields from '@/components/CustomerFields';
+
+// Label on the left, the field on the right — matches FormRow elsewhere.
+function FormRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">
+        {label}
+        {required && <span className="text-red-600"> *</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 interface ServiceCall {
   id: string;
@@ -37,7 +52,29 @@ interface DueService {
   productLabel: string | null;
 }
 
+const emptyNewService = {
+  phoneNumber: '',
+  name: '',
+  address: '',
+  area: '',
+  customerId: null as string | null,
+  forceNewAddress: false,
+  productInterest: '',
+  issueNote: '',
+};
+
 export default function ServiceCallsPage() {
+  return (
+    <Suspense fallback={<p className="p-8">Loading...</p>}>
+      <ServiceCallsPageInner />
+    </Suspense>
+  );
+}
+
+function ServiceCallsPageInner() {
+  // Dashboard's "+ New Service" links here with ?new=1 to open the
+  // ad-hoc request form directly.
+  const searchParams = useSearchParams();
   const [calls, setCalls] = useState<ServiceCall[]>([]);
   const [due, setDue] = useState<DueService[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -48,6 +85,10 @@ export default function ServiceCallsPage() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookForm, setBookForm] = useState({ assignedToId: '', bookedDate: '', bookedHalfDay: 'morning', location: 'home' });
   const [requestingId, setRequestingId] = useState<string | null>(null);
+  const [showNewForm, setShowNewForm] = useState(searchParams.get('new') === '1');
+  const [newService, setNewService] = useState(emptyNewService);
+  const [newServiceError, setNewServiceError] = useState('');
+  const [submittingNew, setSubmittingNew] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -80,6 +121,26 @@ export default function ServiceCallsPage() {
     });
     setRequestingId(null);
     if (!res.ok) return setError((await res.json()).error);
+    load();
+  };
+
+  const handleNewServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submittingNew) return; // a fast double-click must never create it twice
+    setSubmittingNew(true);
+    setNewServiceError('');
+    const res = await fetch('/api/admin/service-calls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newService),
+    });
+    setSubmittingNew(false);
+    if (!res.ok) {
+      setNewServiceError((await res.json()).error ?? 'Failed to create service request');
+      return;
+    }
+    setNewService(emptyNewService);
+    setShowNewForm(false);
     load();
   };
 
@@ -129,11 +190,66 @@ export default function ServiceCallsPage() {
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <HomeLink />
-      <h1 className="text-2xl font-bold mb-1 mt-2">Yearly Service Calls</h1>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
+        <h1 className="text-2xl font-bold">Service Calls</h1>
+        <button
+          onClick={() => setShowNewForm((s) => !s)}
+          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+        >
+          {showNewForm ? 'Cancel' : '+ New Service'}
+        </button>
+      </div>
       <p className="text-sm text-gray-900 mb-6">
-        Due every 18 months, then every 12 after that (§8.2) — newest installation first.
+        Yearly service is due every 18 months, then every 12 after that (§8.2) — newest
+        installation first. "+ New Service" is for a customer calling in with a problem any
+        time, not tied to that schedule.
       </p>
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+      {error && !showNewForm && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+
+      {showNewForm && (
+        <form onSubmit={handleNewServiceSubmit} className="bg-white p-4 rounded-lg shadow mb-8 space-y-3">
+          {newServiceError && <p className="text-red-600 text-sm">{newServiceError}</p>}
+          <CustomerFields
+            value={{
+              phoneNumber: newService.phoneNumber,
+              name: newService.name,
+              address: newService.address,
+              area: newService.area,
+              customerId: newService.customerId,
+              forceNewAddress: newService.forceNewAddress,
+            }}
+            onChange={(v) => setNewService({ ...newService, ...v })}
+          />
+          <FormRow label="Product">
+            <select
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={newService.productInterest}
+              onChange={(e) => setNewService({ ...newService, productInterest: e.target.value })}
+            >
+              <option value="">(not sure yet)</option>
+              <option value="Kitchen">Kitchen</option>
+              <option value="Vessel">Vessel</option>
+              <option value="Commercial">Commercial</option>
+            </select>
+          </FormRow>
+          <FormRow label="Problem" required>
+            <input
+              required
+              placeholder="e.g. 'Water not working'"
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={newService.issueNote}
+              onChange={(e) => setNewService({ ...newService, issueNote: e.target.value })}
+            />
+          </FormRow>
+          <button
+            type="submit"
+            disabled={submittingNew}
+            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+          >
+            {submittingNew ? 'Creating...' : 'Create service request'}
+          </button>
+        </form>
+      )}
 
       <h2 className="text-lg font-semibold mb-2">Due this month</h2>
       {loading ? (

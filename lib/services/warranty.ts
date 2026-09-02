@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { todayIST } from '../dates';
+import { syncServiceToSheetSafely } from './serviceSheet';
 
 /**
  * §8.2 (revised 2026-09-02, then again 2026-09-02): follow-up service
@@ -126,6 +127,7 @@ export async function createServiceRequest(installationTicketId: string) {
     .select('*')
     .single();
   if (error) throw new ApiError(500, error.message);
+  await syncServiceToSheetSafely(data.id);
   return data;
 }
 
@@ -153,5 +155,6 @@ export async function declineYearlyService(ticketId: string, note: string) {
     .single();
 
   if (error) throw new ApiError(500, error.message);
+  await syncServiceToSheetSafely(ticketId);
   return data;
 }

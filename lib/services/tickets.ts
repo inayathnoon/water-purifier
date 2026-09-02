@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted } from './notifications';
 import { syncOrderToSalesSheetSafely } from './salesSheet';
+import { syncServiceToSheetSafely } from './serviceSheet';
 
 const MIN_EXPLANATION_WORDS = 5;
 
@@ -40,6 +41,43 @@ export async function createEnquiry(input: {
     .single();
 
   if (error) throw new ApiError(500, error.message);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Ad-hoc service requests — a customer calling in with a problem any time,
+// not tied to the 18-month yearly-service schedule (that flow is
+// createServiceRequest() in warranty.ts, triggered from the computed
+// due-this-month list). No parent_installation_id here deliberately —
+// linking an ad-hoc repair call to an installation would corrupt the
+// yearly-due cycle counting there (it counts every service_visit against
+// parent_installation_id to know which cycles are already handled).
+// ---------------------------------------------------------------------------
+
+export async function createAdHocServiceRequest(input: {
+  customerId: string;
+  productInterest: string;
+  issueNote: string;
+}) {
+  if (!input.issueNote.trim()) throw new ApiError(400, 'A note on the reported problem is required');
+
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .insert({
+      customer_id: input.customerId,
+      kind: 'service_visit',
+      status: 'open',
+      enquiry_product_interest: [input.productInterest, input.issueNote].filter(Boolean).join(' — '),
+    })
+    .select('*')
+    .single();
+
+  if (error) throw new ApiError(500, error.message);
+
+  // Registered the moment it's requested, same reasoning as sales —
+  // "closed" is just a status flip later, not a separate event to wait for.
+  await syncServiceToSheetSafely(data.id);
+
   return data;
 }
 
@@ -465,6 +503,10 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
     if (orderError) throw new ApiError(500, orderError.message);
     await syncOrderToSalesSheetSafely(order.id);
     return { ticket: closed, order };
+  }
+
+  if (ticket.kind === 'service_visit') {
+    await syncServiceToSheetSafely(ticketId);
   }
 
   return { ticket: closed, order: null };

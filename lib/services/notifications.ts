@@ -7,7 +7,8 @@ type EventType =
   | 'leave_requested'
   | 'payment_reminder'
   | 'product_sync_failed'
-  | 'sales_sheet_failed';
+  | 'sales_sheet_failed'
+  | 'service_sheet_failed';
 
 /**
  * Records something that needs a human's attention even though nobody was

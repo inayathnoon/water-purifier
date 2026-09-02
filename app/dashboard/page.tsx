@@ -140,7 +140,7 @@ function AdminDashboard() {
             + New Purchase
           </Link>
           <Link
-            href="/admin/service-calls"
+            href="/admin/service-calls?new=1"
             className="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700"
           >
             + New Service
