@@ -310,6 +310,35 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Orders: Split Payment/Installation Status (2026-09-02)
+
+`/admin/orders` had a single "Status" column (the raw `orders.status`
+enum — open/closed) but the business tracks two independent things:
+whether the *money* is settled and whether the *job* is actually done —
+a fully-paid order can still be sitting on an uninstalled unit, and vice
+versa. Replaced it with two derived columns:
+
+- **Payment**: Pending/Completed, straight off `balance_owed > 0`.
+- **Installation**: Completed once `tickets.installation_date` is set;
+  Pending (plain text) if the tech hasn't even finished the job yet; a
+  **"Confirm date"** button once `tickets.status === 'completed'` (tech's
+  marked it done, awaiting the admin's confirmation call) — clicking it
+  calls the existing `/api/admin/tickets/[id]/close` endpoint
+  (`closeTicketAfterConfirmation`), which stamps `installation_date` from
+  the tech's own `actual_date` (§8.1) and starts the warranty clock. This
+  reuses the confirmation flow that already existed elsewhere (dashboard
+  card, `/admin/installations`) rather than adding a second, free-typed
+  date field that could bypass the "warranty starts from the tech's
+  actual visit" rule.
+
+Verified live with a real booking→completion→confirmation sequence:
+after the tech completes, `installation_date` is correctly still null
+(Orders would show the Confirm button); after confirming,
+`installation_date`/`warranty_expires_at` are stamped and status is
+`closed` — matching exactly what the two derived columns are built to
+read. CSV export gained the same two columns, replacing the old single
+`Status` column.
+
 ## Auto-Generated SKU, "New Purchase" Naming, Address Casing (2026-09-02)
 
 - **SKU is now generated, never typed.** `generateSku(brand, name, variant)`

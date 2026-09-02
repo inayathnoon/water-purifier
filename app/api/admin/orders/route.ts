@@ -10,7 +10,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('orders')
       .select(
-        '*, tickets(customer_id, planned_installation_date, actual_date, installation_date, warranty_expires_at, enquiry_product_interest, actual_notes, customers(name, phone_number, address, area), products(brand, name, variant, code, master_sku))'
+        '*, tickets(status, customer_id, planned_installation_date, actual_date, installation_date, warranty_expires_at, enquiry_product_interest, actual_notes, customers(name, phone_number, address, area), products(brand, name, variant, code, master_sku))'
       )
       .order('created_at', { ascending: false });
 

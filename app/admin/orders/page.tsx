@@ -7,6 +7,7 @@ import { toStartCase } from '@/lib/format';
 
 interface Order {
   id: string;
+  ticket_id: string;
   status: string;
   list_price: number;
   sold_price: number;
@@ -16,6 +17,7 @@ interface Order {
   last_payment_call_at: string | null;
   created_at: string;
   tickets: {
+    status: string;
     planned_installation_date: string | null;
     actual_date: string | null;
     installation_date: string | null;
@@ -68,6 +70,7 @@ export default function OrdersPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const [callNote, setCallNote] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -138,11 +141,28 @@ export default function OrdersPage() {
     load();
   };
 
+  // The tech has already marked the job done (ticket.status === 'completed');
+  // this is the admin's confirmation call — closing it stamps
+  // installation_date (from the tech's own actual_date, §8.1) and starts
+  // the warranty clock. Installation status on this page is read straight
+  // off whether installation_date is set, so this is what flips it.
+  const handleConfirmInstallation = async (ticketId: string) => {
+    setError('');
+    setConfirmingId(ticketId);
+    const res = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+    setConfirmingId(null);
+    if (!res.ok) {
+      setError((await res.json()).error);
+      return;
+    }
+    load();
+  };
+
   const handleDownload = () => {
     const headers = [
       'Bill Date', 'Planned Installation Date', 'Installation Completed Date', 'Customer', 'Phone', 'Address', 'Area',
       'Brand', 'Name', 'Variant', 'SKU', 'Master SKU',
-      'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
+      'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Payment Status', 'Installation Status', 'Warranty Expires',
     ];
     const rows = filtered.map((o) => {
       const p = productFields(o);
@@ -164,7 +184,8 @@ export default function OrdersPage() {
         o.discount,
         o.paid_amount,
         o.balance_owed,
-        o.status,
+        o.balance_owed > 0 ? 'Pending' : 'Completed',
+        o.tickets.installation_date ? 'Completed' : 'Pending',
         o.tickets.warranty_expires_at ?? '',
       ];
     });
@@ -223,7 +244,8 @@ export default function OrdersPage() {
                 <th className="p-3 text-right">Sold</th>
                 <th className="p-3 text-right">Paid</th>
                 <th className="p-3 text-right">Balance</th>
-                <th className="p-3">Status</th>
+                <th className="p-3">Payment</th>
+                <th className="p-3">Installation</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
@@ -254,12 +276,31 @@ export default function OrdersPage() {
                           ₹{o.balance_owed}
                         </span>
                       </td>
-                      <td className="p-3 capitalize">{o.status}</td>
+                      <td className="p-3 whitespace-nowrap">
+                        <span className={o.balance_owed > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                          {o.balance_owed > 0 ? 'Pending' : 'Completed'}
+                        </span>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        {o.tickets.installation_date ? (
+                          <span className="text-green-600">Completed</span>
+                        ) : o.tickets.status === 'completed' ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleConfirmInstallation(o.ticket_id); }}
+                            disabled={confirmingId === o.ticket_id}
+                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {confirmingId === o.ticket_id ? 'Confirming...' : 'Confirm date'}
+                          </button>
+                        ) : (
+                          <span className="text-gray-600">Pending</span>
+                        )}
+                      </td>
                       <td className="p-3 text-blue-600 whitespace-nowrap">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-gray-50">
-                        <td colSpan={11} className="p-4">
+                        <td colSpan={12} className="p-4">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
                             <div>
                               <p className="text-gray-600 text-xs">Address</p>
