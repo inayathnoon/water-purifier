@@ -9,6 +9,8 @@ import { daysAgoIST } from '@/lib/dates';
 interface AdminDashboardData {
   newEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   oldEnquiryCount: number;
+  jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
+  overdueDispatchCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: {
     installationTicketId: string;
@@ -170,6 +172,28 @@ function AdminDashboard() {
         </DashboardCard>
 
         <DashboardCard
+          title="Jobs to dispatch"
+          badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} over 3 days` : undefined}
+          badgeColor="bg-red-100 text-red-800"
+          emptyText="Nothing waiting on a technician."
+          viewAllHref="/admin/installations"
+        >
+          {data.jobsToDispatch.slice(0, 5).map((t) => {
+            const age = daysAgo(t.created_at);
+            return (
+              <Row
+                key={t.id}
+                href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
+                primary={t.customers.name}
+                secondary={t.enquiry_product_interest || t.customers.phone_number}
+                tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 3 ? ' — overdue' : ''}`}
+                tagColor={age >= 3 ? 'text-red-600' : undefined}
+              />
+            );
+          })}
+        </DashboardCard>
+
+        <DashboardCard
           title="Confirm finished work"
           badge={data.overdueConfirmationCount > 0 ? `${data.overdueConfirmationCount} over 7 days` : undefined}
           badgeColor="bg-red-100 text-red-800"
@@ -206,24 +230,6 @@ function AdminDashboard() {
         </DashboardCard>
 
         <DashboardCard
-          title="Yearly service calls due"
-          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
-          badgeColor="bg-blue-100 text-blue-800"
-          emptyText="None due this month."
-          viewAllHref="/admin/service-calls"
-        >
-          {data.serviceCallsDue.slice(0, 5).map((s) => (
-            <Row
-              key={s.installationTicketId}
-              href="/admin/service-calls"
-              primary={s.customerName}
-              secondary={`${s.phoneNumber} · ${s.area}`}
-              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
-            />
-          ))}
-        </DashboardCard>
-
-        <DashboardCard
           title="Payments outstanding"
           badge={data.overdueCallCount > 0 ? `${data.overdueCallCount} overdue for a call` : undefined}
           badgeColor="bg-orange-100 text-orange-800"
@@ -238,6 +244,24 @@ function AdminDashboard() {
               secondary={o.orderCount > 1 ? `${o.orderCount} orders` : o.phoneNumber}
               tag={`₹${o.totalBalance} owed`}
               tagColor="text-red-600"
+            />
+          ))}
+        </DashboardCard>
+
+        <DashboardCard
+          title="Yearly service calls due"
+          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
+          badgeColor="bg-blue-100 text-blue-800"
+          emptyText="None due this month."
+          viewAllHref="/admin/service-calls"
+        >
+          {data.serviceCallsDue.slice(0, 5).map((s) => (
+            <Row
+              key={s.installationTicketId}
+              href="/admin/service-calls"
+              primary={s.customerName}
+              secondary={`${s.phoneNumber} · ${s.area}`}
+              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
             />
           ))}
         </DashboardCard>

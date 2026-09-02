@@ -881,6 +881,22 @@ nothing new to enforce). Verified live both ways: with a staff pick, the
 resulting ticket came back `booked`/assigned/dated correctly; without one,
 `open`/unassigned, unchanged from before — both cleaned up after.
 
+## Admin Dashboard: "Jobs to Dispatch" Card + Reorder (2026-09-03)
+
+New card — installations and service visits that exist but haven't been
+assigned to a technician yet (`status='open'` on `kind in (installation,
+service_visit)`; a service_visit stays out of this list if it was booked
+immediately via the new Staff Attended field). Badged the same way as the
+other overdue-flavored cards once a job's been waiting 3+ days
+unassigned. Verified live: the query correctly surfaced one real
+service_visit that's been open since Aug 10 (24+ days), flagged overdue.
+
+Card order on the admin dashboard, top to bottom: New Enquiries, **Jobs
+to Dispatch** (new), Confirm Finished Work, Payments Outstanding, Yearly
+Service Calls Due — Confirm Finished Work, Payments Outstanding, and
+Yearly Service Calls Due all shifted down one slot from where they sat
+before to make room.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

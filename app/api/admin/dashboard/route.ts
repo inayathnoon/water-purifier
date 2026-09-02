@@ -14,21 +14,34 @@ function dateMinusDays(dateStr: string, days: number): string {
 
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
- * enquiries, customers to confirm finished work with, yearly service
- * calls due, payments outstanding. One query per category, all fired
- * together; no page-to-page navigating required to see all four.
+ * enquiries, jobs waiting to be dispatched to a technician, customers to
+ * confirm finished work with, payments outstanding, yearly service calls
+ * due. One query per category, all fired together; no page-to-page
+ * navigating required to see all five.
  */
 export async function GET() {
   try {
     await requireUser(['admin', 'owner']);
     const today = todayIST();
 
-    const [newEnquiries, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([
+    const [newEnquiries, jobsToDispatch, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
         .select('id, created_at, enquiry_product_interest, customers(name, phone_number)')
         .eq('kind', 'enquiry')
+        .eq('status', 'open')
+        .order('created_at', { ascending: true }),
+
+      // Installations and service visits that exist but haven't been
+      // assigned to a technician yet — an installation the moment a New
+      // Purchase is made, or a service_visit still 'open' (yearly-due or
+      // ad-hoc, whichever wasn't booked immediately via Staff Attended).
+      // Oldest-first — the ones waiting longest need dispatching first.
+      supabaseAdmin
+        .from('tickets')
+        .select('id, kind, created_at, enquiry_product_interest, customers(name, phone_number)')
+        .in('kind', ['installation', 'service_visit'])
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
 
@@ -63,6 +76,10 @@ export async function GET() {
     const serviceCallsDue = await getYearlyServiceDueThisMonth();
 
     const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => daysAgoIST(e.created_at) >= 14).length;
+
+    // A job still waiting to be assigned after 3 days is worth flagging the
+    // same way an overdue payment call or enquiry is elsewhere on this page.
+    const overdueDispatchCount = (jobsToDispatch.data ?? []).filter((t) => daysAgoIST(t.created_at) >= 3).length;
 
     const overdueCallCount = (paymentsOutstanding.data ?? []).filter((o) => {
       const days = o.last_payment_call_at ? daysAgoIST(o.last_payment_call_at) : Infinity;
@@ -104,6 +121,8 @@ export async function GET() {
     return Response.json({
       newEnquiries: newEnquiries.data ?? [],
       oldEnquiryCount,
+      jobsToDispatch: jobsToDispatch.data ?? [],
+      overdueDispatchCount,
       awaitingConfirmation: awaitingConfirmation.data ?? [],
       overdueConfirmationCount,
       serviceCallsDue,
