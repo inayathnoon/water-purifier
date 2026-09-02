@@ -82,6 +82,7 @@ function InstallationsPageInner() {
     customerId: null as string | null,
     forceNewAddress: false,
     productDetails: '',
+    productCode: '',
     extraDetails: '',
     price: '',
     paidAmount: '',
@@ -170,6 +171,7 @@ function InstallationsPageInner() {
       customerId: null,
       forceNewAddress: false,
       productDetails: '',
+      productCode: '',
       extraDetails: '',
       price: '',
       paidAmount: '',
@@ -243,7 +245,9 @@ function InstallationsPageInner() {
               <ProductPicker
                 key={purchaseFormKey}
                 required
-                onChange={(picked) => setPurchaseForm({ ...purchaseForm, productDetails: picked?.display ?? '' })}
+                onChange={(picked) =>
+                  setPurchaseForm({ ...purchaseForm, productDetails: picked?.display ?? '', productCode: picked?.code ?? '' })
+                }
               />
               <input
                 placeholder="Extra details (optional — e.g. 'and Prefilter')"

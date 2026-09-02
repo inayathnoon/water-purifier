@@ -161,6 +161,7 @@ export async function closeEnquiry(
 export async function createDirectPurchase(input: {
   customerId: string;
   productDetails: string;
+  productCode?: string;
   price: number;
   paidAmount: number;
   plannedInstallationDate?: string;
@@ -177,6 +178,9 @@ export async function createDirectPurchase(input: {
       status: 'open',
       agreed_price: input.price,
       enquiry_product_interest: input.productDetails || null,
+      // Only set when ProductPicker resolved to an actual product row —
+      // "Other" purchases and hand-typed extra details never have a code.
+      product_code: input.productCode || null,
       planned_installation_date: input.plannedInstallationDate || null,
     })
     .select('*')

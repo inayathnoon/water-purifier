@@ -294,6 +294,22 @@ reminder now lands at 1.5+ years, none of them can ever land inside the
 override never has to fight with a freshly-created reminder the way it
 theoretically could have at the exact 1-year boundary before.
 
+## Structured Product Columns on Orders (2026-09-02)
+
+`/admin/orders` (table + Excel/CSV download) previously showed a single
+free-text "Product" column (`tickets.enquiry_product_interest`, e.g.
+`"UV — Aqua V5, UV+Alkaline"`) with no link back to the actual `products`
+row. Replaced with five real columns — Brand, Name, Variant, SKU, Master
+SKU — sourced from `products` via a new `tickets.product_code` column
+(migration `009_ticket_product_code.sql`, `REFERENCES products(code)`,
+nullable). Set only when a purchase is made through `ProductPicker`
+(`createDirectPurchase()` now accepts `productCode`); every historical
+import and any hand-typed "Other" purchase never had a matching product
+row, so those rows fall back to showing the old free-text string in the
+Name column with Brand/Variant/SKU/Master SKU blank rather than losing
+the information entirely. Going forward, every purchase made through the
+normal New Purchase form gets fully structured product data for free.
+
 ## Historical Data Import (2026-09-01)
 
 Bulk-imported the business's real records from before this app existed:

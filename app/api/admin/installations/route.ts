@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     const result = await createDirectPurchase({
       customerId: customer.id,
       productDetails: body.productDetails ?? '',
+      productCode: body.productCode || undefined,
       price: Number(body.price),
       paidAmount: Number(body.paidAmount ?? 0),
       plannedInstallationDate: body.plannedInstallationDate || undefined,

@@ -22,6 +22,22 @@ interface Order {
     enquiry_product_interest: string | null;
     actual_notes: string | null;
     customers: { name: string; phone_number: string; address: string; area: string };
+    products: { brand: string; name: string; variant: string | null; code: string; master_sku: string | null } | null;
+  };
+}
+
+// Structured product columns come from the linked products row when the
+// sale was made through ProductPicker; historical imports and free-text
+// "Other" purchases never got a product_code, so only Name falls back to
+// the old free-text field rather than showing every column blank.
+function productFields(o: Order) {
+  const p = o.tickets.products;
+  return {
+    brand: p?.brand ?? '',
+    name: p?.name ?? o.tickets.enquiry_product_interest ?? '',
+    variant: p?.variant ?? '',
+    sku: p?.code ?? '',
+    masterSku: p?.master_sku ?? '',
   };
 }
 
@@ -121,25 +137,33 @@ export default function OrdersPage() {
   const handleDownload = () => {
     const headers = [
       'Bill Date', 'Planned Installation Date', 'Installation Completed Date', 'Customer', 'Phone', 'Address', 'Area',
-      'Product', 'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
+      'Brand', 'Name', 'Variant', 'SKU', 'Master SKU',
+      'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Status', 'Warranty Expires',
     ];
-    const rows = filtered.map((o) => [
-      billDate(o),
-      o.tickets.planned_installation_date ?? '',
-      o.tickets.actual_date ?? '',
-      o.tickets.customers.name,
-      o.tickets.customers.phone_number,
-      o.tickets.customers.address,
-      o.tickets.customers.area,
-      o.tickets.enquiry_product_interest ?? '',
-      o.list_price,
-      o.sold_price,
-      o.discount,
-      o.paid_amount,
-      o.balance_owed,
-      o.status,
-      o.tickets.warranty_expires_at ?? '',
-    ]);
+    const rows = filtered.map((o) => {
+      const p = productFields(o);
+      return [
+        billDate(o),
+        o.tickets.planned_installation_date ?? '',
+        o.tickets.actual_date ?? '',
+        o.tickets.customers.name,
+        o.tickets.customers.phone_number,
+        o.tickets.customers.address,
+        o.tickets.customers.area,
+        p.brand,
+        p.name,
+        p.variant,
+        p.sku,
+        p.masterSku,
+        o.list_price,
+        o.sold_price,
+        o.discount,
+        o.paid_amount,
+        o.balance_owed,
+        o.status,
+        o.tickets.warranty_expires_at ?? '',
+      ];
+    });
     const csv = [headers, ...rows].map((r) => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM so Excel reads UTF-8 correctly
     const url = URL.createObjectURL(blob);
@@ -189,7 +213,11 @@ export default function OrdersPage() {
                 <th className="p-3">Bill Date</th>
                 <th className="p-3">Completed</th>
                 <th className="p-3">Customer</th>
-                <th className="p-3">Product</th>
+                <th className="p-3">Brand</th>
+                <th className="p-3">Name</th>
+                <th className="p-3">Variant</th>
+                <th className="p-3">SKU</th>
+                <th className="p-3">Master SKU</th>
                 <th className="p-3 text-right">List</th>
                 <th className="p-3 text-right">Sold</th>
                 <th className="p-3 text-right">Paid</th>
@@ -202,6 +230,7 @@ export default function OrdersPage() {
               {filtered.map((o) => {
                 const overdueCall = o.status === 'open' && daysSince(o.last_payment_call_at) >= 3;
                 const isExpanded = expandedId === o.id;
+                const p = productFields(o);
                 return (
                   <Fragment key={o.id}>
                     <tr
@@ -214,7 +243,11 @@ export default function OrdersPage() {
                         <p className="font-medium">{o.tickets.customers.name}</p>
                         <p className="text-xs text-gray-600">{o.tickets.customers.phone_number}</p>
                       </td>
-                      <td className="p-3 max-w-xs truncate">{o.tickets.enquiry_product_interest || '—'}</td>
+                      <td className="p-3 whitespace-nowrap">{p.brand || '—'}</td>
+                      <td className="p-3 max-w-xs truncate">{p.name || '—'}</td>
+                      <td className="p-3 whitespace-nowrap">{p.variant || '—'}</td>
+                      <td className="p-3 whitespace-nowrap font-mono text-xs">{p.sku || '—'}</td>
+                      <td className="p-3 whitespace-nowrap font-mono text-xs">{p.masterSku || '—'}</td>
                       <td className="p-3 text-right">₹{o.list_price}</td>
                       <td className="p-3 text-right">₹{o.sold_price}</td>
                       <td className="p-3 text-right">₹{o.paid_amount}</td>
@@ -228,7 +261,7 @@ export default function OrdersPage() {
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-gray-50">
-                        <td colSpan={10} className="p-4">
+                        <td colSpan={14} className="p-4">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
                             <div>
                               <p className="text-gray-600 text-xs">Address</p>
