@@ -860,6 +860,27 @@ all booked to the same technician and queried through the exact same
 query the API route uses — came back Installation / Yearly Service /
 Service Call in that order, then cleaned up.
 
+## "Staff Attended" on New Service — Immediate Assignment (2026-09-03)
+
+The "+ New Service" ad-hoc form gained a **Staff Attended** dropdown
+(Yasir, Babu, Cristeen — pulled live from `/api/admin/staff`, the same
+service-staff list the "book it" form on this same page already uses, not
+hardcoded, so it stays correct if staff ever changes). Picking someone
+books the ticket immediately — `assigned_to_id`, `status: 'booked'`,
+today's date (`todayIST()`), the current half-day (new `halfDayNowIST()`
+in `lib/dates.ts`), location defaulted to `home` — instead of making the
+admin repeat the same assignment step from the "Requested" list right
+after creating it. Left on "(not yet decided)", the ticket is created open
+and unassigned exactly as before — this is additive, not a required field.
+
+`createAdHocServiceRequest()` in `lib/services/tickets.ts` takes the new
+optional `staffAttendedId` and, when given, delegates straight to the
+existing `bookJob()` (so it goes through the exact same service_staff-only
+validation and Telegram job-assigned notification as any other booking,
+nothing new to enforce). Verified live both ways: with a staff pick, the
+resulting ticket came back `booked`/assigned/dated correctly; without one,
+`open`/unassigned, unchanged from before — both cleaned up after.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       customerId: customer.id,
       productInterest: body.productInterest ?? '',
       issueNote: body.issueNote ?? '',
+      staffAttendedId: body.staffAttendedId || undefined,
     });
 
     return Response.json({ customer, ticket }, { status: 201 });

@@ -43,3 +43,16 @@ export function monthStartISTThreshold(now: Date = new Date()): string {
   const istMonthStartUTC = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1);
   return new Date(istMonthStartUTC - IST_OFFSET_MS).toISOString();
 }
+
+/**
+ * Which half of the day it currently is, in IST — used when a job is
+ * booked as already decided/attended at creation time and needs a
+ * booked_half_day value with no separate time picker in that form.
+ */
+export function halfDayNowIST(now: Date = new Date()): 'morning' | 'afternoon' | 'evening' {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  const hour = ist.getUTCHours();
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+}

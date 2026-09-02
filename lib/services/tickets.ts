@@ -3,6 +3,7 @@ import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted } from './notifications';
 import { syncOrderToSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely } from './serviceSheet';
+import { todayIST, halfDayNowIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
 
@@ -58,6 +59,12 @@ export async function createAdHocServiceRequest(input: {
   customerId: string;
   productInterest: string;
   issueNote: string;
+  // Optional "Staff Attended" pick on the New Service form — an ad-hoc call
+  // is usually already decided (or already done) by the time this form is
+  // filled in, so picking someone here books it immediately (today, this
+  // half-day, at the customer's home) instead of making the admin repeat
+  // the same assignment step from the Requested list right after.
+  staffAttendedId?: string;
 }) {
   if (!input.issueNote.trim()) throw new ApiError(400, 'A note on the reported problem is required');
 
@@ -77,6 +84,15 @@ export async function createAdHocServiceRequest(input: {
   // Registered the moment it's requested, same reasoning as sales —
   // "closed" is just a status flip later, not a separate event to wait for.
   await syncServiceToSheetSafely(data.id);
+
+  if (input.staffAttendedId) {
+    return bookJob(data.id, {
+      assignedToId: input.staffAttendedId,
+      bookedDate: todayIST(),
+      bookedHalfDay: halfDayNowIST(),
+      location: 'home',
+    });
+  }
 
   return data;
 }

@@ -61,6 +61,7 @@ const emptyNewService = {
   forceNewAddress: false,
   productInterest: '',
   issueNote: '',
+  staffAttendedId: '',
 };
 
 export default function ServiceCallsPage() {
@@ -240,6 +241,20 @@ function ServiceCallsPageInner() {
               value={newService.issueNote}
               onChange={(e) => setNewService({ ...newService, issueNote: e.target.value })}
             />
+          </FormRow>
+          <FormRow label="Staff Attended">
+            <select
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={newService.staffAttendedId}
+              onChange={(e) => setNewService({ ...newService, staffAttendedId: e.target.value })}
+            >
+              <option value="">(not yet decided)</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           </FormRow>
           <button
             type="submit"
