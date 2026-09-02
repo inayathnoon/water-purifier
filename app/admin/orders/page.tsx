@@ -44,8 +44,9 @@ function productFields(o: Order) {
 // Two genuinely different dates: Bill Date is when the sale itself was
 // recorded (order.created_at — backfilled to the real historical date
 // for imported records, not left at the day the import script ran), and
-// Installation Completed is when the technician actually finished the
-// job (actual_date) — for a live sale these can be days or weeks apart.
+// Installation Completed is the warranty-start date (installation_date —
+// stamped from the tech's actual_date, but only once the order is
+// actually closed, §8.1) — for a live sale these can be days or weeks apart.
 function billDate(o: Order): string {
   return o.created_at.slice(0, 10);
 }
@@ -145,7 +146,7 @@ export default function OrdersPage() {
       return [
         billDate(o),
         o.tickets.planned_installation_date ?? '',
-        o.tickets.actual_date ?? '',
+        o.tickets.installation_date ?? '',
         o.tickets.customers.name,
         o.tickets.customers.phone_number,
         o.tickets.customers.address,
@@ -238,7 +239,7 @@ export default function OrdersPage() {
                       className={`border-t cursor-pointer hover:bg-gray-50 ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
                     >
                       <td className="p-3 whitespace-nowrap">{billDate(o)}</td>
-                      <td className="p-3 whitespace-nowrap">{o.tickets.actual_date ?? '—'}</td>
+                      <td className="p-3 whitespace-nowrap">{o.tickets.installation_date ?? '—'}</td>
                       <td className="p-3">
                         <p className="font-medium">{o.tickets.customers.name}</p>
                         <p className="text-xs text-gray-600">{o.tickets.customers.phone_number}</p>
@@ -279,7 +280,7 @@ export default function OrdersPage() {
                             )}
                             <div>
                               <p className="text-gray-600 text-xs">Installation completed</p>
-                              <p>{o.tickets.actual_date ?? '—'}</p>
+                              <p>{o.tickets.installation_date ?? '—'}</p>
                             </div>
                             <div>
                               <p className="text-gray-600 text-xs">Warranty until</p>
