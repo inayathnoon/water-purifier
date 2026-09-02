@@ -910,6 +910,39 @@ a link to the other staff page, Sign Out), matching the same pattern
 `/dashboard` already uses for admin/owner. Verified with `next build` —
 compiles clean, no new warnings.
 
+## Deployment Is Manual, Not Git-Triggered (found 2026-09-04)
+
+Discovered the last 4 commits (staff job badges, Staff Attended, Jobs to
+Dispatch, staff Sign Out) never reached the live app — the admin dashboard
+screenshot the business sent back still showed the pre-this-session
+4-card layout. `railway status --json` showed the active deployment's
+`createdAt` was 2026-09-02, and its metadata was `cliCaller: "claude_code"`
+— this project has never had Railway's GitHub auto-deploy connected; every
+past deploy (including the original one at go-live) was a manual
+`railway up` run from a Claude Code session, and every "pushed, Railway
+will redeploy" claim made earlier in this session was simply wrong.
+**Pushing to GitHub alone does not deploy this app.** Redeployed manually
+with `railway up --detach` and confirmed the new build went live (new
+deployment ID, instance status RUNNING) before trusting anything shipped
+again. Going forward: after pushing, always also run `railway up --detach`
+from this repo (service `water-purifier` in project `water-purifier`,
+environment `production`) and confirm the resulting deployment ID is
+actually running before telling the business a change is live.
+
+## Jobs to Dispatch: Broadened to Include Booked/In-Progress Jobs (2026-09-04)
+
+The card originally only showed `status='open'` (nothing assigned yet).
+Broadened to `status in ('open', 'booked')` — so a job already assigned to
+a technician but not yet completed also shows (with the tech's name and
+booked date instead of a "days waiting" tag), covering both "an ad-hoc
+service call that's active/in-progress" and "a purchase was made but the
+installation still isn't done." `completed` (awaiting confirmation) stays
+out of this card — that's what "Confirm Finished Work" is for. The
+"overdue after 3 days" badge only counts the still-unassigned (`open`)
+subset, since a booked job is already moving. Verified live: a real
+booked installation appeared correctly with its technician's name and
+booked date; an open, unassigned one still shows the days-waiting tag.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
