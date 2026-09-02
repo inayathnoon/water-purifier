@@ -310,6 +310,47 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Yearly Service: From Nightly Cron to Admin-Driven "New Service" (2026-09-02)
+
+Replaced the whole mechanism, not just the schedule. Previously a
+nightly cron auto-created a `service_visit` ticket once an installation
+crossed its due week. Now: due-ness is a **plain read-time query**
+(`getYearlyServiceDueThisMonth()`), and creating the actual ticket is an
+**explicit admin action** ("Mark service requested" → `createServiceRequest()`)
+— nothing runs in the background for this any more. The nightly
+GitHub Actions job and `/api/jobs/yearly-service-check` are both removed.
+
+**The due-this-month rule, worked out from the business's own framing**
+("18 months ago, 30, 42, 56, ... 152" — every 12 months after the first
+18): because every step is exactly 12 months apart, the due *calendar
+month* never changes for a given installation — only the year does. So
+"due this month" reduces to: is this month exactly 6 months on from the
+install month, has it been ≥18 months, and hasn't this specific cycle
+already been requested (tracked the same way as before, by counting
+existing `service_visit` tickets with this `parent_installation_id`,
+regardless of their status — even a declined one counts as "handled"
+for that cycle). Sorted newest-installation-first, per the business's
+own stated read order.
+
+- `/admin/service-calls` now has two sections: "Due this month" (the
+  computed list, each row has a **"Mark service requested"** button —
+  the "New Service" action, mirroring "+ New Enquiry"/"+ New Purchase")
+  and "Requested — booking or in progress" (the existing open-tickets
+  list, unchanged — booking a tech onto a requested service already
+  worked exactly like booking an installation).
+- Admin dashboard's "Yearly service calls due" card now shows this same
+  computed list instead of querying open tickets (there usually
+  wouldn't be any without the old cron); added a **"+ New Service"**
+  dashboard button alongside New Enquiry/New Purchase.
+
+**Verified live with synthetic backdated installations** (since none of
+the 96 real reimported ones are old enough yet — all from 2026, at most
+~8 months old): an 18-month-old install and a 30-month-old install both
+correctly appeared (newest first), a 17-month-old one correctly did not;
+requesting service for the 18-month one correctly removed it from the
+due list while the 30-month one stayed — all test records cleaned up
+afterward.
+
 ## Follow-Up Satisfaction Call Tracking (2026-09-02)
 
 New, separate from Installation status: a follow-up satisfaction call

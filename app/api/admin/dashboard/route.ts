@@ -1,6 +1,7 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
 import { daysAgoIST, todayIST } from '@/lib/dates';
+import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
 // installation_date is a plain DATE (no time/timezone component) — doing
 // calendar-day subtraction directly on the date string avoids the
@@ -22,7 +23,7 @@ export async function GET() {
     await requireUser(['admin', 'owner']);
     const today = todayIST();
 
-    const [newEnquiries, awaitingConfirmation, serviceCallsDue, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([
+    const [newEnquiries, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
@@ -38,14 +39,6 @@ export async function GET() {
         .in('kind', ['installation', 'service_visit'])
         .eq('status', 'completed')
         .order('actual_date', { ascending: true }),
-
-      // §8.2: yearly service calls the cron created, not yet asked about.
-      supabaseAdmin
-        .from('tickets')
-        .select('id, warranty_expires_at, customers(name, phone_number)')
-        .eq('kind', 'service_visit')
-        .eq('status', 'open')
-        .order('warranty_expires_at', { ascending: true }),
 
       // §7.3/§7.6/§15.6: every order still owed, with discount visible.
       supabaseAdmin
@@ -64,6 +57,10 @@ export async function GET() {
         .not('tickets.installation_date', 'is', null)
         .gte('tickets.installation_date', dateMinusDays(today, 30)),
     ]);
+
+    // Plain read-time computation, not a DB query — see
+    // getYearlyServiceDueThisMonth() for the "due this calendar month" rule.
+    const serviceCallsDue = await getYearlyServiceDueThisMonth();
 
     const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => daysAgoIST(e.created_at) >= 14).length;
 
@@ -109,7 +106,7 @@ export async function GET() {
       oldEnquiryCount,
       awaitingConfirmation: awaitingConfirmation.data ?? [],
       overdueConfirmationCount,
-      serviceCallsDue: serviceCallsDue.data ?? [],
+      serviceCallsDue,
       paymentsOutstanding: paymentsOutstandingByPerson,
       overdueCallCount,
       satisfactionCallsDue: satisfactionCallsDueList,

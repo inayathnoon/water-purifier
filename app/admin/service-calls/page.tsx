@@ -27,8 +27,19 @@ function onApprovedLeave(staff: StaffMember[], staffId: string, date: string): b
   return (person?.approvedLeave ?? []).some((l) => date >= l.start_date && date <= l.end_date);
 }
 
+interface DueService {
+  installationTicketId: string;
+  customerName: string;
+  phoneNumber: string;
+  area: string;
+  installationDate: string;
+  monthsSinceInstall: number;
+  productLabel: string | null;
+}
+
 export default function ServiceCallsPage() {
   const [calls, setCalls] = useState<ServiceCall[]>([]);
+  const [due, setDue] = useState<DueService[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -36,21 +47,41 @@ export default function ServiceCallsPage() {
   const [declineNote, setDeclineNote] = useState<Record<string, string>>({});
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookForm, setBookForm] = useState({ assignedToId: '', bookedDate: '', bookedHalfDay: 'morning', location: 'home' });
+  const [requestingId, setRequestingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [callsRes, staffRes] = await Promise.all([
+    const [callsRes, staffRes, dueRes] = await Promise.all([
       fetch('/api/admin/service-calls'),
       fetch('/api/admin/staff'),
+      fetch('/api/admin/service-calls/due'),
     ]);
     setCalls((await callsRes.json()).serviceCalls ?? []);
     setStaff((await staffRes.json()).staff ?? []);
+    setDue((await dueRes.json()).due ?? []);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
   }, []);
+
+  // "New Service" — this installation's yearly follow-up is due this
+  // month; requesting it creates the real open ticket, which then shows
+  // up below ready to book a tech, same as any other service visit.
+  const handleRequestService = async (installationTicketId: string) => {
+    if (requestingId) return;
+    setError('');
+    setRequestingId(installationTicketId);
+    const res = await fetch('/api/admin/service-calls/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ installationTicketId }),
+    });
+    setRequestingId(null);
+    if (!res.ok) return setError((await res.json()).error);
+    load();
+  };
 
   const handleLogCall = async (id: string) => {
     setError('');
@@ -100,10 +131,41 @@ export default function ServiceCallsPage() {
       <HomeLink />
       <h1 className="text-2xl font-bold mb-1 mt-2">Yearly Service Calls</h1>
       <p className="text-sm text-gray-900 mb-6">
-        Created automatically one year after each installation (§8.2) — nobody has to remember.
+        Due every 18 months, then every 12 after that (§8.2) — newest installation first.
       </p>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
+      <h2 className="text-lg font-semibold mb-2">Due this month</h2>
+      {loading ? (
+        <p className="mb-6">Loading...</p>
+      ) : due.length === 0 ? (
+        <p className="text-gray-900 mb-6">Nothing due this month.</p>
+      ) : (
+        <div className="bg-white rounded-lg shadow divide-y mb-8">
+          {due.map((d) => (
+            <div key={d.installationTicketId} className="p-4 flex justify-between items-center">
+              <div>
+                <p className="font-medium">
+                  {d.customerName} — {d.phoneNumber}
+                </p>
+                <p className="text-sm text-gray-900">
+                  {d.area} · {d.productLabel || 'No product noted'} · installed{' '}
+                  {(d.monthsSinceInstall / 12).toFixed(1)} years ago
+                </p>
+              </div>
+              <button
+                onClick={() => handleRequestService(d.installationTicketId)}
+                disabled={requestingId === d.installationTicketId}
+                className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                {requestingId === d.installationTicketId ? 'Requesting...' : 'Mark service requested'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 className="text-lg font-semibold mb-2">Requested — booking or in progress</h2>
       {loading ? (
         <p>Loading...</p>
       ) : calls.length === 0 ? (

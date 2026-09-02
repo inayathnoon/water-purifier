@@ -10,7 +10,15 @@ interface AdminDashboardData {
   newEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   oldEnquiryCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
-  serviceCallsDue: { id: string; warranty_expires_at: string; customers: { name: string; phone_number: string } }[];
+  serviceCallsDue: {
+    installationTicketId: string;
+    customerName: string;
+    phoneNumber: string;
+    area: string;
+    installationDate: string;
+    monthsSinceInstall: number;
+    productLabel: string | null;
+  }[];
   paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number }[];
   overdueCallCount: number;
   overdueConfirmationCount: number;
@@ -131,6 +139,12 @@ function AdminDashboard() {
           >
             + New Purchase
           </Link>
+          <Link
+            href="/admin/service-calls"
+            className="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+          >
+            + New Service
+          </Link>
         </div>
       </div>
 
@@ -190,9 +204,21 @@ function AdminDashboard() {
           ]}
         </DashboardCard>
 
-        <DashboardCard title="Yearly service calls due" emptyText="None due." viewAllHref="/admin/service-calls">
-          {data.serviceCallsDue.slice(0, 5).map((t) => (
-            <Row key={t.id} href="/admin/service-calls" primary={t.customers.name} secondary={t.customers.phone_number} />
+        <DashboardCard
+          title="Yearly service calls due"
+          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
+          badgeColor="bg-blue-100 text-blue-800"
+          emptyText="None due this month."
+          viewAllHref="/admin/service-calls"
+        >
+          {data.serviceCallsDue.slice(0, 5).map((s) => (
+            <Row
+              key={s.installationTicketId}
+              href="/admin/service-calls"
+              primary={s.customerName}
+              secondary={`${s.phoneNumber} · ${s.area}`}
+              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
+            />
           ))}
         </DashboardCard>
 
