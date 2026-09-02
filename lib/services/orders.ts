@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
+import { appendClosedOrderToSalesSheet } from './salesSheet';
+import { logNotification } from './notifications';
 
 async function getOrderOrThrow(orderId: string) {
   const { data, error } = await supabaseAdmin.from('orders').select('*').eq('id', orderId).single();
@@ -70,5 +72,16 @@ export async function closeOrder(orderId: string) {
     .single();
 
   if (error) throw new ApiError(500, error.message);
+
+  // Mirror to the Sales sheet after the close has already committed —
+  // same fail-safe shape as Telegram notifications (§10.5): a Sheets
+  // outage or permission problem gets logged, never blocks the order
+  // from actually closing.
+  try {
+    await appendClosedOrderToSalesSheet(orderId);
+  } catch (sheetError) {
+    await logNotification('sales_sheet_failed', 'failed', (sheetError as Error).message);
+  }
+
   return data;
 }

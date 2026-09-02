@@ -310,6 +310,42 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Sales Sheet Write-Back (2026-09-02)
+
+Same idea as "+ Add Product," applied to sales: when an order **closes**,
+`appendClosedOrderToSalesSheet()` mirrors it into the spreadsheet's
+`Sales` tab (same spreadsheet as `Product List`) — `bill_date, name,
+place, phone_number, sku, address` come straight from the order/ticket/
+customer, and `category, brand, product_name, variant, list_price,
+discount, balance_owed, warranty_expires_at` are filled in automatically
+(joined from `products` via `tickets.product_code`, or Postgres's own
+generated `discount`/`balance_owed` columns) — nothing for the business
+to type by hand.
+
+Deliberately triggered on **close**, not on sale creation: that's the one
+point every column is actually settled — `paid_amount == sold_price`
+(an order can't close otherwise, §13.1) and `installation_date` /
+`warranty_expires_at` are already stamped (§8.1). The DB stays the
+source of truth for sales (unlike products, which genuinely live in the
+sheet) — this is a one-way log, so the business keeps the same running
+ledger they had before this app existed, without re-typing anything.
+
+Fail-safe the same way as every Telegram notification (§10.5): the sheet
+write happens *after* the order's `closed` status has already committed,
+wrapped in its own try/catch — a Sheets outage or the same Editor-access
+permission problem "+ Add Product" has never blocks a real order from
+closing, it just logs to `notifications_log` as `sales_sheet_failed`
+(new enum value, migration `010`). **Verified live**: closed a real test
+order end to end — it closed successfully and the sheet write failed
+with the expected permission message, logged, order unaffected. Needs
+the same Editor-access grant as "+ Add Product" before it actually
+writes to the sheet.
+
+Refactored the Google Sheets plumbing shared between this and
+`products.ts` into `lib/services/googleSheets.ts` (`sheetCredentials`,
+`quotedTab`, `columnLetter`, `permissionAwareError`, and a generic
+`appendRowByHeader()`) rather than duplicating it a second time.
+
 ## Editable List Price, Display Cleanup, Pre-Launch Product Cleanup (2026-09-02)
 
 - **`/admin/products`**: list price is now editable inline (click the

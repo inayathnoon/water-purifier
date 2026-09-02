@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
+import { sheetCredentials, quotedTab, writeSheetsClient, permissionAwareError, columnLetter, appendRowByHeader } from './googleSheets';
 
 // §9.1 (revised): the business restructured the sheet around variants —
 // the same product (e.g. "Krystal TRP") gets one row per variant (e.g.
@@ -30,15 +31,6 @@ interface ParsedRow {
   listPrice?: number | null;
 }
 
-function sheetCredentials(): { sheetId: string; credentials: Record<string, unknown> } {
-  const sheetId = process.env.GOOGLE_SHEETS_ID;
-  const credentialsJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!sheetId || !credentialsJson) {
-    throw new ApiError(500, 'Google Sheets is not configured (GOOGLE_SHEETS_ID / GOOGLE_SERVICE_ACCOUNT_JSON)');
-  }
-  return { sheetId, credentials: JSON.parse(credentialsJson) };
-}
-
 // The tab name is whatever comes before "!" in GOOGLE_SHEETS_RANGE, minus
 // any surrounding quotes — pulled out once so both the read path (fetch)
 // and the write path (append, for "+ Add Product") always target the same
@@ -48,13 +40,6 @@ function sheetTabName(): string {
   let tab = bang >= 0 ? SHEET_RANGE.slice(0, bang) : SHEET_RANGE;
   if (tab.startsWith("'") && tab.endsWith("'")) tab = tab.slice(1, -1);
   return tab;
-}
-
-// A tab name needs to be wrapped in single quotes for the Sheets API only
-// when it isn't a bare word (has a space, etc.) — "Product List" does, a
-// hypothetical "Products" wouldn't.
-function quotedTab(tab: string): string {
-  return /^[A-Za-z0-9_]+$/.test(tab) ? tab : `'${tab}'`;
 }
 
 async function fetchSheetRows(): Promise<string[][]> {
@@ -195,40 +180,6 @@ export async function syncProductsFromSheet(): Promise<{ upserted: number; deact
  * matching column by name, rather than assuming a fixed column order —
  * the same reasoning as parseRows() reading columns by name, not position.
  */
-// Full read-write — unlike every other call in this file, which only ever
-// reads. The sheet must also share Editor (not just Viewer) access with
-// this service account, or Google refuses the write.
-function writeSheetsClient() {
-  const { sheetId, credentials } = sheetCredentials();
-  const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
-  const sheets = google.sheets({ version: 'v4', auth });
-  return { sheets, sheetId, tab: quotedTab(sheetTabName()) };
-}
-
-function permissionAwareError(e: unknown, action: string): ApiError {
-  const message = (e as Error).message || 'Unknown error';
-  if (/permission/i.test(message)) {
-    return new ApiError(
-      500,
-      'Google Sheets refused the write — the service account has Viewer access on the sheet but needs ' +
-        `Editor access to ${action}. Share the sheet with it as an Editor and try again.`
-    );
-  }
-  return new ApiError(500, `Failed to ${action}: ${message}`);
-}
-
-// 0-indexed column number → spreadsheet letter (A, B, ... Z, AA, AB, ...).
-function columnLetter(index: number): string {
-  let n = index + 1;
-  let letters = '';
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    letters = String.fromCharCode(65 + rem) + letters;
-    n = Math.floor((n - 1) / 26);
-  }
-  return letters;
-}
-
 export async function appendProductToSheet(product: {
   sku: string;
   category: string;
@@ -237,20 +188,7 @@ export async function appendProductToSheet(product: {
   variant: string;
   listPrice?: number | null;
 }): Promise<void> {
-  const { sheets, sheetId, tab } = writeSheetsClient();
-
-  let headerRow: string[];
-  try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tab}!1:1` });
-    headerRow = (res.data.values?.[0] ?? []).map((h) => h.trim().toLowerCase());
-  } catch (e) {
-    throw new ApiError(500, `Could not read the product sheet's header row: ${(e as Error).message}`);
-  }
-  if (headerRow.length === 0) {
-    throw new ApiError(422, "The product sheet's header row is empty — nothing to append against.");
-  }
-
-  const valuesByColumn: Record<string, string> = {
+  await appendRowByHeader(sheetTabName(), {
     sku: product.sku,
     category: product.category,
     brand: product.brand,
@@ -259,20 +197,7 @@ export async function appendProductToSheet(product: {
     list_price: product.listPrice != null ? String(product.listPrice) : '',
     // master_sku deliberately left blank — nothing here computes one, and
     // an empty cell is safer than a guessed value in someone's sheet.
-  };
-  const row = headerRow.map((h) => valuesByColumn[h] ?? '');
-
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId,
-      range: `${tab}!A:Z`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [row] },
-    });
-  } catch (e) {
-    throw permissionAwareError(e, 'add rows');
-  }
+  });
 }
 
 /**
@@ -283,7 +208,8 @@ export async function appendProductToSheet(product: {
  * table and leaving the sheet out of date.
  */
 export async function updateProductListPriceInSheet(sku: string, listPrice: number | null): Promise<void> {
-  const { sheets, sheetId, tab } = writeSheetsClient();
+  const { sheets, sheetId } = writeSheetsClient();
+  const tab = quotedTab(sheetTabName());
 
   let allRows: string[][];
   try {

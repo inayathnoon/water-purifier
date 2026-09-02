@@ -1,7 +1,13 @@
 import { supabaseAdmin } from '../db';
 import { sendTelegramMessage } from './telegram';
 
-type EventType = 'job_assigned' | 'job_completed' | 'leave_requested' | 'payment_reminder' | 'product_sync_failed';
+type EventType =
+  | 'job_assigned'
+  | 'job_completed'
+  | 'leave_requested'
+  | 'payment_reminder'
+  | 'product_sync_failed'
+  | 'sales_sheet_failed';
 
 /**
  * Records something that needs a human's attention even though nobody was
