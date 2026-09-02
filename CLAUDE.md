@@ -310,6 +310,30 @@ Name column with Brand/Variant/SKU/Master SKU blank rather than losing
 the information entirely. Going forward, every purchase made through the
 normal New Purchase form gets fully structured product data for free.
 
+## Editable List Price, Display Cleanup, Pre-Launch Product Cleanup (2026-09-02)
+
+- **`/admin/products`**: list price is now editable inline (click the
+  price, edit, Save/Cancel) via `updateProductListPriceInSheet()` —
+  finds the product's row by SKU in the actual sheet and edits just that
+  cell, then re-syncs, same "sheet is the source of truth" rule as
+  "+ Add Product". Blocked on the same Editor-access permission fix.
+- **Start Case display**: the new sheet stores brand/category/name in ALL
+  CAPS (`AQUA`, `KITCHEN`, ...) — `lib/format.ts`'s `toStartCase()`
+  normalizes that for display on both `/admin/products` and
+  `/admin/orders`, matching how hand-typed free-text product
+  descriptions already read elsewhere in the app. Raw values are
+  untouched in the DB/sheet — this is display-only.
+- **`/admin/orders` table trimmed**: SKU, Master SKU, and List Price
+  dropped from the on-screen table (still in the CSV export) — too much
+  for the main view; Brand/Product Name/Variant/Sold/Paid/Balance/Status
+  is what's actually used day to day.
+- **Pre-launch product cleanup**: deleted (not just deactivated) the 16
+  leftover test/old-sheet-shape product codes, after confirming zero
+  tickets referenced any of them via `product_code`. The "never delete,
+  only deactivate" rule (§9.3) exists to protect historical order
+  references once live — with nothing live yet, a clean product table is
+  worth more than an audit trail for rows nothing real ever pointed to.
+
 ## Product Sheet Restructure #2 + "+ Add Product" Write-Back (2026-09-02)
 
 **Sync was broken in production** ("Sync failed — Internal server error")

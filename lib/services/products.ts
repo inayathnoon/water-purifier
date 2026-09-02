@@ -195,6 +195,40 @@ export async function syncProductsFromSheet(): Promise<{ upserted: number; deact
  * matching column by name, rather than assuming a fixed column order —
  * the same reasoning as parseRows() reading columns by name, not position.
  */
+// Full read-write — unlike every other call in this file, which only ever
+// reads. The sheet must also share Editor (not just Viewer) access with
+// this service account, or Google refuses the write.
+function writeSheetsClient() {
+  const { sheetId, credentials } = sheetCredentials();
+  const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
+  const sheets = google.sheets({ version: 'v4', auth });
+  return { sheets, sheetId, tab: quotedTab(sheetTabName()) };
+}
+
+function permissionAwareError(e: unknown, action: string): ApiError {
+  const message = (e as Error).message || 'Unknown error';
+  if (/permission/i.test(message)) {
+    return new ApiError(
+      500,
+      'Google Sheets refused the write — the service account has Viewer access on the sheet but needs ' +
+        `Editor access to ${action}. Share the sheet with it as an Editor and try again.`
+    );
+  }
+  return new ApiError(500, `Failed to ${action}: ${message}`);
+}
+
+// 0-indexed column number → spreadsheet letter (A, B, ... Z, AA, AB, ...).
+function columnLetter(index: number): string {
+  let n = index + 1;
+  let letters = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    letters = String.fromCharCode(65 + rem) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
+
 export async function appendProductToSheet(product: {
   sku: string;
   category: string;
@@ -203,16 +237,7 @@ export async function appendProductToSheet(product: {
   variant: string;
   listPrice?: number | null;
 }): Promise<void> {
-  const { sheetId, credentials } = sheetCredentials();
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    // Full read-write — unlike every other call in this file, which only
-    // ever reads. The sheet must also share Editor (not just Viewer)
-    // access with this service account, or Google refuses the write.
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const tab = quotedTab(sheetTabName());
+  const { sheets, sheetId, tab } = writeSheetsClient();
 
   let headerRow: string[];
   try {
@@ -246,14 +271,47 @@ export async function appendProductToSheet(product: {
       requestBody: { values: [row] },
     });
   } catch (e) {
-    const message = (e as Error).message || 'Unknown error';
-    if (/permission/i.test(message)) {
-      throw new ApiError(
-        500,
-        'Google Sheets refused the write — the service account has Viewer access on the sheet but needs ' +
-          'Editor access to add rows. Share the sheet with it as an Editor and try again.'
-      );
-    }
-    throw new ApiError(500, `Failed to add the product to the sheet: ${message}`);
+    throw permissionAwareError(e, 'add rows');
+  }
+}
+
+/**
+ * "+ Add Product" lets you create a new row; this lets you fix a price on
+ * an existing one — same "sheet stays the source of truth" rule, so this
+ * finds the product's actual row by SKU and edits the list_price cell in
+ * place, then re-syncs, rather than writing straight to the `products`
+ * table and leaving the sheet out of date.
+ */
+export async function updateProductListPriceInSheet(sku: string, listPrice: number | null): Promise<void> {
+  const { sheets, sheetId, tab } = writeSheetsClient();
+
+  let allRows: string[][];
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${tab}!A:Z` });
+    allRows = res.data.values ?? [];
+  } catch (e) {
+    throw new ApiError(500, `Could not read the product sheet: ${(e as Error).message}`);
+  }
+
+  const [headerRow, ...dataRows] = allRows;
+  const normalizedHeaders = (headerRow ?? []).map((h) => h.trim().toLowerCase());
+  const skuCol = normalizedHeaders.indexOf('sku');
+  const priceCol = normalizedHeaders.indexOf('list_price');
+  if (skuCol === -1) throw new ApiError(422, "The product sheet has no 'sku' column to match against.");
+  if (priceCol === -1) throw new ApiError(422, "The product sheet has no 'list_price' column to edit.");
+
+  const rowIdx = dataRows.findIndex((r) => (r[skuCol] ?? '').trim().toLowerCase() === sku.trim().toLowerCase());
+  if (rowIdx === -1) throw new ApiError(404, `SKU "${sku}" was not found in the product sheet.`);
+
+  const sheetRowNumber = rowIdx + 2; // +1 for the header row, +1 for 1-indexing
+  try {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${tab}!${columnLetter(priceCol)}${sheetRowNumber}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[listPrice != null ? String(listPrice) : '']] },
+    });
+  } catch (e) {
+    throw permissionAwareError(e, 'edit this price');
   }
 }

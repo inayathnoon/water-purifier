@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import HomeLink from '@/components/HomeLink';
 import { daysAgoIST } from '@/lib/dates';
+import { toStartCase } from '@/lib/format';
 
 interface Order {
   id: string;
@@ -30,11 +31,13 @@ interface Order {
 // sale was made through ProductPicker; historical imports and free-text
 // "Other" purchases never got a product_code, so only Name falls back to
 // the old free-text field rather than showing every column blank.
+// Brand/Name come from the sheet in ALL CAPS — Start Case matches how
+// free-text product descriptions already read everywhere else in the app.
 function productFields(o: Order) {
   const p = o.tickets.products;
   return {
-    brand: p?.brand ?? '',
-    name: p?.name ?? o.tickets.enquiry_product_interest ?? '',
+    brand: p?.brand ? toStartCase(p.brand) : '',
+    name: p?.name ? toStartCase(p.name) : (o.tickets.enquiry_product_interest ?? ''),
     variant: p?.variant ?? '',
     sku: p?.code ?? '',
     masterSku: p?.master_sku ?? '',
@@ -217,9 +220,6 @@ export default function OrdersPage() {
                 <th className="p-3">Brand</th>
                 <th className="p-3">Name</th>
                 <th className="p-3">Variant</th>
-                <th className="p-3">SKU</th>
-                <th className="p-3">Master SKU</th>
-                <th className="p-3 text-right">List</th>
                 <th className="p-3 text-right">Sold</th>
                 <th className="p-3 text-right">Paid</th>
                 <th className="p-3 text-right">Balance</th>
@@ -247,9 +247,6 @@ export default function OrdersPage() {
                       <td className="p-3 whitespace-nowrap">{p.brand || '—'}</td>
                       <td className="p-3 max-w-xs truncate">{p.name || '—'}</td>
                       <td className="p-3 whitespace-nowrap">{p.variant || '—'}</td>
-                      <td className="p-3 whitespace-nowrap font-mono text-xs">{p.sku || '—'}</td>
-                      <td className="p-3 whitespace-nowrap font-mono text-xs">{p.masterSku || '—'}</td>
-                      <td className="p-3 text-right">₹{o.list_price}</td>
                       <td className="p-3 text-right">₹{o.sold_price}</td>
                       <td className="p-3 text-right">₹{o.paid_amount}</td>
                       <td className="p-3 text-right">
@@ -262,7 +259,7 @@ export default function OrdersPage() {
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-gray-50">
-                        <td colSpan={14} className="p-4">
+                        <td colSpan={11} className="p-4">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
                             <div>
                               <p className="text-gray-600 text-xs">Address</p>

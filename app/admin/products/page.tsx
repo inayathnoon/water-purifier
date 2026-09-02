@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import HomeLink from '@/components/HomeLink';
+import { toStartCase } from '@/lib/format';
 
 interface Product {
   id: string;
@@ -28,6 +29,9 @@ export default function ProductsPage() {
   const [newProduct, setNewProduct] = useState(emptyNewProduct);
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [editingSku, setEditingSku] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+  const [savingPrice, setSavingPrice] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -82,6 +86,31 @@ export default function ProductsPage() {
     load();
   };
 
+  const startEditPrice = (p: Product) => {
+    setEditingSku(p.code);
+    setEditPrice(p.list_price != null ? String(p.list_price) : '');
+    setError('');
+  };
+
+  const handleSavePrice = async (sku: string) => {
+    if (savingPrice) return;
+    setSavingPrice(true);
+    setError('');
+    const res = await fetch('/api/admin/products', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sku, listPrice: editPrice === '' ? null : Number(editPrice) }),
+    });
+    const data = await res.json();
+    setSavingPrice(false);
+    if (!res.ok) {
+      setError(data.error ?? 'Failed to update price');
+      return;
+    }
+    setEditingSku(null);
+    load();
+  };
+
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <HomeLink />
@@ -104,8 +133,8 @@ export default function ProductsPage() {
         </div>
       </div>
       <p className="text-sm text-gray-900 mb-6">
-        Copied nightly from the product spreadsheet, or on demand here (§9.2). Adding one here
-        writes it into the spreadsheet too, so the sheet stays the single source of truth.
+        The spreadsheet is the source of truth — adding a product or editing its price here
+        writes into the sheet directly, so the two never drift apart.
       </p>
 
       {showAddForm && (
@@ -196,11 +225,43 @@ export default function ProductsPage() {
               {products.map((p) => (
                 <tr key={p.id} className={`border-t ${!p.active ? 'text-gray-900' : ''}`}>
                   <td className="p-3 font-mono">{p.code}</td>
-                  <td className="p-3">{p.category}</td>
-                  <td className="p-3">{p.brand}</td>
-                  <td className="p-3">{p.name}</td>
+                  <td className="p-3">{toStartCase(p.category)}</td>
+                  <td className="p-3">{toStartCase(p.brand)}</td>
+                  <td className="p-3">{toStartCase(p.name)}</td>
                   <td className="p-3">{p.variant || '—'}</td>
-                  <td className="p-3 text-right">{p.list_price != null ? `₹${p.list_price}` : '—'}</td>
+                  <td className="p-3 text-right">
+                    {editingSku === p.code ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <input
+                          autoFocus
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-24 border rounded px-2 py-1 text-right text-gray-900"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSavePrice(p.code);
+                            if (e.key === 'Escape') setEditingSku(null);
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSavePrice(p.code)}
+                          disabled={savingPrice}
+                          className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                        >
+                          {savingPrice ? '...' : 'Save'}
+                        </button>
+                        <button onClick={() => setEditingSku(null)} className="text-xs text-gray-600 hover:underline">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => startEditPrice(p)} className="hover:underline">
+                        {p.list_price != null ? `₹${p.list_price}` : '— (edit)'}
+                      </button>
+                    )}
+                  </td>
                   <td className="p-3">{p.active ? 'Active' : 'Discontinued'}</td>
                 </tr>
               ))}

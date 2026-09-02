@@ -1,6 +1,6 @@
 import { requireUser, handleApiError, ApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { appendProductToSheet, syncProductsFromSheet } from '@/lib/services/products';
+import { appendProductToSheet, syncProductsFromSheet, updateProductListPriceInSheet } from '@/lib/services/products';
 
 // The spreadsheet stays the source of truth — this writes the new
 // product into the sheet first, then re-syncs immediately so it shows up
@@ -25,6 +25,26 @@ export async function POST(request: Request) {
     const result = await syncProductsFromSheet();
 
     return Response.json({ added: sku, ...result }, { status: 201 });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+// Editing a single product's list price — writes the sheet's own cell,
+// same "sheet stays the source of truth" rule as adding a product, then
+// re-syncs so it shows up here immediately.
+export async function PATCH(request: Request) {
+  try {
+    await requireUser(['admin', 'owner']);
+    const body = await request.json();
+    const sku = (body.sku ?? '').trim();
+    if (!sku) throw new ApiError(400, 'SKU is required');
+    const listPrice = body.listPrice === '' || body.listPrice == null ? null : Number(body.listPrice);
+
+    await updateProductListPriceInSheet(sku, listPrice);
+    const result = await syncProductsFromSheet();
+
+    return Response.json({ updated: sku, ...result });
   } catch (err) {
     return handleApiError(err);
   }
