@@ -943,6 +943,20 @@ subset, since a booked job is already moving. Verified live: a real
 booked installation appeared correctly with its technician's name and
 booked date; an open, unassigned one still shows the days-waiting tag.
 
+## Service Calls Deep Links (2026-09-04)
+
+Every service-related dashboard row (Jobs to Dispatch, Confirm Finished
+Work, Yearly Service Calls Due) linked to the same bare `/admin/service-
+calls` — landing on an undifferentiated page with no way to tell which
+customer's row you'd actually clicked through for. Added two query
+params the page now reads and acts on: `?highlightInstallation=<id>` for
+a "due this month" row (keyed by installation, since no service_visit
+ticket exists yet) and `?highlightTicket=<id>` for an already-requested
+one in the "Requested — booking or in progress" list — the page scrolls
+to and highlights (yellow ring) the matching row once loaded. All three
+dashboard cards' service_visit/due rows now pass the right one instead of
+a bare link.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

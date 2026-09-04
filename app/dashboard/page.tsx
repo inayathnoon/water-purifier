@@ -197,7 +197,7 @@ function AdminDashboard() {
             return (
               <Row
                 key={t.id}
-                href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
+                href={t.kind === 'installation' ? '/admin/installations' : `/admin/service-calls?highlightTicket=${t.id}`}
                 primary={t.customers.name}
                 secondary={t.enquiry_product_interest || t.customers.phone_number}
                 tag={tag}
@@ -220,7 +220,7 @@ function AdminDashboard() {
               return (
                 <Row
                   key={`job-${t.id}`}
-                  href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
+                  href={t.kind === 'installation' ? '/admin/installations' : `/admin/service-calls?highlightTicket=${t.id}`}
                   primary={t.customers.name}
                   secondary={t.customers.phone_number}
                   tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 7 ? ' — overdue' : ''}`}
@@ -272,7 +272,7 @@ function AdminDashboard() {
           {data.serviceCallsDue.slice(0, 5).map((s) => (
             <Row
               key={s.installationTicketId}
-              href="/admin/service-calls"
+              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
               primary={s.customerName}
               secondary={`${s.phoneNumber} · ${s.area}`}
               tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}

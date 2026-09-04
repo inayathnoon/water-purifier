@@ -74,8 +74,16 @@ export default function ServiceCallsPage() {
 
 function ServiceCallsPageInner() {
   // Dashboard's "+ New Service" links here with ?new=1 to open the
-  // ad-hoc request form directly.
+  // ad-hoc request form directly. "Jobs to Dispatch" and "Yearly Service
+  // Calls Due" both send service-related rows here too, but to two
+  // different lists on this same page (a due-but-not-yet-requested
+  // installation vs. an already-requested ticket) — ?highlightInstallation
+  // / ?highlightTicket say which specific row to jump to and highlight,
+  // so following one of those dashboard rows doesn't just dump you on an
+  // undifferentiated list.
   const searchParams = useSearchParams();
+  const highlightInstallation = searchParams.get('highlightInstallation');
+  const highlightTicket = searchParams.get('highlightTicket');
   const [calls, setCalls] = useState<ServiceCall[]>([]);
   const [due, setDue] = useState<DueService[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -107,6 +115,13 @@ function ServiceCallsPageInner() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const targetId = highlightInstallation ? `due-${highlightInstallation}` : highlightTicket ? `call-${highlightTicket}` : null;
+    if (!targetId) return;
+    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [loading, highlightInstallation, highlightTicket]);
 
   // "New Service" — this installation's yearly follow-up is due this
   // month; requesting it creates the real open ticket, which then shows
@@ -274,7 +289,13 @@ function ServiceCallsPageInner() {
       ) : (
         <div className="bg-white rounded-lg shadow divide-y mb-8">
           {due.map((d) => (
-            <div key={d.installationTicketId} className="p-4 flex justify-between items-center">
+            <div
+              key={d.installationTicketId}
+              id={`due-${d.installationTicketId}`}
+              className={`p-4 flex justify-between items-center ${
+                highlightInstallation === d.installationTicketId ? 'bg-yellow-50 ring-2 ring-inset ring-yellow-400' : ''
+              }`}
+            >
               <div>
                 <p className="font-medium">
                   {d.customerName} — {d.phoneNumber}
@@ -304,7 +325,13 @@ function ServiceCallsPageInner() {
       ) : (
         <div className="space-y-4">
           {calls.map((c) => (
-            <div key={c.id} className="bg-white rounded-lg shadow p-4">
+            <div
+              key={c.id}
+              id={`call-${c.id}`}
+              className={`bg-white rounded-lg shadow p-4 ${
+                highlightTicket === c.id ? 'ring-2 ring-yellow-400' : ''
+              }`}
+            >
               <p className="font-medium">
                 {c.customers.name} — {c.customers.phone_number}
               </p>
