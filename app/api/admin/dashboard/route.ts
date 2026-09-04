@@ -33,20 +33,18 @@ export async function GET() {
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
 
-      // Every installation/service visit still short of done — not yet
-      // assigned ('open': an installation the moment a New Purchase is
-      // made, or a service_visit still needing a tech) as well as already
-      // assigned but not yet worked ('booked': the active/in-progress
-      // ones). Completed-and-awaiting-confirmation is its own separate
-      // card below, so it's deliberately excluded here. Oldest-first —
-      // whatever's been waiting longest needs attention first.
+      // Both New Service requests and New Purchases (installations) that
+      // exist but haven't been assigned to anyone yet — 'open' means
+      // exactly that, whether it's a fresh installation or a service_visit
+      // (yearly-due or ad-hoc). Once it's booked to a tech it's no longer
+      // "to dispatch" — it's in progress, tracked wherever that job kind
+      // normally lives. Oldest-first — whatever's been waiting longest
+      // needs dispatching first.
       supabaseAdmin
         .from('tickets')
-        .select(
-          'id, kind, status, created_at, booked_date, enquiry_product_interest, customers(name, phone_number), users:assigned_to_id(name)'
-        )
+        .select('id, kind, created_at, enquiry_product_interest, customers(name, phone_number)')
         .in('kind', ['installation', 'service_visit'])
-        .in('status', ['open', 'booked'])
+        .eq('status', 'open')
         .order('created_at', { ascending: true }),
 
       // §6.7: completed jobs waiting on the admin's confirmation call.
@@ -81,12 +79,9 @@ export async function GET() {
 
     const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => daysAgoIST(e.created_at) >= 14).length;
 
-    // A job still waiting to be *assigned* (not "booked" ones already in
-    // progress) after 3 days is worth flagging the same way an overdue
-    // payment call or enquiry is elsewhere on this page.
-    const overdueDispatchCount = (jobsToDispatch.data ?? []).filter(
-      (t) => t.status === 'open' && daysAgoIST(t.created_at) >= 3
-    ).length;
+    // A job still waiting to be assigned after 3 days is worth flagging the
+    // same way an overdue payment call or enquiry is elsewhere on this page.
+    const overdueDispatchCount = (jobsToDispatch.data ?? []).filter((t) => daysAgoIST(t.created_at) >= 3).length;
 
     const overdueCallCount = (paymentsOutstanding.data ?? []).filter((o) => {
       const days = o.last_payment_call_at ? daysAgoIST(o.last_payment_call_at) : Infinity;

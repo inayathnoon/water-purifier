@@ -9,16 +9,7 @@ import { daysAgoIST } from '@/lib/dates';
 interface AdminDashboardData {
   newEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   oldEnquiryCount: number;
-  jobsToDispatch: {
-    id: string;
-    kind: string;
-    status: string;
-    created_at: string;
-    booked_date: string | null;
-    enquiry_product_interest: string;
-    customers: { name: string; phone_number: string };
-    users: { name: string } | null;
-  }[];
+  jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   overdueDispatchCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: {
@@ -188,20 +179,15 @@ function AdminDashboard() {
           viewAllHref="/admin/installations"
         >
           {data.jobsToDispatch.slice(0, 5).map((t) => {
-            const kindLabel = t.kind === 'installation' ? 'Installation' : 'Service visit';
             const age = daysAgo(t.created_at);
-            const tag =
-              t.status === 'booked'
-                ? `${kindLabel} · booked ${t.booked_date} · ${t.users?.name ?? 'assigned'}`
-                : `${kindLabel} · ${age}d${age >= 3 ? ' — not yet assigned' : ' · not yet assigned'}`;
             return (
               <Row
                 key={t.id}
                 href={t.kind === 'installation' ? '/admin/installations' : `/admin/service-calls?highlightTicket=${t.id}`}
                 primary={t.customers.name}
                 secondary={t.enquiry_product_interest || t.customers.phone_number}
-                tag={tag}
-                tagColor={t.status === 'open' && age >= 3 ? 'text-red-600' : undefined}
+                tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 3 ? ' — overdue' : ''}`}
+                tagColor={age >= 3 ? 'text-red-600' : undefined}
               />
             );
           })}

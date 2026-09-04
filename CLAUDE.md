@@ -929,19 +929,20 @@ from this repo (service `water-purifier` in project `water-purifier`,
 environment `production`) and confirm the resulting deployment ID is
 actually running before telling the business a change is live.
 
-## Jobs to Dispatch: Broadened to Include Booked/In-Progress Jobs (2026-09-04)
+## Jobs to Dispatch: Corrected Back to Unassigned-Only (2026-09-04)
 
-The card originally only showed `status='open'` (nothing assigned yet).
-Broadened to `status in ('open', 'booked')` — so a job already assigned to
-a technician but not yet completed also shows (with the tech's name and
-booked date instead of a "days waiting" tag), covering both "an ad-hoc
-service call that's active/in-progress" and "a purchase was made but the
-installation still isn't done." `completed` (awaiting confirmation) stays
-out of this card — that's what "Confirm Finished Work" is for. The
-"overdue after 3 days" badge only counts the still-unassigned (`open`)
-subset, since a booked job is already moving. Verified live: a real
-booked installation appeared correctly with its technician's name and
-booked date; an open, unassigned one still shows the days-waiting tag.
+Briefly broadened this card to `status in ('open', 'booked')`, reading
+"including both services active and purchase made installation not
+complete" as "also show already-booked jobs in progress." Wrong —
+clarified directly: "Jobs to dispatch is basically both new service and
+new purchases that are not assigned anyone the work." That instruction
+was about which *ticket kinds* belong on the card (both New Service
+requests and New Purchases/installations), not about widening the status
+filter — the card's whole point is "nobody's been given this job yet."
+Reverted to `status = 'open'` only, across both kinds. Once a job is
+booked to a tech it's no longer "to dispatch" — it's in progress,
+tracked wherever that job kind normally lives (`/admin/installations`,
+`/admin/service-calls`).
 
 ## Service Calls Deep Links (2026-09-04)
 
