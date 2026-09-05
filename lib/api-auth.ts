@@ -31,12 +31,15 @@ export async function requireUser(allowedRoles?: UserRole[]): Promise<User> {
 
   const { data: profile, error } = await supabase
     .from('users')
-    .select('id, phone, role, name')
+    .select('id, phone, role, name, active')
     .eq('id', authUser.id)
     .single();
 
   if (error || !profile) {
     throw new ApiError(401, 'No user profile found');
+  }
+  if (!profile.active) {
+    throw new ApiError(401, 'This account has been deactivated');
   }
 
   const user = profile as User;

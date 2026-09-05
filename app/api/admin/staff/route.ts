@@ -13,6 +13,7 @@ export async function GET() {
       .from('users')
       .select('id, name')
       .eq('role', 'service_staff')
+      .eq('active', true)
       .order('name');
 
     if (error) throw error;

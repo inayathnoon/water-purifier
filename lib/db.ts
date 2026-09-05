@@ -47,8 +47,9 @@ export type Database = {
         Row: {
           id: string;
           phone: string;
-          role: 'owner' | 'admin' | 'service_staff';
+          role: 'owner' | 'admin' | 'service_staff' | 'developer';
           name: string;
+          active: boolean;
           created_at: string;
         };
         Insert: Omit<Database['public']['Tables']['users']['Row'], 'id' | 'created_at'>;

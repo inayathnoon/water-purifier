@@ -1,6 +1,6 @@
 import { supabase } from './db';
 
-export type UserRole = 'owner' | 'admin' | 'service_staff';
+export type UserRole = 'owner' | 'admin' | 'service_staff' | 'developer';
 
 export interface User {
   id: string;
@@ -23,7 +23,7 @@ export async function getCurrentUser(): Promise<User | null> {
   // Fetch user metadata (role, name) from the profiles table
   const { data, error } = await supabase
     .from('users')
-    .select('id, phone, role, name')
+    .select('id, phone, role, name, active')
     .eq('id', authUser.id)
     .single();
 
@@ -31,6 +31,11 @@ export async function getCurrentUser(): Promise<User | null> {
     console.error('Error fetching user profile:', error);
     return null;
   }
+
+  // A deactivated staff account (see the Developer panel) shouldn't be
+  // treated as signed in anywhere in the app, even with a still-valid
+  // session cookie.
+  if (!data.active) return null;
 
   return data as User;
 }

@@ -5,7 +5,7 @@ import { logNotification } from '@/lib/services/notifications';
 // §9.2: "and whenever someone presses Sync now."
 export async function POST() {
   try {
-    await requireUser(['admin', 'owner']);
+    await requireUser(['admin', 'owner', 'developer']);
     const result = await syncProductsFromSheet();
     return Response.json(result);
   } catch (err) {

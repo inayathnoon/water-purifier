@@ -58,6 +58,12 @@ export default function DashboardPage() {
         router.replace('/staff/jobs');
         return;
       }
+      // The app's own developer/maintainer sees a maintenance panel, not
+      // the business dashboard — a separate account/page from 'owner'.
+      if (currentUser.role === 'developer') {
+        router.replace('/developer');
+        return;
+      }
       setUser(currentUser);
       setLoading(false);
     });
