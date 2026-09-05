@@ -977,6 +977,20 @@ needed), then reloads the dashboard. Verified live: both endpoints
 correctly move a real installation and a real service_visit from
 `open`/unassigned to `booked`/assigned.
 
+## Calendar Picker: Monday-First (2026-09-05)
+
+No custom calendar UI exists anywhere in this app — every date field
+(booking, leave requests, New Purchase, etc.) is a plain native
+`<input type="date">`. Its popup calendar's first day of week comes from
+the page's `lang` attribute, which was the bare `"en"` (Next.js's
+default) — browsers read that as US English and open the picker
+Sunday-first. Changed to `lang="en-IN"` in `app/layout.tsx`, which also
+better reflects the actual business (Kannur, Kerala) than a generic
+`"en"` ever did. This can't be verified by `tsc`/`next build` alone since
+it's native browser rendering behavior, not app code — worth a quick
+check on an actual booking date field to confirm the picker now opens
+Monday-first.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
