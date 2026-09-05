@@ -227,8 +227,8 @@ function AdminDashboard() {
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
         <div className="grid grid-cols-5 gap-2 max-w-2xl">
           {[
-            { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase', newColor: 'bg-green-600 hover:bg-green-700 text-white' },
             { href: '/admin/enquiries', label: 'Enquiries', newHref: '/admin/enquiries?new=1', newLabel: '+ New Enquiry', newColor: 'bg-blue-600 hover:bg-blue-700 text-white' },
+            { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase', newColor: 'bg-green-600 hover:bg-green-700 text-white' },
             { href: '/admin/service-calls', label: 'Services', newHref: '/admin/service-calls?new=1', newLabel: '+ New Service', newColor: 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' },
             { href: '/admin/customers', label: 'Customers' },
             { href: '/admin/products', label: 'Products' },
@@ -527,8 +527,8 @@ function OwnerDashboard() {
         <h2 className="text-lg font-semibold text-gray-900">Business overview</h2>
         <div className="grid grid-cols-5 gap-2 max-w-2xl">
           {[
-            { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase' },
             { href: '/admin/enquiries', label: 'Enquiries' },
+            { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase' },
             { href: '/admin/service-calls', label: 'Services' },
             { href: '/admin/customers', label: 'Customers' },
             { href: '/admin/products', label: 'Products' },
