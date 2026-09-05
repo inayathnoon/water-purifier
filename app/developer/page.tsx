@@ -37,6 +37,8 @@ export default function DeveloperPage() {
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
+  const [sparePartsSyncing, setSparePartsSyncing] = useState(false);
+  const [sparePartsSyncMessage, setSparePartsSyncMessage] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -96,6 +98,18 @@ export default function DeveloperPage() {
     setSyncMessage(res.ok ? `Synced: ${data.upserted ?? 0} products updated.` : data.error ?? 'Sync failed');
   };
 
+  // Spare parts are cached in memory (they barely ever change) rather
+  // than synced into the DB — this forces an immediate refresh instead
+  // of waiting on the cache's long safety-net TTL.
+  const handleSyncSpareParts = async () => {
+    setSparePartsSyncMessage('');
+    setSparePartsSyncing(true);
+    const res = await fetch('/api/developer/spare-parts/sync', { method: 'POST' });
+    const data = await res.json();
+    setSparePartsSyncing(false);
+    setSparePartsSyncMessage(res.ok ? `Synced: ${data.parts?.length ?? 0} spare parts loaded.` : data.error ?? 'Sync failed');
+  };
+
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center gap-2 mb-6">
@@ -136,6 +150,16 @@ export default function DeveloperPage() {
             {syncing ? 'Syncing...' : 'Sync products now'}
           </button>
           {syncMessage && <span className="text-sm text-gray-900">{syncMessage}</span>}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t">
+          <button
+            onClick={handleSyncSpareParts}
+            disabled={sparePartsSyncing}
+            className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            {sparePartsSyncing ? 'Syncing...' : 'Sync spare parts'}
+          </button>
+          {sparePartsSyncMessage && <span className="text-sm text-gray-900">{sparePartsSyncMessage}</span>}
         </div>
       </div>
 

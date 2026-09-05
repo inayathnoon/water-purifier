@@ -78,6 +78,10 @@ export default function StaffJobsPage() {
   });
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [partQuantities, setPartQuantities] = useState<Record<string, number>>({});
+  // A one-off fallback for anything not in the sheet's list — a free-text
+  // name and its own price, added straight into the total alongside
+  // whatever's picked from the regular list.
+  const [customPart, setCustomPart] = useState({ name: '', price: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -114,6 +118,7 @@ export default function StaffJobsPage() {
     setError('');
     setCompletingId(job.id);
     setPartQuantities({});
+    setCustomPart({ name: '', price: '' });
     const times = HALF_DAY_TIMES[job.booked_half_day] ?? { start: '', end: '' };
     setForm({
       actualDate: todayISO(),
@@ -130,14 +135,19 @@ export default function StaffJobsPage() {
     });
   };
 
-  const sparePartsTotal = spareParts.reduce((sum, p) => sum + (partQuantities[p.name] ?? 0) * p.price, 0);
+  const customPartPrice = Number(customPart.price) || 0;
+  const sparePartsTotal =
+    spareParts.reduce((sum, p) => sum + (partQuantities[p.name] ?? 0) * p.price, 0) +
+    (customPart.name.trim() ? customPartPrice : 0);
 
   const handleComplete = async (job: Job) => {
     setError('');
     setSubmitting(true);
     const chargeable = job.kind === 'service_visit' && !isWithinWarranty(job.installation_date, form.actualDate);
     const selectedParts = spareParts.filter((p) => (partQuantities[p.name] ?? 0) > 0);
-    const partsUsed = selectedParts.map((p) => `${p.name} x${partQuantities[p.name]}`).join(', ');
+    const partsUsedParts = selectedParts.map((p) => `${p.name} x${partQuantities[p.name]}`);
+    if (customPart.name.trim()) partsUsedParts.push(`${customPart.name.trim()} (₹${customPartPrice})`);
+    const partsUsed = partsUsedParts.join(', ');
 
     const res = await fetch(`/api/staff/jobs/${job.id}/complete`, {
       method: 'POST',
@@ -284,6 +294,22 @@ export default function StaffJobsPage() {
                             </div>
                           ))
                         )}
+                        <div className="flex gap-2 p-3">
+                          <input
+                            placeholder="Other (not listed)"
+                            className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                            value={customPart.name}
+                            onChange={(e) => setCustomPart({ ...customPart, name: e.target.value })}
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="Price"
+                            className="w-24 border rounded-lg px-3 py-2 text-sm"
+                            value={customPart.price}
+                            onChange={(e) => setCustomPart({ ...customPart, price: e.target.value })}
+                          />
+                        </div>
                       </div>
                     ))}
 

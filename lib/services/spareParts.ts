@@ -3,17 +3,28 @@ import { ApiError } from '../api-auth';
 
 // A separate, much simpler tab from the main product catalog — just
 // "Parts | Price", no code/category/brand. What a tech actually carries
-// and might sell during a service visit (§8.4), read fresh on every
-// completion form load rather than synced into the DB, since there's
-// nothing else in the app that needs to query or join against it.
+// and might sell during a service visit (§8.4). Barely ever changes, so
+// rather than hit the Sheets API on every single load of the completion
+// form (real quota cost, and a slower load for a tech on their phone),
+// this is cached in memory for a while — Railway runs this as a
+// persistent Node process (`next start`), not a per-request serverless
+// function, so a plain module-level variable survives between requests
+// on the same instance.
 const SPARE_PARTS_TAB = process.env.GOOGLE_SPARE_PARTS_SHEET_TAB || 'Spare Parts';
+// This list barely ever changes, so refreshing it is a manual action (the
+// Developer panel's "Sync spare parts" button) rather than a short TTL —
+// the long TTL here is only a safety net in case nobody remembers to
+// sync after an edit, not the intended way changes reach the app.
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface SparePart {
   name: string;
   price: number;
 }
 
-export async function getSpareParts(): Promise<SparePart[]> {
+let cache: { parts: SparePart[]; fetchedAt: number } | null = null;
+
+async function fetchSpareParts(): Promise<SparePart[]> {
   const { sheets, sheetId } = readSheetsClient();
   const qtab = quotedTab(SPARE_PARTS_TAB);
 
@@ -29,4 +40,21 @@ export async function getSpareParts(): Promise<SparePart[]> {
     .slice(1) // header row
     .filter((r) => (r[0] ?? '').trim())
     .map((r) => ({ name: r[0].trim(), price: Number(r[1]) || 0 }));
+}
+
+export async function getSpareParts(): Promise<SparePart[]> {
+  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    return cache.parts;
+  }
+  const parts = await fetchSpareParts();
+  cache = { parts, fetchedAt: Date.now() };
+  return parts;
+}
+
+/** Developer panel's "Sync spare parts" — forces a fresh read regardless
+ * of how old the cache is, the moment someone's actually edited the sheet. */
+export async function syncSpareParts(): Promise<SparePart[]> {
+  const parts = await fetchSpareParts();
+  cache = { parts, fetchedAt: Date.now() };
+  return parts;
 }

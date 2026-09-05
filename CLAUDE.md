@@ -1139,6 +1139,24 @@ Verified live: `getSpareParts()` correctly reads the real sheet;
 completing a synthetic out-of-warranty visit with 2× Solenoid valve
 produced exactly `charge_amount: 1100`, `parts_used: "Solenoid valve x2"`.
 
+**Caching + manual sync, added right after shipping**: reading the sheet
+on every single Mark Done load was a real Sheets API call every time (one
+tech opening the page repeatedly through the day adds up) for data that
+barely ever changes. `getSpareParts()` now caches in memory (Railway runs
+this as a persistent `next start` process, not per-request serverless, so
+a module-level cache actually survives between requests) with a 24-hour
+safety-net TTL — but since edits are rare and deliberate, the real
+refresh path is a manual **"Sync spare parts"** button on the Developer
+panel (`syncSpareParts()`, `/api/developer/spare-parts/sync`), same
+one-click pattern as "Sync products now". Verified live: an initial read
+took ~2.4s (real API round-trip), an immediate second call was
+instant (cache hit), and the sync endpoint correctly forced a fresh read.
+
+**Also added a free-text "Other" fallback** next to the picker — a
+name + price field for anything not yet in the sheet, added straight into
+the running total and recorded in `parts_used` as `"O-ring (₹120)"`
+alongside whatever else was picked. Verified live end-to-end.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
