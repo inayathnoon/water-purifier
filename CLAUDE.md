@@ -1274,6 +1274,19 @@ Verified live: completed → closed → edited a real service visit
 technician's edit attempt was refused; an edit attempt on the same job
 backdated past the 7-day window was refused.
 
+## Dashboard: White Background + "Purchase" Terminology Everywhere (2026-09-05)
+
+Two small consistency fixes: (1) the dashboard page background changed
+from gray to white, with a subtle border added to every card so they
+still read as distinct against the now-white page (shadow alone wasn't
+quite enough contrast once the page itself went white). (2) "Order" and
+"Purchase" were the same concept shown under two different words —
+every remaining user-visible "Order(s)" (nav links, `/admin/orders`'s own
+heading, empty-state text, the close button, dashboard row labels)
+renamed to "Purchase(s)". Deliberately left the URL (`/admin/orders`)
+and internal variable/type names unchanged — this was a visible-text
+consistency fix, not a route rename, so no links break.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

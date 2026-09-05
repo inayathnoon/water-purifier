@@ -234,7 +234,7 @@ export default function OrdersPage() {
     <div className="max-w-6xl mx-auto py-8 px-4">
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4 mt-2">
-        <h1 className="text-2xl font-bold">Orders & Payments</h1>
+        <h1 className="text-2xl font-bold">Purchases & Payments</h1>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <label className="text-gray-900">From</label>
           <input type="date" className="border rounded px-2 py-1" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
@@ -259,7 +259,7 @@ export default function OrdersPage() {
       {loading ? (
         <p>Loading...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-gray-900">No orders {orders.length > 0 ? 'in this date range.' : 'yet.'}</p>
+        <p className="text-gray-900">No purchases {orders.length > 0 ? 'in this date range.' : 'yet.'}</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full text-sm">
@@ -401,7 +401,7 @@ export default function OrdersPage() {
                                   onClick={(e) => { e.stopPropagation(); handleClose(o.id); }}
                                   className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
                                 >
-                                  Close order
+                                  Close purchase
                                 </button>
                               )}
                             </div>

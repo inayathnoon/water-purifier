@@ -104,7 +104,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-white">
       <header className="bg-white shadow">
         <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-2">
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Water Purifier Service</h1>
@@ -200,7 +200,7 @@ function AdminDashboard() {
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Link href="/admin/enquiries" className="text-blue-600 hover:underline">Enquiries</Link>
           <Link href="/admin/customers" className="text-blue-600 hover:underline">Customers</Link>
-          <Link href="/admin/orders" className="text-blue-600 hover:underline">Orders</Link>
+          <Link href="/admin/orders" className="text-blue-600 hover:underline">Purchases</Link>
           <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
           <Link href="/admin/service-calls" className="text-blue-600 hover:underline">Service Calls</Link>
           <Link
@@ -384,7 +384,7 @@ function AdminDashboard() {
               key={o.phoneNumber}
               href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
               primary={o.name}
-              secondary={o.orderCount > 1 ? `${o.orderCount} orders` : o.phoneNumber}
+              secondary={o.orderCount > 1 ? `${o.orderCount} purchases` : o.phoneNumber}
               tag={`₹${o.totalBalance} owed`}
               tagColor="text-red-600"
             />
@@ -501,7 +501,7 @@ function OwnerDashboard() {
           <Link href="/admin/enquiries" className="text-green-700 hover:underline">Enquiries</Link>
           <Link href="/admin/installations" className="text-green-700 hover:underline">New Purchase</Link>
           <Link href="/admin/customers" className="text-green-700 hover:underline">Customers</Link>
-          <Link href="/admin/orders" className="text-green-700 hover:underline">Orders</Link>
+          <Link href="/admin/orders" className="text-green-700 hover:underline">Purchases</Link>
           <Link href="/admin/products" className="text-green-700 hover:underline">Products</Link>
           <Link href="/admin/service-calls" className="text-green-700 hover:underline">Service Calls</Link>
         </div>
@@ -571,7 +571,7 @@ function OwnerDashboard() {
                 href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
                 primary={o.name}
                 secondary={
-                  (o.orderCount > 1 ? `${o.orderCount} orders · ` : '') +
+                  (o.orderCount > 1 ? `${o.orderCount} purchases · ` : '') +
                   (o.lastPaymentCallAt ? `last called ${daysAgo(o.lastPaymentCallAt)}d ago` : 'never called')
                 }
                 tag={`₹${o.totalBalance}${overdue ? ` · ${daysAgo(o.oldestCreatedAt)}d` : ''}`}
@@ -586,7 +586,7 @@ function OwnerDashboard() {
         <h2 className="text-lg font-semibold text-gray-900 mb-3">
           This Week ({data.weekStart} – {data.weekEnd})
         </h2>
-        <div className="bg-white rounded-lg shadow p-4 mb-4 overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
@@ -747,7 +747,7 @@ function DashboardCard({
 }) {
   const isEmpty = Array.isArray(children) ? children.length === 0 : !children;
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div className="flex justify-between items-center mb-2">
         <h3 className="font-semibold text-gray-900">{title}</h3>
         {badge && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>{badge}</span>}
@@ -797,7 +797,7 @@ function Row({
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <p className="text-sm text-gray-900">{label}</p>
       <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
     </div>
