@@ -991,6 +991,22 @@ it's native browser rendering behavior, not app code — worth a quick
 check on an actual booking date field to confirm the picker now opens
 Monday-first.
 
+## Installations Are Always At Home — Location Picker Removed (2026-09-05)
+
+Business rule: an installation never happens at the office (unlike a
+service visit, where a customer can bring their unit in — §6.3's
+`location` field genuinely varies there). The booking forms for
+installations (`/admin/installations` and the dashboard's Jobs to
+Dispatch inline Assign form) had a Home/Office picker anyway, copied from
+the service-visit booking form. Removed it for installations only —
+`bookForm`/`assignForm` still carries `location: 'home'` internally (the
+`bookJob()` API still takes the field), just never asks or shows it when
+the job is an installation; the dashboard's Assign handler also forces
+`location: 'home'` in the request body for an installation regardless of
+whatever the (now-hidden) field last held, as a second guard. Service
+visit booking is untouched — still asks Home vs Office. Verified live:
+booking a real installation lands with `location: 'home'`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

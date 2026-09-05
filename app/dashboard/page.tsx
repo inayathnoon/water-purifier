@@ -150,10 +150,13 @@ function AdminDashboard() {
     setAssignError('');
     setAssigning(true);
     const endpoint = job.kind === 'installation' ? `/api/admin/installations/${job.id}/book` : `/api/admin/service-calls/${job.id}/book`;
+    // Installations always happen at the customer's home, regardless of
+    // whatever the (hidden, for installations) location select last held.
+    const payload = job.kind === 'installation' ? { ...assignForm, location: 'home' } : assignForm;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(assignForm),
+      body: JSON.stringify(payload),
     });
     setAssigning(false);
     if (!res.ok) {
@@ -283,14 +286,18 @@ function AdminDashboard() {
                         <option value="afternoon">Afternoon</option>
                         <option value="evening">Evening</option>
                       </select>
-                      <select
-                        className="border rounded px-2 py-1.5 text-sm"
-                        value={assignForm.location}
-                        onChange={(e) => setAssignForm({ ...assignForm, location: e.target.value })}
-                      >
-                        <option value="home">Home</option>
-                        <option value="office">Office</option>
-                      </select>
+                      {/* Installations always happen at the customer's home
+                          — only a service visit can be brought to the office. */}
+                      {t.kind !== 'installation' && (
+                        <select
+                          className="border rounded px-2 py-1.5 text-sm"
+                          value={assignForm.location}
+                          onChange={(e) => setAssignForm({ ...assignForm, location: e.target.value })}
+                        >
+                          <option value="home">Home</option>
+                          <option value="office">Office</option>
+                        </select>
+                      )}
                     </div>
                     <button
                       disabled={assigning}

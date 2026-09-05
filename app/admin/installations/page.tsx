@@ -483,15 +483,11 @@ function InstallationsPageInner() {
                       <option value="afternoon">Afternoon</option>
                       <option value="evening">Evening</option>
                     </select>
-                    <select
-                      className="border rounded px-3 py-2"
-                      value={bookForm.location}
-                      onChange={(e) => setBookForm({ ...bookForm, location: e.target.value })}
-                    >
-                      <option value="home">Home</option>
-                      <option value="office">Office</option>
-                    </select>
                   </div>
+                  {/* Installations always happen at the customer's home — no
+                      office option here (unlike a service visit, where a
+                      customer can bring their unit in). bookForm.location
+                      stays fixed at 'home'. */}
                   {bookForm.assignedToId && bookForm.bookedDate && (
                     <p className="text-xs text-gray-900">
                       This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
