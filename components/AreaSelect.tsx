@@ -3,14 +3,9 @@
 // Kannur revenue villages (source: Wikipedia, "Political divisions of
 // Kannur district" — this is where the business actually operates, so it
 // gets full village-level detail, taluk by taluk).
+// Thalassery Taluk listed first — most of the business's real customers
+// are there, so it shouldn't take scrolling past Kannur Taluk to reach.
 const KANNUR_VILLAGES: Record<string, string[]> = {
-  'Kannur Taluk': [
-    'Anjarakandi', 'Azhikode North', 'Azhikode South', 'Chelora', 'Chembilode', 'Cherukkunnu',
-    'Chirakkal', 'Edakkad', 'Elayavoor', 'Iriveri', 'Kadambur', 'Kalliasseri', 'Kanhirod',
-    'Kannadiparamba', 'Kannapuram', 'Kannur-1', 'Kannur-2', 'Makrery', 'Mattool', 'Mavilayi',
-    'Munderi', 'Muzhappilangad', 'Narath', 'Pallikkunnu', 'Pappinisseri', 'Puzhathi',
-    'Valapattanam', 'Valiyannur',
-  ],
   'Thalassery Taluk': [
     'Cheruvanchery', 'Chokli', 'Dharmadam', 'Erancholi', 'Eruvatty', 'Kadirur', 'Kandankunnu',
     'Kannavam', 'Keezhallur', 'Kodiyeri', 'Kolavallur', 'Kolayad', 'Koodali', 'Kottayam',
@@ -18,6 +13,13 @@ const KANNUR_VILLAGES: Record<string, string[]> = {
     'Panniyannur', 'Panoor', 'Pathiriyad', 'Pattanur', 'Pattiam', 'Peringalam', 'Peringathur',
     'Pinarayi', 'Puthur', 'Shivapuram', 'Thalassery', 'Thiruvangad', 'Tholambra',
     'Thripangothur', 'Vekkalam',
+  ],
+  'Kannur Taluk': [
+    'Anjarakandi', 'Azhikode North', 'Azhikode South', 'Chelora', 'Chembilode', 'Cherukkunnu',
+    'Chirakkal', 'Edakkad', 'Elayavoor', 'Iriveri', 'Kadambur', 'Kalliasseri', 'Kanhirod',
+    'Kannadiparamba', 'Kannapuram', 'Kannur-1', 'Kannur-2', 'Makrery', 'Mattool', 'Mavilayi',
+    'Munderi', 'Muzhappilangad', 'Narath', 'Pallikkunnu', 'Pappinisseri', 'Puzhathi',
+    'Valapattanam', 'Valiyannur',
   ],
   'Taliparamba Taluk': [
     'Alakode', 'Anthoor', 'Chelery', 'Chengalayi', 'Chuzhali', 'Eruvessi', 'Irikkur',
