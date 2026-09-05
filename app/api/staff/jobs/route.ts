@@ -12,7 +12,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('tickets')
       .select(
-        'id, kind, status, booked_date, booked_half_day, location, parent_installation_id, customers(name, address, area, phone_number)'
+        'id, kind, status, booked_date, booked_half_day, location, parent_installation_id, installation_date, customers(name, address, area, phone_number)'
       )
       .eq('assigned_to_id', user.id)
       .in('status', ['booked', 'completed'])

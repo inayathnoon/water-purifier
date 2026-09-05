@@ -1108,6 +1108,37 @@ returns 5 real currently-owed orders with correct `last_payment_call_at`
 values, and the week-jobs query returns the 1 real job actually booked
 this week — both against production, read-only.
 
+## Mark Done: Spare Parts Picker with Live Total (2026-09-05)
+
+Replaced the free-text "Parts used" + manually-typed "Charge amount"
+fields on `/staff/jobs`'s completion form with a proper mobile picker —
+found the actual spare-parts data already sitting in a **"Spare Parts"**
+tab (separate from "Product List") in the same spreadsheet, with just two
+columns (`Parts`, `Price`) and one real row so far (`Solenoid valve`,
+₹550) — the "₹550 service charge" mentioned earlier wasn't a separate
+flat fee at all, it's simply that part's price; there's no flat visit fee
+in this design, just parts × qty. New `lib/services/spareParts.ts` reads
+that tab fresh on every load (nothing synced into the DB, since nothing
+else needs to query it).
+
+Each part shows with a +/− quantity stepper (starting at 0); a sticky bar
+fixed to the bottom of the screen shows the running total the moment any
+quantity changes, mobile-first the whole way (per §15.2's "nobody opens
+a laptop for this"). On submit, `partsUsed` is built as `"Solenoid valve
+x2"` etc. and `chargeAmount` is the computed total. Per the explicit
+answer given when this was scoped: the whole picker (and any charge)
+**only shows for an out-of-warranty visit** — `isWithinWarranty()` is
+mirrored client-side from `completeJob()`'s own check purely to decide
+whether to render the picker at all; an in-warranty visit shows a plain
+"still under warranty, no charge" line instead and sends neither field.
+§13.3's server-side override still independently forces the charge to 0
+inside warranty regardless — this client-side check is just to avoid
+showing a tech a total that would evaporate, not a substitute enforcement.
+
+Verified live: `getSpareParts()` correctly reads the real sheet;
+completing a synthetic out-of-warranty visit with 2× Solenoid valve
+produced exactly `charge_amount: 1100`, `parts_used: "Solenoid valve x2"`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

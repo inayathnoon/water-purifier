@@ -13,7 +13,25 @@ interface Job {
   booked_half_day: string;
   location: 'home' | 'office';
   parent_installation_id: string | null;
+  installation_date: string | null;
   customers: { name: string; address: string; area: string; phone_number: string };
+}
+
+interface SparePart {
+  name: string;
+  price: number;
+}
+
+// Mirrors completeJob()'s own isWithinWarranty() server-side — used here
+// only to decide whether to show the spare-parts picker at all, since
+// §13.3 forces the actual charge to 0 inside warranty regardless of what
+// gets sent, and there's no point asking a tech to build a total that's
+// guaranteed to evaporate.
+function isWithinWarranty(installationDate: string | null, checkDate: string): boolean {
+  if (!installationDate) return false;
+  const oneYearLater = new Date(installationDate);
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+  return new Date(checkDate) <= oneYearLater;
 }
 
 // A service_visit with a parent_installation_id came from the 18-month-and-up
@@ -57,9 +75,9 @@ export default function StaffJobsPage() {
     actualStartTime: '',
     actualEndTime: '',
     notes: '',
-    partsUsed: '',
-    chargeAmount: '',
   });
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
+  const [partQuantities, setPartQuantities] = useState<Record<string, number>>({});
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,6 +91,9 @@ export default function StaffJobsPage() {
         setJobs(data.jobs ?? []);
         setLoading(false);
       });
+    fetch('/api/staff/spare-parts')
+      .then((res) => res.json())
+      .then((data) => !cancelled && setSpareParts(data.parts ?? []));
     return () => {
       cancelled = true;
     };
@@ -92,26 +113,39 @@ export default function StaffJobsPage() {
   const startCompleting = (job: Job) => {
     setError('');
     setCompletingId(job.id);
+    setPartQuantities({});
     const times = HALF_DAY_TIMES[job.booked_half_day] ?? { start: '', end: '' };
     setForm({
       actualDate: todayISO(),
       actualStartTime: times.start,
       actualEndTime: times.end,
       notes: '',
-      partsUsed: '',
-      chargeAmount: '',
     });
   };
 
-  const handleComplete = async (jobId: string) => {
+  const adjustPartQty = (name: string, delta: number) => {
+    setPartQuantities((prev) => {
+      const next = Math.max(0, (prev[name] ?? 0) + delta);
+      return { ...prev, [name]: next };
+    });
+  };
+
+  const sparePartsTotal = spareParts.reduce((sum, p) => sum + (partQuantities[p.name] ?? 0) * p.price, 0);
+
+  const handleComplete = async (job: Job) => {
     setError('');
     setSubmitting(true);
-    const res = await fetch(`/api/staff/jobs/${jobId}/complete`, {
+    const chargeable = job.kind === 'service_visit' && !isWithinWarranty(job.installation_date, form.actualDate);
+    const selectedParts = spareParts.filter((p) => (partQuantities[p.name] ?? 0) > 0);
+    const partsUsed = selectedParts.map((p) => `${p.name} x${partQuantities[p.name]}`).join(', ');
+
+    const res = await fetch(`/api/staff/jobs/${job.id}/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        chargeAmount: form.chargeAmount ? Number(form.chargeAmount) : undefined,
+        partsUsed: chargeable ? partsUsed : undefined,
+        chargeAmount: chargeable ? sparePartsTotal : undefined,
       }),
     });
     setSubmitting(false);
@@ -214,26 +248,46 @@ export default function StaffJobsPage() {
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   />
 
-                  {job.kind === 'service_visit' && (
-                    <>
-                      <input
-                        placeholder="Parts used (optional)"
-                        className="w-full border rounded-lg px-3 py-3 text-base"
-                        value={form.partsUsed}
-                        onChange={(e) => setForm({ ...form, partsUsed: e.target.value })}
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Charge amount (leave blank if unsure — system checks warranty automatically)"
-                        className="w-full border rounded-lg px-3 py-3 text-base"
-                        value={form.chargeAmount}
-                        onChange={(e) => setForm({ ...form, chargeAmount: e.target.value })}
-                      />
-                    </>
-                  )}
+                  {job.kind === 'service_visit' &&
+                    (isWithinWarranty(job.installation_date, form.actualDate) ? (
+                      <p className="text-sm text-gray-900 bg-gray-50 rounded-lg px-3 py-2">
+                        Still under warranty — no charge for this visit.
+                      </p>
+                    ) : (
+                      <div className="border rounded-lg divide-y">
+                        {spareParts.length === 0 ? (
+                          <p className="text-sm text-gray-900 p-3">No parts loaded — check with admin.</p>
+                        ) : (
+                          spareParts.map((p) => (
+                            <div key={p.name} className="flex justify-between items-center p-3">
+                              <div>
+                                <p className="text-sm font-medium">{p.name}</p>
+                                <p className="text-xs text-gray-900">₹{p.price}</p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => adjustPartQty(p.name, -1)}
+                                  className="w-9 h-9 rounded-full border text-lg font-semibold active:bg-gray-100"
+                                >
+                                  −
+                                </button>
+                                <span className="w-5 text-center">{partQuantities[p.name] ?? 0}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => adjustPartQty(p.name, 1)}
+                                  className="w-9 h-9 rounded-full border text-lg font-semibold active:bg-gray-100"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    ))}
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pb-16">
                     <button
                       onClick={() => setCompletingId(null)}
                       className="flex-1 py-3 border rounded-lg font-medium"
@@ -241,13 +295,20 @@ export default function StaffJobsPage() {
                       Cancel
                     </button>
                     <button
-                      onClick={() => handleComplete(job.id)}
+                      onClick={() => handleComplete(job)}
                       disabled={submitting}
                       className="flex-[2] py-3 bg-green-600 text-white rounded-lg font-semibold text-lg disabled:opacity-50"
                     >
                       {submitting ? 'Saving...' : 'Submit'}
                     </button>
                   </div>
+
+                  {job.kind === 'service_visit' && !isWithinWarranty(job.installation_date, form.actualDate) && (
+                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg px-4 py-3 flex justify-between items-center z-10">
+                      <span className="font-medium">Total</span>
+                      <span className="text-xl font-bold">₹{sparePartsTotal}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
