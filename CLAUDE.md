@@ -1367,6 +1367,30 @@ from it:
   ordered Purchase → Enquiry → Service to match. Owner's row got the same
   treatment (it only ever had the one "+ New Purchase" action).
 
+## Dashboard Nav: Proper Grid Instead of Two Flowing Rows (2026-09-05)
+
+Follow-up to the nav redesign above — browse links and their matching
+"+ New ..." action sat in two separate rows that didn't visually pair up.
+Rebuilt as a `grid-cols-5` grid: each column is one category, its browse
+button on top and (for Purchases/Enquiries/Services, the three with a
+create action) its "+ New ..." button directly beneath, both the same
+box size. Customers and Products just have the top box, consistent with
+the earlier decision not to give them a standalone create action.
+
+## New Service: Date & Time Now Visible, Not Silently Assumed (2026-09-05)
+
+Picking a "Staff Attended" immediately books the visit, but the actual
+date/half-day it landed on (today, right now) was computed silently
+server-side with no way to see or change it from the form. Now, the
+moment a staff member is picked, a Date + Half-day row appears (defaulted
+to today / the current slot, editable) — covers a visit that already
+happened earlier or one being scheduled for later today, not just "right
+now." `createAdHocServiceRequest()` takes the new optional
+`bookedDate`/`bookedHalfDay`, falling back to the same today/now default
+if the form doesn't send them (nothing else calling this function
+breaks). Verified live: a request with an explicit backdated date and
+half-day stored exactly that instead of the current moment.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

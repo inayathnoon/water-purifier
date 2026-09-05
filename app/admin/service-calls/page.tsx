@@ -62,8 +62,24 @@ const emptyNewService = {
   productInterest: '',
   issueNote: '',
   staffAttendedId: '',
+  bookedDate: '',
+  bookedHalfDay: 'morning',
   location: 'home',
 };
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Plain local time — this page is only ever used by staff physically in
+// the business's own timezone, unlike the server-side IST helpers built
+// for a Railway container that doesn't share that timezone.
+function currentHalfDay(): 'morning' | 'afternoon' | 'evening' {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+}
 
 export default function ServiceCallsPage() {
   return (
@@ -262,7 +278,18 @@ function ServiceCallsPageInner() {
             <select
               className="w-full border rounded px-3 py-2 text-gray-900"
               value={newService.staffAttendedId}
-              onChange={(e) => setNewService({ ...newService, staffAttendedId: e.target.value })}
+              onChange={(e) => {
+                const staffAttendedId = e.target.value;
+                // Picking someone books it immediately — default to right
+                // now, but leave date/time editable below for a visit
+                // already done earlier, or one planned for later today.
+                setNewService((prev) => ({
+                  ...prev,
+                  staffAttendedId,
+                  bookedDate: staffAttendedId && !prev.bookedDate ? todayISO() : prev.bookedDate,
+                  bookedHalfDay: staffAttendedId && !prev.bookedDate ? currentHalfDay() : prev.bookedHalfDay,
+                }));
+              }}
             >
               <option value="">(not yet decided)</option>
               {staff.map((s) => (
@@ -272,6 +299,28 @@ function ServiceCallsPageInner() {
               ))}
             </select>
           </FormRow>
+          {newService.staffAttendedId && (
+            <FormRow label="Date & Time">
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  required
+                  className="flex-1 border rounded px-3 py-2 text-gray-900"
+                  value={newService.bookedDate}
+                  onChange={(e) => setNewService({ ...newService, bookedDate: e.target.value })}
+                />
+                <select
+                  className="border rounded px-3 py-2 text-gray-900"
+                  value={newService.bookedHalfDay}
+                  onChange={(e) => setNewService({ ...newService, bookedHalfDay: e.target.value })}
+                >
+                  <option value="morning">Morning</option>
+                  <option value="afternoon">Afternoon</option>
+                  <option value="evening">Evening</option>
+                </select>
+              </div>
+            </FormRow>
+          )}
           <FormRow label="Location">
             <select
               className="w-full border rounded px-3 py-2 text-gray-900"

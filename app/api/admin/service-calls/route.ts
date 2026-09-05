@@ -25,6 +25,8 @@ export async function POST(request: Request) {
       productInterest: body.productInterest ?? '',
       issueNote: body.issueNote ?? '',
       staffAttendedId: body.staffAttendedId || undefined,
+      bookedDate: body.bookedDate || undefined,
+      bookedHalfDay: ['morning', 'afternoon', 'evening'].includes(body.bookedHalfDay) ? body.bookedHalfDay : undefined,
       location: body.location === 'office' ? 'office' : 'home',
     });
 

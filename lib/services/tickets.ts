@@ -65,13 +65,16 @@ export async function createAdHocServiceRequest(input: {
   issueNote: string;
   // Optional "Staff Attended" pick on the New Service form — an ad-hoc call
   // is usually already decided (or already done) by the time this form is
-  // filled in, so picking someone here books it immediately (today, this
-  // half-day) instead of making the admin repeat the same assignment step
-  // from the Requested list right after. Location defaults to 'home' but
-  // is a real field here too — same tickets.location column every other
-  // service-visit booking uses, so it should be askable here too rather
-  // than silently hardcoded.
+  // filled in, so picking someone here books it immediately instead of
+  // making the admin repeat the same assignment step from the Requested
+  // list right after. bookedDate/bookedHalfDay default to today/now on
+  // the form the moment a staff member is picked, but stay editable there
+  // (a visit already done yesterday, or one planned for later today) —
+  // location defaults to 'home' but is a real field here too, same
+  // tickets.location column every other service-visit booking uses.
   staffAttendedId?: string;
+  bookedDate?: string;
+  bookedHalfDay?: 'morning' | 'afternoon' | 'evening';
   location?: 'home' | 'office';
 }) {
   if (!input.issueNote.trim()) throw new ApiError(400, 'A note on the reported problem is required');
@@ -96,8 +99,8 @@ export async function createAdHocServiceRequest(input: {
   if (input.staffAttendedId) {
     return bookJob(data.id, {
       assignedToId: input.staffAttendedId,
-      bookedDate: todayIST(),
-      bookedHalfDay: halfDayNowIST(),
+      bookedDate: input.bookedDate || todayIST(),
+      bookedHalfDay: input.bookedHalfDay || halfDayNowIST(),
       location: input.location ?? 'home',
     });
   }
