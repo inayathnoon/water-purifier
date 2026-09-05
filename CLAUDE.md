@@ -1343,8 +1343,7 @@ pass), not guessed:
   changes). Removed; the comment above it already documents the
   optional-column behavior, which the real logic implements inline.
 - `CRON_SECRET` (GitHub repo secret + Railway variable) — no code reads
-  it anymore. Left for the business to remove manually via each
-  dashboard (not a code change).
+  it anymore. Removed from both by the business directly.
 
 ## V1 Status: all 7 stages built
 
