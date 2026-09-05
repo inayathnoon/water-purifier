@@ -1077,6 +1077,37 @@ trips correctly; temporarily deactivating a real service_staff account
 and trying to assign them a job was correctly refused by the updated
 trigger, and succeeded again once reactivated.
 
+## Owner Dashboard: Telegram Escalation, Week Schedule, Full Payments List (2026-09-05)
+
+Three additions, each from a direct business ask:
+
+- **§2.1 escalation now sends a Telegram message** the moment an admin
+  passes an enquiry to the owner (new `notifyEnquiryPassedToOwner`,
+  migration 019 adds the `enquiry_passed_to_owner` event type) — kept
+  as its own message, not merged into "Enquiries passed to you" /
+  "Commercial-Vessel enquiries" (those stay two separate cards, by
+  explicit request, rather than one combined "urgent" box).
+- **"This Week" schedule**: a plain table, staff as rows, the next 7 days
+  as columns, showing each technician's booked jobs (Installation/Service
+  badge + customer + half-day). Right below it, the *exact same* "Jobs to
+  Dispatch" card and inline Assign form built for the admin dashboard —
+  so the owner sees who's busy and what's still unassigned side by side,
+  and can assign a job directly from here too, not just view it.
+- **Payments Pending now matches admin's**: every open order (not just
+  7+-day-old ones), grouped by customer, each row showing the last
+  payment-call date (or "never called") alongside the amount owed — the
+  7-day-and-older ones still get the red flag, just as a badge/tag rather
+  than being the only thing shown.
+
+`/api/owner/dashboard` gained `weekJobs`, `jobsToDispatch`, `weekStart`/
+`weekEnd`; `overdueOrders` was renamed `paymentsOutstanding` and widened
+from `status='open' AND created_at <= 7 days ago` to all open orders,
+carrying `last_payment_call_at` through the same per-customer grouping
+already used for the old overdue list. Verified live: the payments query
+returns 5 real currently-owed orders with correct `last_payment_call_at`
+values, and the week-jobs query returns the 1 real job actually booked
+this week — both against production, read-only.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

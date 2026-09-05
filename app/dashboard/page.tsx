@@ -33,8 +33,26 @@ interface OwnerDashboardData {
   monthRevenue: { sold: number; discount: number; collected: number };
   pendingLeaveCount: number;
   passedToOwner: { id: string; closure_explanation: string; customers: { name: string; phone_number: string } }[];
-  overdueOrders: { name: string; phoneNumber: string; totalBalance: number; oldestCreatedAt: string; orderCount: number }[];
+  paymentsOutstanding: {
+    name: string;
+    phoneNumber: string;
+    totalBalance: number;
+    oldestCreatedAt: string;
+    lastPaymentCallAt: string | null;
+    orderCount: number;
+  }[];
   commercialVesselEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
+  weekJobs: {
+    id: string;
+    kind: string;
+    booked_date: string;
+    booked_half_day: string;
+    assigned_to_id: string | null;
+    customers: { name: string };
+  }[];
+  jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
+  weekStart: string;
+  weekEnd: string;
 }
 
 const daysAgo = daysAgoIST;
@@ -395,20 +413,85 @@ function AdminDashboard() {
   );
 }
 
+function weekDates(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(`${start}T00:00:00Z`);
+  const last = new Date(`${end}T00:00:00Z`);
+  while (cur <= last) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function dayLabel(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) + ' ' + dateStr.slice(5);
+}
+
 function OwnerDashboard() {
   const [data, setData] = useState<OwnerDashboardData | null>(null);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [assignForm, setAssignForm] = useState(emptyAssignForm);
+  const [assignError, setAssignError] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
+  const loadDashboard = () => {
+    fetch('/api/owner/dashboard')
+      .then((res) => res.json())
+      .then(setData);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/owner/dashboard')
+    loadDashboard();
+    fetch('/api/admin/staff')
       .then((res) => res.json())
-      .then((d) => !cancelled && setData(d));
+      .then((d) => !cancelled && setStaff(d.staff ?? []));
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const startAssigning = (id: string) => {
+    setAssignError('');
+    setAssigningId(id);
+    setAssignForm(emptyAssignForm);
+  };
+
+  const handleAssign = async (e: React.FormEvent, job: { id: string; kind: string }) => {
+    e.preventDefault();
+    setAssignError('');
+    setAssigning(true);
+    const endpoint = job.kind === 'installation' ? `/api/admin/installations/${job.id}/book` : `/api/admin/service-calls/${job.id}/book`;
+    const payload = job.kind === 'installation' ? { ...assignForm, location: 'home' } : assignForm;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    setAssigning(false);
+    if (!res.ok) {
+      setAssignError((await res.json()).error ?? 'Failed to assign');
+      return;
+    }
+    setAssigningId(null);
+    loadDashboard();
+  };
+
   if (!data) return <p>Loading...</p>;
+
+  const days = weekDates(data.weekStart, data.weekEnd);
+  const jobsByStaffAndDay = new Map<string, Map<string, typeof data.weekJobs>>();
+  for (const job of data.weekJobs) {
+    if (!job.assigned_to_id) continue;
+    if (!jobsByStaffAndDay.has(job.assigned_to_id)) jobsByStaffAndDay.set(job.assigned_to_id, new Map());
+    const byDay = jobsByStaffAndDay.get(job.assigned_to_id)!;
+    if (!byDay.has(job.booked_date)) byDay.set(job.booked_date, []);
+    byDay.get(job.booked_date)!.push(job);
+  }
 
   return (
     <div>
@@ -474,20 +557,159 @@ function OwnerDashboard() {
         </DashboardCard>
 
         <DashboardCard
-          title="Overdue 7+ days"
-          emptyText="Nothing overdue."
+          title="Payments Pending"
+          badge={data.paymentsOutstanding.filter((o) => daysAgo(o.oldestCreatedAt) >= 7).length > 0 ? `${data.paymentsOutstanding.filter((o) => daysAgo(o.oldestCreatedAt) >= 7).length} over 7 days` : undefined}
+          badgeColor="bg-red-100 text-red-800"
+          emptyText="Nothing owed. Nice."
           viewAllHref="/admin/orders"
         >
-          {data.overdueOrders.slice(0, 5).map((o) => (
-            <Row
-              key={o.phoneNumber}
-              href="/admin/orders"
-              primary={o.name}
-              secondary={`${daysAgo(o.oldestCreatedAt)} days${o.orderCount > 1 ? ` · ${o.orderCount} orders` : ''}`}
-              tag={`₹${o.totalBalance}`}
-              tagColor="text-red-600"
-            />
-          ))}
+          {data.paymentsOutstanding.slice(0, 5).map((o) => {
+            const overdue = daysAgo(o.oldestCreatedAt) >= 7;
+            return (
+              <Row
+                key={o.phoneNumber}
+                href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
+                primary={o.name}
+                secondary={
+                  (o.orderCount > 1 ? `${o.orderCount} orders · ` : '') +
+                  (o.lastPaymentCallAt ? `last called ${daysAgo(o.lastPaymentCallAt)}d ago` : 'never called')
+                }
+                tag={`₹${o.totalBalance}${overdue ? ` · ${daysAgo(o.oldestCreatedAt)}d` : ''}`}
+                tagColor={overdue ? 'text-red-600' : undefined}
+              />
+            );
+          })}
+        </DashboardCard>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          This Week ({data.weekStart} – {data.weekEnd})
+        </h2>
+        <div className="bg-white rounded-lg shadow p-4 mb-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 pr-3 whitespace-nowrap">Staff</th>
+                {days.map((d) => (
+                  <th key={d} className="text-left py-2 px-2 whitespace-nowrap">
+                    {dayLabel(d)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => (
+                <tr key={s.id} className="border-b last:border-0 align-top">
+                  <td className="py-2 pr-3 font-medium whitespace-nowrap">{s.name}</td>
+                  {days.map((d) => {
+                    const jobs = jobsByStaffAndDay.get(s.id)?.get(d) ?? [];
+                    return (
+                      <td key={d} className="py-2 px-2">
+                        {jobs.map((j) => (
+                          <div key={j.id} className="text-xs mb-1 whitespace-nowrap">
+                            <span className={j.kind === 'installation' ? 'text-blue-700' : 'text-orange-700'}>
+                              {j.kind === 'installation' ? 'I' : 'S'}
+                            </span>{' '}
+                            {j.customers.name}
+                            <span className="text-gray-900"> ({j.booked_half_day[0].toUpperCase()})</span>
+                          </div>
+                        ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <DashboardCard
+          title="Jobs to Dispatch"
+          emptyText="Nothing waiting on a technician."
+          viewAllLinks={[
+            { label: 'Installations', href: '/admin/installations' },
+            { label: 'Service Calls', href: '/admin/service-calls' },
+          ]}
+        >
+          {data.jobsToDispatch.slice(0, 5).map((t) => {
+            const age = daysAgo(t.created_at);
+            return (
+              <div key={t.id} className="py-2 border-b last:border-0">
+                <div className="flex justify-between items-center gap-2">
+                  <div>
+                    <p className="text-sm font-medium">{t.customers.name}</p>
+                    <p className="text-xs text-gray-900">{t.enquiry_product_interest || t.customers.phone_number}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {t.kind === 'installation' ? 'Installation' : 'Service visit'} · {age}d
+                      {age >= 3 ? ' — overdue' : ''}
+                    </span>
+                    <button
+                      onClick={() => (assigningId === t.id ? setAssigningId(null) : startAssigning(t.id))}
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap"
+                    >
+                      Assign
+                    </button>
+                  </div>
+                </div>
+
+                {assigningId === t.id && (
+                  <form onSubmit={(e) => handleAssign(e, t)} className="mt-2 pt-2 border-t space-y-2">
+                    {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
+                    <select
+                      required
+                      className="border rounded px-2 py-1.5 w-full text-sm"
+                      value={assignForm.assignedToId}
+                      onChange={(e) => setAssignForm({ ...assignForm, assignedToId: e.target.value })}
+                    >
+                      <option value="">Assign to...</option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        required
+                        className="border rounded px-2 py-1.5 flex-1 text-sm"
+                        value={assignForm.bookedDate}
+                        onChange={(e) => setAssignForm({ ...assignForm, bookedDate: e.target.value })}
+                      />
+                      <select
+                        className="border rounded px-2 py-1.5 text-sm"
+                        value={assignForm.bookedHalfDay}
+                        onChange={(e) => setAssignForm({ ...assignForm, bookedHalfDay: e.target.value })}
+                      >
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                        <option value="evening">Evening</option>
+                      </select>
+                      {t.kind !== 'installation' && (
+                        <select
+                          className="border rounded px-2 py-1.5 text-sm"
+                          value={assignForm.location}
+                          onChange={(e) => setAssignForm({ ...assignForm, location: e.target.value })}
+                        >
+                          <option value="home">Home</option>
+                          <option value="office">Office</option>
+                        </select>
+                      )}
+                    </div>
+                    <button
+                      disabled={assigning}
+                      className="w-full py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {assigning ? 'Assigning...' : 'Confirm assignment'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            );
+          })}
         </DashboardCard>
       </div>
 

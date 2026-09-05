@@ -8,7 +8,8 @@ type EventType =
   | 'payment_reminder'
   | 'product_sync_failed'
   | 'sales_sheet_failed'
-  | 'service_sheet_failed';
+  | 'service_sheet_failed'
+  | 'enquiry_passed_to_owner';
 
 /**
  * Records something that needs a human's attention even though nobody was
@@ -91,6 +92,21 @@ export async function notifyLeaveRequested(input: { requesterName: string; start
     `${appUrl('/owner/leave')}`;
 
   await sendAndLog('leave_requested', text);
+}
+
+/** §2.1: an admin couldn't close this enquiry themselves and passed it up. */
+export async function notifyEnquiryPassedToOwner(input: {
+  ticketId: string;
+  customerName: string;
+  explanation: string;
+}) {
+  const text =
+    `🔺 <b>Enquiry passed to you</b>\n` +
+    `${input.customerName}\n` +
+    `${input.explanation}\n` +
+    `${appUrl(`/tickets/${input.ticketId}`)}`;
+
+  await sendAndLog('enquiry_passed_to_owner', text);
 }
 
 function formatDuration(start: string, end: string): string {

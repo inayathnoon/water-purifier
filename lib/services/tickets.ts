@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { notifyJobAssigned, notifyJobCompleted } from './notifications';
+import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } from './notifications';
 import { syncOrderToSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely } from './serviceSheet';
 import { todayIST, halfDayNowIST } from '../dates';
@@ -169,6 +169,13 @@ export async function closeEnquiry(
       .select('*')
       .single();
     if (error) throw new ApiError(500, error.message);
+
+    // §2.1/§10.5: fire only after the status change above has committed.
+    if (action === 'pass_to_owner') {
+      const { data: customer } = await supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single();
+      await notifyEnquiryPassedToOwner({ ticketId, customerName: customer?.name ?? 'Unknown', explanation });
+    }
+
     return data;
   }
 
