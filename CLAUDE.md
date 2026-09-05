@@ -1506,6 +1506,27 @@ the book endpoint again with a different staff member/date/half-day
 correctly reassigns it in place — exactly what clicking a job and saving
 the edit form does.
 
+## Bug: Area Never Actually Auto-Filled for a Known Customer (2026-09-05)
+
+Reported as "area doesn't auto-fill for known customers" — the actual
+data flow (`CustomerFields`'s phone lookup → `onChange({..., area: ...})`)
+was already correct the whole time. The real bug: `AreaSelect` was a
+rigid `<select>` with a fixed, curated (Wikipedia-sourced) village list,
+and real customer `area` values are (1) forced ALL CAPS by the DB's
+`normalize_customer_text()` trigger and (2) often don't match that list
+at all — confirmed against live data (`PONNIYAM`, `TEMPLE GATE`,
+`MUZHIPPILANGAD` aren't in it, or differ in spelling). A native `<select>`
+silently can't display a `value` that isn't one of its own `<option>`s —
+so the state was correctly set, the field just visually failed to show
+it, looking exactly like "didn't auto-fill."
+
+Fixed by converting `AreaSelect` from a `<select>` to a plain `<input>`
+backed by a `<datalist>` of the same curated village list as suggestions
+— structurally this bug class can't recur, since an `<input>` always
+displays whatever `value` actually is regardless of whether it matches a
+suggestion. One shared component, so this fixes New Purchase, New
+Enquiry, and New Service all at once (all three use `CustomerFields`).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

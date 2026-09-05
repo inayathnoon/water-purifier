@@ -2,9 +2,17 @@
 
 // Kannur revenue villages (source: Wikipedia, "Political divisions of
 // Kannur district" — this is where the business actually operates, so it
-// gets full village-level detail, taluk by taluk).
-// Thalassery Taluk listed first — most of the business's real customers
-// are there, so it shouldn't take scrolling past Kannur Taluk to reach.
+// gets full village-level detail, taluk by taluk). Thalassery Taluk
+// listed first — most of the business's real customers are there.
+//
+// This is a free-text input with these as <datalist> suggestions, not a
+// rigid <select> — real historical customer data (imported from the
+// business's own CSVs) uses area names that don't always match this
+// curated list at all (different spelling, or a place not on it), and a
+// <select> silently can't display a value that isn't one of its own
+// options. A known customer's actual stored area — whatever it is —
+// always shows correctly this way; the list just offers convenient
+// autocomplete for a new one.
 const KANNUR_VILLAGES: Record<string, string[]> = {
   'Thalassery Taluk': [
     'Cheruvanchery', 'Chokli', 'Dharmadam', 'Erancholi', 'Eruvatty', 'Kadirur', 'Kandankunnu',
@@ -57,6 +65,12 @@ const OTHER_KERALA_DISTRICTS = [
   'IDUKKI', 'ERNAKULAM', 'THRISSUR', 'PALAKKAD', 'WAYANAD',
 ];
 
+const ALL_SUGGESTIONS = [
+  ...Object.values(KANNUR_VILLAGES).flat(),
+  ...Object.values(NEIGHBORING_DISTRICT_TALUKS).flat(),
+  ...OTHER_KERALA_DISTRICTS,
+];
+
 export default function AreaSelect({
   value,
   onChange,
@@ -67,38 +81,20 @@ export default function AreaSelect({
   required?: boolean;
 }) {
   return (
-    <select
-      required={required}
-      className="w-full border rounded px-3 py-2 text-gray-900"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">Select area</option>
-      {Object.entries(KANNUR_VILLAGES).map(([taluk, villages]) => (
-        <optgroup key={taluk} label={`Kannur — ${taluk}`}>
-          {villages.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-      {Object.entries(NEIGHBORING_DISTRICT_TALUKS).map(([district, taluks]) => (
-        <optgroup key={district} label={district}>
-          {taluks.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-      <optgroup label="Other Kerala Districts">
-        {OTHER_KERALA_DISTRICTS.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
+    <>
+      <input
+        required={required}
+        list="area-suggestions"
+        placeholder="Type or pick an area"
+        className="w-full border rounded px-3 py-2 text-gray-900"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <datalist id="area-suggestions">
+        {ALL_SUGGESTIONS.map((v) => (
+          <option key={v} value={v} />
         ))}
-      </optgroup>
-    </select>
+      </datalist>
+    </>
   );
 }
