@@ -1,41 +1,11 @@
 import { requireUser, handleApiError, ApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { appendProductToSheet, generateSku, syncProductsFromSheet, updateProductListPriceInSheet } from '@/lib/services/products';
+import { syncProductsFromSheet, updateProductListPriceInSheet } from '@/lib/services/products';
 
-// The spreadsheet stays the source of truth — this writes the new
-// product into the sheet first, then re-syncs immediately so it shows up
-// on this page right away instead of waiting for the next nightly pull.
-export async function POST(request: Request) {
-  try {
-    await requireUser(['admin', 'owner']);
-    const body = await request.json();
-
-    const category = (body.category ?? '').trim();
-    const brand = (body.brand ?? '').trim();
-    const productName = (body.productName ?? '').trim();
-    const variant = (body.variant ?? '').trim();
-    const listPrice = body.listPrice === '' || body.listPrice == null ? null : Number(body.listPrice);
-
-    if (!category || !brand || !productName) {
-      throw new ApiError(400, 'Category, brand, and product name are all required');
-    }
-
-    // SKU is generated, never typed in — see generateSku() for the rule.
-    const sku = generateSku(brand, productName, variant);
-
-    const { data: existing } = await supabaseAdmin.from('products').select('id').ilike('code', sku).maybeSingle();
-    if (existing) {
-      throw new ApiError(409, `A product with SKU "${sku}" already exists — not adding a duplicate.`);
-    }
-
-    await appendProductToSheet({ sku, category, brand, productName, variant, listPrice });
-    const result = await syncProductsFromSheet();
-
-    return Response.json({ added: sku, ...result }, { status: 201 });
-  } catch (err) {
-    return handleApiError(err);
-  }
-}
+// Adding a brand-new product from the app was removed 2026-09-05 — new
+// products are only ever added by editing the sheet directly, then
+// syncing (here, or the Developer panel's "Sync products now"). Editing
+// an existing product's price stays in-app (PATCH below).
 
 // Editing a single product's list price — writes the sheet's own cell,
 // same "sheet stays the source of truth" rule as adding a product, then

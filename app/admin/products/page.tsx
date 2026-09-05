@@ -17,25 +17,10 @@ interface Product {
   last_synced_at: string | null;
 }
 
-const emptyNewProduct = { category: '', brand: '', productName: '', variant: '', listPrice: '' };
-
-// Mirrors generateSku() in lib/services/products.ts — shown as a live
-// preview only; the server generates the real value it actually writes.
-function previewSku(brand: string, productName: string, variant: string): string {
-  const seg = (s: string) => s.toUpperCase().replace(/\s+/g, '').replace(/"/g, '');
-  return [seg(brand), seg(productName), variant.trim() ? seg(variant) : ''].filter(Boolean).join('-');
-}
-
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
-  const [lastResult, setLastResult] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newProduct, setNewProduct] = useState(emptyNewProduct);
-  const [addError, setAddError] = useState('');
-  const [adding, setAdding] = useState(false);
   const [editingSku, setEditingSku] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [savingPrice, setSavingPrice] = useState(false);
@@ -51,44 +36,6 @@ export default function ProductsPage() {
   useEffect(() => {
     load();
   }, []);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    setError('');
-    setLastResult('');
-    const res = await fetch('/api/admin/products/sync-now', { method: 'POST' });
-    const data = await res.json();
-    setSyncing(false);
-    if (!res.ok) {
-      // §9.6: fail loudly — this is the loud part.
-      setError(data.error ?? 'Sync failed');
-      return;
-    }
-    setLastResult(`Synced ${data.upserted} product(s), deactivated ${data.deactivated}.`);
-    load();
-  };
-
-  const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adding) return; // a fast double-click must never add the product twice
-    setAdding(true);
-    setAddError('');
-    const res = await fetch('/api/admin/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newProduct),
-    });
-    const data = await res.json();
-    setAdding(false);
-    if (!res.ok) {
-      setAddError(data.error ?? 'Failed to add product');
-      return;
-    }
-    setNewProduct(emptyNewProduct);
-    setShowAddForm(false);
-    setLastResult(`Added ${data.added} to the sheet and synced it in.`);
-    load();
-  };
 
   const startEditPrice = (p: Product) => {
     setEditingSku(p.code);
@@ -120,97 +67,24 @@ export default function ProductsPage() {
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         <h1 className="text-2xl font-bold">Products</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowAddForm((s) => !s)}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-          >
-            {showAddForm ? 'Cancel' : '+ Add Product'}
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {syncing ? 'Syncing...' : 'Sync now'}
-          </button>
-        </div>
       </div>
       <p className="text-sm text-gray-900 mb-6">
-        The spreadsheet is the source of truth — adding a product or editing its price here
-        writes into the sheet directly, so the two never drift apart.
+        The spreadsheet is the source of truth — new products are added there, and pulled in via
+        the Developer panel's sync. Editing a price here writes into the sheet directly, so the
+        two never drift apart.
       </p>
-
-      {showAddForm && (
-        <form onSubmit={handleAddProduct} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
-          {addError && <p className="text-red-600 text-sm">{addError}</p>}
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              required
-              placeholder="Category (e.g. Kitchen)"
-              className="border rounded px-3 py-2 text-gray-900"
-              value={newProduct.category}
-              onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-            />
-            <input
-              required
-              placeholder="Brand"
-              className="border rounded px-3 py-2 text-gray-900"
-              value={newProduct.brand}
-              onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
-            />
-            <input
-              required
-              placeholder="Product name"
-              className="border rounded px-3 py-2 text-gray-900"
-              value={newProduct.productName}
-              onChange={(e) => setNewProduct({ ...newProduct, productName: e.target.value })}
-            />
-            <input
-              placeholder="Variant (optional)"
-              className="border rounded px-3 py-2 text-gray-900"
-              value={newProduct.variant}
-              onChange={(e) => setNewProduct({ ...newProduct, variant: e.target.value })}
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="List price (optional)"
-              className="border rounded px-3 py-2 text-gray-900"
-              value={newProduct.listPrice}
-              onChange={(e) => setNewProduct({ ...newProduct, listPrice: e.target.value })}
-            />
-          </div>
-          {newProduct.brand.trim() && newProduct.productName.trim() && (
-            <p className="text-sm text-gray-600">
-              SKU (generated): <span className="font-mono text-gray-900">
-                {previewSku(newProduct.brand, newProduct.productName, newProduct.variant)}
-              </span>
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={adding}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-          >
-            {adding ? 'Adding...' : 'Add to sheet'}
-          </button>
-        </form>
-      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-4">
-          <p className="font-medium">Sync failed — nothing was written</p>
+          <p className="font-medium">Failed to save</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
       )}
-      {lastResult && <p className="text-green-700 bg-green-50 p-3 rounded mb-4">{lastResult}</p>}
 
       {loading ? (
         <p>Loading...</p>
       ) : products.length === 0 ? (
-        <p className="text-gray-900">No products yet — press Sync now to pull from the spreadsheet.</p>
+        <p className="text-gray-900">No products yet — ask the developer to sync from the spreadsheet.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full text-sm">

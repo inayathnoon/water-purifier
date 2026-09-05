@@ -1287,6 +1287,48 @@ renamed to "Purchase(s)". Deliberately left the URL (`/admin/orders`)
 and internal variable/type names unchanged — this was a visible-text
 consistency fix, not a route rename, so no links break.
 
+## Product Sync Consolidated to Developer Panel Only (2026-09-05)
+
+Three related removals, all pointing the same direction — the app no
+longer runs or exposes any product-catalog write path except the
+Developer panel's manual sync:
+
+- **Nightly cron retired.** `.github/workflows/nightly-jobs.yml` and
+  `/api/jobs/product-sync` (its only remaining job — §8.2's yearly-service
+  job was already retired 2026-09-02) both deleted outright. `CRON_SECRET`
+  is now unused anywhere in the codebase — safe to leave set (nothing
+  reads it) or remove from GitHub/Railway, business's call.
+- **"+ Add Product" removed from `/admin/products`** — `appendProductToSheet()`,
+  `generateSku()`, the POST handler, and the whole add-product form/button
+  are gone. New products are only ever added by editing the sheet
+  directly, same as spare parts. Inline price-editing (PATCH) is
+  untouched — that's correcting an existing row, not adding one.
+- **`/api/admin/products/sync-now` narrowed to `developer` only** — admin's
+  own "Sync now" button is gone too, so the Developer panel is now the
+  single sync entry point, both in the UI and at the API layer.
+
+## Enquiry Sheet Activated — Same One-Way Pattern as Sales/Service (2026-09-05)
+
+The "Enquiry" tab existed but was completely dead — leftover source data
+from a one-off historical import, nothing in the app read or wrote to it.
+New `lib/services/enquirySheet.ts` (`syncEnquiryToSheet`/
+`...Safely`, migration 022 adds the `enquiry_sheet_failed` fail-safe
+event) mirrors an enquiry into it on creation and on every closure
+action (`pass_to_owner`, `mark_inactive`, `convert`) — matched on
+phone_number + date, same upsert-in-place pattern as Sales/Service.
+`stage` (ACTIVE/INACTIVE/PASSED TO OWNER/CONVERTED) and `via` (GENERAL
+ENQUIRY/WATER TEST/READY TO BUY/REFERRAL) map from the real enum values
+to the sheet's existing all-caps convention, and `closed_date` stamps
+from `updated_at` the moment it leaves 'open'. Verified live: a real
+referral enquiry synced correctly (ACTIVE, no closed_date), then updated
+in place after `mark_inactive` (INACTIVE, closed_date stamped) — same
+row both times, not a duplicate.
+
+**First real use of the new migration runner**: migration 022 was applied
+by clicking through `runPendingMigrations()` rather than a SQL Editor
+paste — worked correctly on the first live schema change since the
+runner was built.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

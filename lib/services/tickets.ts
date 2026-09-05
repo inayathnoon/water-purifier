@@ -3,6 +3,7 @@ import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } from './notifications';
 import { syncOrderToSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely } from './serviceSheet';
+import { syncEnquiryToSheetSafely } from './enquirySheet';
 import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
@@ -42,6 +43,9 @@ export async function createEnquiry(input: {
     .single();
 
   if (error) throw new ApiError(500, error.message);
+
+  // Registered the moment it's created, same reasoning as Sales/Service.
+  await syncEnquiryToSheetSafely(data.id);
   return data;
 }
 
@@ -179,6 +183,7 @@ export async function closeEnquiry(
       const { data: customer } = await supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single();
       await notifyEnquiryPassedToOwner({ ticketId, customerName: customer?.name ?? 'Unknown', explanation });
     }
+    await syncEnquiryToSheetSafely(ticketId);
 
     return data;
   }
@@ -205,6 +210,7 @@ export async function closeEnquiry(
       .select('*')
       .single();
     if (closeError) throw new ApiError(500, closeError.message);
+    await syncEnquiryToSheetSafely(ticketId);
 
     return closedEnquiry;
   }

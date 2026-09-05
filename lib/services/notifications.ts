@@ -9,7 +9,8 @@ type EventType =
   | 'product_sync_failed'
   | 'sales_sheet_failed'
   | 'service_sheet_failed'
-  | 'enquiry_passed_to_owner';
+  | 'enquiry_passed_to_owner'
+  | 'enquiry_sheet_failed';
 
 /**
  * Records something that needs a human's attention even though nobody was

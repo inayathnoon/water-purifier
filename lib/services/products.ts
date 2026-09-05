@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { sheetCredentials, quotedTab, writeSheetsClient, permissionAwareError, columnLetter, appendRowByHeader } from './googleSheets';
+import { sheetCredentials, quotedTab, writeSheetsClient, permissionAwareError, columnLetter } from './googleSheets';
 
 // §9.1 (revised): the business restructured the sheet around variants —
 // the same product (e.g. "Krystal TRP") gets one row per variant (e.g.
@@ -180,51 +180,14 @@ export async function syncProductsFromSheet(): Promise<{ upserted: number; deact
  * matching column by name, rather than assuming a fixed column order —
  * the same reasoning as parseRows() reading columns by name, not position.
  */
-// SKU is generated, never typed in — UPPER(no spaces or quote marks) for
-// each of brand/name/variant, joined with "-", variant omitted if blank.
-// Matches how the great majority of the real catalog's codes already
-// read (e.g. `AQUA-JADE-UV`, `BLUEMOUNT-GRAVITY`) — a minority of legacy
-// codes diverge from this because whoever typed them by hand also made
-// one-off editorial calls (dropping a parenthetical, folding the variant
-// into the name for disambiguation) that a mechanical rule won't
-// reproduce; that's fine, SKUs are immutable once created (§9.4), this
-// only governs newly generated ones.
-function skuSegment(s: string): string {
-  return s.toUpperCase().replace(/\s+/g, '').replace(/"/g, '');
-}
-
-export function generateSku(brand: string, productName: string, variant: string): string {
-  return [skuSegment(brand), skuSegment(productName), variant.trim() ? skuSegment(variant) : '']
-    .filter(Boolean)
-    .join('-');
-}
-
-export async function appendProductToSheet(product: {
-  sku: string;
-  category: string;
-  brand: string;
-  productName: string;
-  variant: string;
-  listPrice?: number | null;
-}): Promise<void> {
-  await appendRowByHeader(sheetTabName(), {
-    sku: product.sku,
-    category: product.category,
-    brand: product.brand,
-    product_name: product.productName,
-    variant: product.variant,
-    list_price: product.listPrice != null ? String(product.listPrice) : '',
-    // master_sku deliberately left blank — nothing here computes one, and
-    // an empty cell is safer than a guessed value in someone's sheet.
-  });
-}
-
 /**
- * "+ Add Product" lets you create a new row; this lets you fix a price on
- * an existing one — same "sheet stays the source of truth" rule, so this
- * finds the product's actual row by SKU and edits the list_price cell in
- * place, then re-syncs, rather than writing straight to the `products`
- * table and leaving the sheet out of date.
+ * Fixes a price on an existing product — same "sheet stays the source of
+ * truth" rule, so this finds the product's actual row by SKU and edits
+ * the list_price cell in place, then re-syncs, rather than writing
+ * straight to the `products` table and leaving the sheet out of date.
+ * (Adding a brand-new product from the app was removed 2026-09-05 — new
+ * products are only ever added by editing the sheet directly, then
+ * syncing.)
  */
 export async function updateProductListPriceInSheet(sku: string, listPrice: number | null): Promise<void> {
   const { sheets, sheetId } = writeSheetsClient();
