@@ -507,6 +507,28 @@ export async function editCompletedServiceVisit(
   return data;
 }
 
+/**
+ * "Put back to dispatch" — undoes a booking entirely (not a cancellation:
+ * the customer still needs the work done, it's just nobody's assigned to
+ * it right now). Clears assignment/schedule back to exactly the shape a
+ * freshly-created ticket has, so it reappears in Jobs to Dispatch the
+ * same way an unbooked one would.
+ */
+export async function unassignJob(ticketId: string) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.status !== 'booked') throw new ApiError(400, 'Job is not currently booked');
+
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .update({ status: 'open', assigned_to_id: null, booked_date: null, booked_half_day: null, location: null })
+    .eq('id', ticketId)
+    .select('*')
+    .single();
+
+  if (error) throw new ApiError(500, error.message);
+  return data;
+}
+
 /** §6.8: cancelling a job requires a reason. */
 export async function cancelJob(ticketId: string, reason: string) {
   if (!reason.trim()) throw new ApiError(400, 'A cancellation reason is required');

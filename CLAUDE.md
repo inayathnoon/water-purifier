@@ -1556,6 +1556,31 @@ Verified live: recorded a real 2× Solenoid valve sale, confirmed it in
 the recent list with the seller's name correctly resolved, empty phone
 stored as null rather than an empty string.
 
+## Edit or Unassign an Already-Booked Installation/Service Call (2026-09-05)
+
+Once a job was booked, `/admin/installations` and `/admin/service-calls`
+had no way to touch it again — no reassign, no undo. Added two actions
+to any `status='booked'` row on both pages:
+
+- **Edit** — reopens the same booking form, pre-filled with the current
+  staff/date/half-day/location, posting to the same book endpoint a fresh
+  assignment uses (reassigning is just another update to the same
+  fields).
+- **Put back to dispatch** — new `unassignJob()` in `lib/services/tickets.ts`,
+  behind a confirm dialog. Clears `assigned_to_id`/`booked_date`/
+  `booked_half_day`/`location` and flips status back to `open` — exactly
+  the shape a freshly-created, never-booked ticket has, so it reappears
+  in Jobs to Dispatch the same way. Refuses to run on anything not
+  currently `booked` (guards a double-click or stale page state from
+  unassigning something that already moved on). One generic endpoint,
+  `/api/admin/tickets/[id]/unassign`, shared by both installations and
+  service calls since the operation doesn't care which kind it is.
+
+Verified live: booked → unassigned (confirmed cleared to the exact
+open-ticket shape) → reassigned to someone else → unassigned again
+(succeeds, was booked) → unassigned a third time (correctly refused,
+already open) — both an installation and a service visit.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

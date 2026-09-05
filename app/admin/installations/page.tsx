@@ -167,6 +167,32 @@ function InstallationsPageInner() {
     load();
   };
 
+  // Reassigning/rescheduling an already-booked job — same endpoint as a
+  // fresh booking (it's just an update either way), pre-filled with
+  // what's there now instead of starting blank.
+  const startEditBooking = (inst: Installation) => {
+    setError('');
+    setBookingId(inst.id);
+    setBookForm({
+      assignedToId: inst.assigned_to_id ?? '',
+      bookedDate: inst.booked_date ?? '',
+      bookedHalfDay: inst.booked_half_day ?? 'morning',
+      location: inst.location ?? 'home',
+    });
+  };
+
+  const handleUnassign = async (ticketId: string) => {
+    if (!window.confirm('Put this job back to dispatch? It stays as a purchase, just unassigned and unscheduled.')) return;
+    setError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/unassign`, { method: 'POST' });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? 'Failed to put back to dispatch');
+      return;
+    }
+    load();
+  };
+
   const handleCreatePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (purchaseSubmitting) return; // a fast double-click on Record purchase must never record it twice
@@ -508,6 +534,22 @@ function InstallationsPageInner() {
                     >
                       Book
                     </button>
+                  )}
+                  {inst.status === 'booked' && (
+                    <>
+                      <button
+                        onClick={() => (bookingId === inst.id ? setBookingId(null) : startEditBooking(inst))}
+                        className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleUnassign(inst.id)}
+                        className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                      >
+                        Put back to dispatch
+                      </button>
+                    </>
                   )}
                   {inst.status === 'completed' && (
                     <button
