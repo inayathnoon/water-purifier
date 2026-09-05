@@ -36,9 +36,14 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function nowHHMM() {
-  return new Date().toTimeString().slice(0, 5);
-}
+// Exact start/end times aren't worth asking a tech to type on their
+// phone — the booked half-day already says roughly when, so completing a
+// job just uses a fixed window for whichever half-day it was booked into.
+const HALF_DAY_TIMES: Record<string, { start: string; end: string }> = {
+  morning: { start: '09:00', end: '12:00' },
+  afternoon: { start: '12:00', end: '15:00' },
+  evening: { start: '15:00', end: '18:00' },
+};
 
 export default function StaffJobsPage() {
   const router = useRouter();
@@ -50,7 +55,7 @@ export default function StaffJobsPage() {
   const [form, setForm] = useState({
     actualDate: todayISO(),
     actualStartTime: '',
-    actualEndTime: nowHHMM(),
+    actualEndTime: '',
     notes: '',
     partsUsed: '',
     chargeAmount: '',
@@ -87,10 +92,11 @@ export default function StaffJobsPage() {
   const startCompleting = (job: Job) => {
     setError('');
     setCompletingId(job.id);
+    const times = HALF_DAY_TIMES[job.booked_half_day] ?? { start: '', end: '' };
     setForm({
       actualDate: todayISO(),
-      actualStartTime: nowHHMM(),
-      actualEndTime: nowHHMM(),
+      actualStartTime: times.start,
+      actualEndTime: times.end,
       notes: '',
       partsUsed: '',
       chargeAmount: '',
@@ -200,29 +206,6 @@ export default function StaffJobsPage() {
 
               {completingId === job.id && (
                 <div className="mt-4 pt-4 border-t space-y-3">
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-900">Start</label>
-                      <input
-                        type="time"
-                        required
-                        className="w-full border rounded-lg px-3 py-3 text-lg"
-                        value={form.actualStartTime}
-                        onChange={(e) => setForm({ ...form, actualStartTime: e.target.value })}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-900">End</label>
-                      <input
-                        type="time"
-                        required
-                        className="w-full border rounded-lg px-3 py-3 text-lg"
-                        value={form.actualEndTime}
-                        onChange={(e) => setForm({ ...form, actualEndTime: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
                   <textarea
                     placeholder="What did you do?"
                     rows={2}

@@ -1007,6 +1007,22 @@ whatever the (now-hidden) field last held, as a second guard. Service
 visit booking is untouched — still asks Home vs Office. Verified live:
 booking a real installation lands with `location: 'home'`.
 
+## Mark Done: Skip Exact Time, Derive from Half-Day (2026-09-05)
+
+`/staff/jobs`'s completion form asked for exact Start/End time —
+unnecessary friction for a tech typing on their phone. Removed both time
+inputs; `actualStartTime`/`actualEndTime` are now set automatically from
+the job's own `booked_half_day` using a fixed window (`HALF_DAY_TIMES` in
+`app/staff/jobs/page.tsx`): morning 9–12, afternoon 12–3, evening 3–6.
+Nothing on the server side changed — `completeJob()` still takes the same
+two fields, they're just no longer tech-entered.
+
+## Calendar Picker Change Reverted (2026-09-05)
+
+The `lang="en-IN"` change (meant to make the native date picker open
+Monday-first) was reverted at the business's request — back to the
+original `lang="en"`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
