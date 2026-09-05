@@ -1391,6 +1391,18 @@ if the form doesn't send them (nothing else calling this function
 breaks). Verified live: a request with an explicit backdated date and
 half-day stored exactly that instead of the current moment.
 
+## Nav Grid: Create Buttons on Top, Yellow for Service (2026-09-05)
+
+Two quick follow-ups to the nav grid: (1) flipped the stacking within
+each column — the "+ New ..." button now sits on top, the browse button
+below it (was the other way around), matching exactly how the business's
+own reference sheet lays out "New Purchase / New Enquiry / New Service"
+above their category names; Customers and Products get an invisible
+placeholder in the top slot so all 5 browse buttons still line up in one
+row. (2) "+ New Service" recolored from purple to yellow
+(`bg-yellow-500`, dark text for contrast against a light background,
+unlike the white text every other solid button uses).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
