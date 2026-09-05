@@ -57,6 +57,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [showOther, setShowOther] = useState(false);
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
   const [linking, setLinking] = useState(false);
 
@@ -226,34 +227,59 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-semibold mb-3">Close this enquiry</h2>
-            <div className="flex gap-2 mb-3 flex-wrap">
-              {(['call_back_later', 'pass_to_owner', 'mark_inactive'] as const).map((a) => (
-                <button
-                  key={a}
-                  onClick={() => setAction(a)}
-                  className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE[a]} ${
-                    action === a ? 'ring-2 ring-offset-1 ring-gray-900' : ''
-                  }`}
-                >
-                  {ACTION_LABEL[a]}
-                </button>
-              ))}
+
+            {/* Mark Inactive and Convert are the two outcomes that actually
+                happen most of the time — large and always visible. Call
+                Back Later / Pass To Owner are for a still-undecided
+                enquiry, tucked under "Other" so they don't compete for
+                attention with the two real outcomes. */}
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => setAction('mark_inactive')}
+                className={`flex-1 py-3 rounded-md text-base font-semibold border ${ACTION_STYLE.mark_inactive} ${
+                  action === 'mark_inactive' ? 'ring-2 ring-offset-1 ring-gray-900' : ''
+                }`}
+              >
+                Mark Inactive
+              </button>
               {/* Convert doesn't reveal an inline form like the others — it goes
                   straight to placing the order (see handleConvertClick above). */}
               <button
                 onClick={handleConvertClick}
-                className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE.convert}`}
+                className={`flex-1 py-3 rounded-md text-base font-semibold border ${ACTION_STYLE.convert}`}
               >
-                {ACTION_LABEL.convert}
+                Convert
               </button>
+            </div>
+            <button
+              onClick={handleToggleLinkPicker}
+              className="text-xs text-green-700 hover:underline mb-3"
+            >
+              {showLinkPicker ? 'Hide' : 'This turned out to already be a purchase — link to it instead'}
+            </button>
+
+            <div className="border-t pt-3">
               <button
-                onClick={handleToggleLinkPicker}
-                className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE.link_existing} ${
-                  showLinkPicker ? 'ring-2 ring-offset-1 ring-gray-900' : ''
-                }`}
+                onClick={() => setShowOther((s) => !s)}
+                className="text-sm text-gray-900 hover:underline flex items-center gap-1"
               >
-                Link To Existing Purchase
+                Other {showOther ? '▾' : '▸'}
               </button>
+              {showOther && (
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {(['call_back_later', 'pass_to_owner'] as const).map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => setAction(a)}
+                      className={`px-3 py-1.5 rounded-md text-sm border ${ACTION_STYLE[a]} ${
+                        action === a ? 'ring-2 ring-offset-1 ring-gray-900' : ''
+                      }`}
+                    >
+                      {ACTION_LABEL[a]}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {showLinkPicker && (

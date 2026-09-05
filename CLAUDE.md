@@ -1454,6 +1454,20 @@ moment a product (and its variant, if it has one) is fully selected.
 Display-only — doesn't pre-fill or constrain the actual Sold Price field,
 since that's a separate negotiated figure.
 
+## Enquiry Close UX Redesigned: Two Real Outcomes, Everything Else Under "Other" (2026-09-05)
+
+The enquiry detail page had 5 same-weight buttons in one row (Call Back
+Later, Pass To Owner, Mark Inactive, Convert, Link To Existing Purchase)
+— no visual hierarchy for what actually happens most of the time.
+Redesigned: **Mark Inactive** and **Convert** are now the two large,
+always-visible primary buttons (an enquiry is either lost or won — that's
+the real decision). "Link to an existing purchase instead" (Convert's
+rare alternate path) is now a small text link right under them, not a
+same-size button. **Call Back Later** and **Pass To Owner** — for a still
+-undecided enquiry, not a real outcome — moved behind a collapsed
+"Other ▾" toggle. No change to any of the underlying logic/API calls,
+purely a visual restructure of the same five actions.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
