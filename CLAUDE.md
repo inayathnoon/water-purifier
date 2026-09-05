@@ -1527,6 +1527,12 @@ displays whatever `value` actually is regardless of whether it matches a
 suggestion. One shared component, so this fixes New Purchase, New
 Enquiry, and New Service all at once (all three use `CustomerFields`).
 
+## New Service: "Staff Attended" Relabeled "Assign to Staff" (2026-09-05)
+
+Purely a label change on the New Service form's field — matches the
+wording every other booking form in the app already uses ("Assign to...").
+Internal field name (`staffAttendedId`) and behavior unchanged.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

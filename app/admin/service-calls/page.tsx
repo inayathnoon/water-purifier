@@ -274,7 +274,7 @@ function ServiceCallsPageInner() {
               onChange={(e) => setNewService({ ...newService, issueNote: e.target.value })}
             />
           </FormRow>
-          <FormRow label="Staff Attended">
+          <FormRow label="Assign to Staff">
             <select
               className="w-full border rounded px-3 py-2 text-gray-900"
               value={newService.staffAttendedId}
