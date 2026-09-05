@@ -1248,6 +1248,32 @@ Parts Sheet" link on the Developer panel (previously only the main
 Product List sheet was linked, requiring an extra manual tab-switch to
 reach Spare Parts).
 
+## Staff Mistake-Fix Window: Edit a Completed Service Visit (2026-09-05)
+
+`/staff/jobs` now shows a service visit for up to **7 days after** the
+actual visit even once the admin has already confirmed-and-closed it —
+with an **Edit** button that reopens the same completion form (notes,
+spare-parts picker, running total) to correct a mistake, instead of
+needing an admin to fix it. Scoped to `service_visit` only, not
+installations (per the original ask) — an installation's completion
+touches warranty dates and order creation, much higher blast radius than
+a service charge correction.
+
+`editCompletedServiceVisit()` (new, `lib/services/tickets.ts`) enforces:
+own job only (`assigned_to_id` must match the caller), status must be
+`completed` or `closed`, and `actual_date` must be within 7 days — same
+§13.3 warranty override re-applied against the visit's own original
+`actual_date` (not today's), so a correction can't be used to dodge it.
+Re-syncs the Service sheet afterward, same upsert-by-phone+date it
+already uses, so the correction lands there too. `/api/staff/jobs`
+widened to a second query (recently-closed service visits) alongside the
+existing booked/completed one.
+
+Verified live: completed → closed → edited a real service visit
+(1 valve/₹600 → corrected to 2 valves/₹1200, notes updated); a different
+technician's edit attempt was refused; an edit attempt on the same job
+backdated past the 7-day window was refused.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

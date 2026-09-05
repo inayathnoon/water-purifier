@@ -14,6 +14,10 @@ interface Job {
   location: 'home' | 'office';
   parent_installation_id: string | null;
   installation_date: string | null;
+  actual_date: string | null;
+  actual_notes: string | null;
+  parts_used: string | null;
+  charge_amount: number | null;
   customers: { name: string; address: string; area: string; phone_number: string };
 }
 
@@ -78,6 +82,9 @@ export default function StaffJobsPage() {
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  // Whether the open form is a fresh "Mark Done" or a correction to an
+  // already-completed/closed visit (§8.4's mistake-fix window).
+  const [formMode, setFormMode] = useState<'complete' | 'edit'>('complete');
   const [form, setForm] = useState({
     actualDate: todayISO(),
     actualStartTime: '',
@@ -127,9 +134,7 @@ export default function StaffJobsPage() {
     setJobs(data.jobs ?? []);
   };
 
-  const startCompleting = (job: Job) => {
-    setError('');
-    setCompletingId(job.id);
+  const defaultPartQuantities = (): Record<string, number> => {
     // Service Charge is on by default — every out-of-warranty visit has a
     // base charge unless a tech actively removes it — while every other
     // part starts at 0 and has to be added deliberately.
@@ -137,7 +142,14 @@ export default function StaffJobsPage() {
     for (const p of spareParts) {
       if (isServiceCharge(p)) defaults[p.name] = 1;
     }
-    setPartQuantities(defaults);
+    return defaults;
+  };
+
+  const startCompleting = (job: Job) => {
+    setError('');
+    setFormMode('complete');
+    setCompletingId(job.id);
+    setPartQuantities(defaultPartQuantities());
     setCustomPart({ name: '', price: '' });
     const times = HALF_DAY_TIMES[job.booked_half_day] ?? { start: '', end: '' };
     setForm({
@@ -145,6 +157,25 @@ export default function StaffJobsPage() {
       actualStartTime: times.start,
       actualEndTime: times.end,
       notes: '',
+    });
+  };
+
+  // §8.4 mistake-fix window: reopen a service visit's own completion form
+  // to correct notes/parts/charge — the visit's own actual_date stays
+  // fixed (that's what the warranty check re-runs against, same as the
+  // first time), only the picker resets fresh since there's no reliable
+  // way to reconstruct quantities back out of the saved summary string.
+  const startEditing = (job: Job) => {
+    setError('');
+    setFormMode('edit');
+    setCompletingId(job.id);
+    setPartQuantities(defaultPartQuantities());
+    setCustomPart({ name: '', price: '' });
+    setForm({
+      actualDate: job.actual_date ?? todayISO(),
+      actualStartTime: '',
+      actualEndTime: '',
+      notes: job.actual_notes ?? '',
     });
   };
 
@@ -160,7 +191,7 @@ export default function StaffJobsPage() {
     spareParts.reduce((sum, p) => sum + (partQuantities[p.name] ?? 0) * p.price, 0) +
     (customPart.name.trim() ? customPartPrice : 0);
 
-  const handleComplete = async (job: Job) => {
+  const handleSubmitForm = async (job: Job) => {
     setError('');
     setSubmitting(true);
     const chargeable = job.kind === 'service_visit' && !isWithinWarranty(job.installation_date, form.actualDate);
@@ -169,14 +200,17 @@ export default function StaffJobsPage() {
     if (customPart.name.trim()) partsUsedParts.push(`${customPart.name.trim()} (₹${customPartPrice})`);
     const partsUsed = partsUsedParts.join(', ');
 
-    const res = await fetch(`/api/staff/jobs/${job.id}/complete`, {
+    const endpoint =
+      formMode === 'edit' ? `/api/staff/jobs/${job.id}/edit` : `/api/staff/jobs/${job.id}/complete`;
+    const body =
+      formMode === 'edit'
+        ? { notes: form.notes, partsUsed: chargeable ? partsUsed : undefined, chargeAmount: chargeable ? sparePartsTotal : undefined }
+        : { ...form, partsUsed: chargeable ? partsUsed : undefined, chargeAmount: chargeable ? sparePartsTotal : undefined };
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        partsUsed: chargeable ? partsUsed : undefined,
-        chargeAmount: chargeable ? sparePartsTotal : undefined,
-      }),
+      body: JSON.stringify(body),
     });
     setSubmitting(false);
     if (!res.ok) {
@@ -262,10 +296,24 @@ export default function StaffJobsPage() {
                 </button>
               )}
 
-              {job.status === 'completed' && (
+              {job.status === 'completed' && job.kind === 'installation' && (
                 <p className="mt-3 text-sm text-green-700 font-medium">
                   ✓ Done — waiting on admin to confirm with customer
                 </p>
+              )}
+
+              {job.kind === 'service_visit' && (job.status === 'completed' || job.status === 'closed') && completingId !== job.id && (
+                <div className="mt-3 flex justify-between items-center gap-2">
+                  <p className="text-sm text-green-700 font-medium">
+                    {job.status === 'completed' ? '✓ Done — waiting on admin' : '✓ Confirmed'}
+                  </p>
+                  <button
+                    onClick={() => startEditing(job)}
+                    className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50 whitespace-nowrap"
+                  >
+                    Edit
+                  </button>
+                </div>
               )}
 
               {completingId === job.id && (
@@ -341,11 +389,11 @@ export default function StaffJobsPage() {
                       Cancel
                     </button>
                     <button
-                      onClick={() => handleComplete(job)}
+                      onClick={() => handleSubmitForm(job)}
                       disabled={submitting}
                       className="flex-[2] py-3 bg-green-600 text-white rounded-lg font-semibold text-lg disabled:opacity-50"
                     >
-                      {submitting ? 'Saving...' : 'Submit'}
+                      {submitting ? 'Saving...' : formMode === 'edit' ? 'Save Changes' : 'Submit'}
                     </button>
                   </div>
 

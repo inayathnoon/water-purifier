@@ -203,46 +203,55 @@ export default function DeveloperPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <h2 className="font-semibold mb-2">Product / Spare Parts Sheet</h2>
+        <h2 className="font-semibold mb-1">Product / Spare Parts Sheet</h2>
         <p className="text-sm text-gray-900 mb-3">
-          The sheet is the source of truth for the product catalog (§9) — add or edit rows there directly, then
-          sync.
+          The sheet is the source of truth (§9) — add or edit rows there directly, then sync.
         </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <a
-            href={PRODUCT_SHEET_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-          >
-            Open Sheet →
-          </a>
-          <button
-            onClick={handleSyncProducts}
-            disabled={syncing}
-            className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50"
-          >
-            {syncing ? 'Syncing...' : 'Sync products now'}
-          </button>
-          {syncMessage && <span className="text-sm text-gray-900">{syncMessage}</span>}
-        </div>
-        <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t">
-          <a
-            href={SPARE_PARTS_SHEET_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-          >
-            Open Spare Parts Sheet →
-          </a>
-          <button
-            onClick={handleSyncSpareParts}
-            disabled={sparePartsSyncing}
-            className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50"
-          >
-            {sparePartsSyncing ? 'Syncing...' : 'Sync spare parts'}
-          </button>
-          {sparePartsSyncMessage && <span className="text-sm text-gray-900">{sparePartsSyncMessage}</span>}
+
+        <div className="space-y-3">
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-gray-900 uppercase tracking-wide mb-2">Product Catalog</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={PRODUCT_SHEET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Open Sheet →
+              </a>
+              <button
+                onClick={handleSyncProducts}
+                disabled={syncing}
+                className="px-3 py-1.5 bg-white border rounded-md text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                {syncing ? 'Syncing...' : 'Sync products now'}
+              </button>
+              {syncMessage && <span className="text-sm text-gray-900">{syncMessage}</span>}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-gray-900 uppercase tracking-wide mb-2">Spare Parts</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={SPARE_PARTS_SHEET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Open Spare Parts Sheet →
+              </a>
+              <button
+                onClick={handleSyncSpareParts}
+                disabled={sparePartsSyncing}
+                className="px-3 py-1.5 bg-white border rounded-md text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                {sparePartsSyncing ? 'Syncing...' : 'Sync spare parts'}
+              </button>
+              {sparePartsSyncMessage && <span className="text-sm text-gray-900">{sparePartsSyncMessage}</span>}
+            </div>
+          </div>
         </div>
       </div>
 

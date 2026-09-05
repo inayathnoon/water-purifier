@@ -3,7 +3,7 @@ import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } from './notifications';
 import { syncOrderToSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely } from './serviceSheet';
-import { todayIST, halfDayNowIST } from '../dates';
+import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
 
@@ -447,6 +447,55 @@ function isWithinWarranty(installationDate: string | null, checkDate: string): b
   const oneYearLater = new Date(installationDate);
   oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
   return new Date(checkDate) <= oneYearLater;
+}
+
+const EDIT_WINDOW_DAYS = 7;
+
+/**
+ * A tech going back to fix a mistake in what they entered for a service
+ * visit — wrong charge, forgot a part, notes that don't make sense —
+ * without needing an admin to do it for them. Only notes/parts/charge are
+ * editable; the actual date/time and assignment aren't, and it works
+ * whether the admin has already confirmed-and-closed the ticket or not,
+ * for up to a week after the visit itself (not indefinitely — a mistake
+ * caught months later goes through an admin instead).
+ */
+export async function editCompletedServiceVisit(
+  ticketId: string,
+  callerId: string,
+  input: { notes: string; partsUsed?: string; chargeAmount?: number }
+) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.kind !== 'service_visit') throw new ApiError(400, 'Not a service visit');
+  if (ticket.assigned_to_id !== callerId) throw new ApiError(403, 'You can only edit your own jobs');
+  if (!['completed', 'closed'].includes(ticket.status)) throw new ApiError(400, 'Job is not in an editable state');
+  if (!ticket.actual_date || daysAgoIST(ticket.actual_date) > EDIT_WINDOW_DAYS) {
+    throw new ApiError(400, `This job is more than ${EDIT_WINDOW_DAYS} days old and can no longer be edited here`);
+  }
+
+  const update = {
+    actual_notes: input.notes,
+    parts_used: input.partsUsed ?? null,
+    // §13.3 still applies on a correction, exactly as it did the first
+    // time — checked against the visit's own actual_date, not today's.
+    charge_amount: isWithinWarranty(ticket.installation_date, ticket.actual_date)
+      ? 0
+      : input.chargeAmount ?? null,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .update(update)
+    .eq('id', ticketId)
+    .select('id, kind, status, actual_date, actual_start_time, actual_end_time, actual_notes, parts_used, charge_amount')
+    .single();
+  if (error) throw new ApiError(500, error.message);
+
+  // The Service sheet already has this visit's row from when it was
+  // first completed/closed — this just updates it in place with the
+  // correction, same upsert-by-phone+date it always uses.
+  await syncServiceToSheetSafely(ticketId);
+  return data;
 }
 
 /** §6.8: cancelling a job requires a reason. */
