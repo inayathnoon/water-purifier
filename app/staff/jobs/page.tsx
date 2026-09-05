@@ -22,6 +22,14 @@ interface SparePart {
   price: number;
 }
 
+// Matches "Service Charge", "Service charges", "SERVICE CHARGE", etc. —
+// whatever the sheet actually calls it, as long as it starts with those
+// two words. An exact-string match here silently missed the real row
+// once, since the sheet has it as "Service charges" (plural).
+function isServiceCharge(p: SparePart): boolean {
+  return p.name.trim().toLowerCase().startsWith('service charge');
+}
+
 // Mirrors completeJob()'s own isWithinWarranty() server-side — used here
 // only to decide whether to show the spare-parts picker at all, since
 // §13.3 forces the actual charge to 0 inside warranty regardless of what
@@ -101,7 +109,6 @@ export default function StaffJobsPage() {
         if (cancelled) return;
         // Service Charge (default-on) shown first, everything else after.
         const parts: SparePart[] = data.parts ?? [];
-        const isServiceCharge = (p: SparePart) => p.name.trim().toLowerCase() === 'service charge';
         setSpareParts([...parts.filter(isServiceCharge), ...parts.filter((p) => !isServiceCharge(p))]);
       });
     return () => {
@@ -123,13 +130,12 @@ export default function StaffJobsPage() {
   const startCompleting = (job: Job) => {
     setError('');
     setCompletingId(job.id);
-    // A part named exactly "Service Charge" (however it's spelled in the
-    // sheet) is on by default — every out-of-warranty visit has a base
-    // charge unless a tech actively removes it — while every other part
-    // starts at 0 and has to be added deliberately.
+    // Service Charge is on by default — every out-of-warranty visit has a
+    // base charge unless a tech actively removes it — while every other
+    // part starts at 0 and has to be added deliberately.
     const defaults: Record<string, number> = {};
     for (const p of spareParts) {
-      if (p.name.trim().toLowerCase() === 'service charge') defaults[p.name] = 1;
+      if (isServiceCharge(p)) defaults[p.name] = 1;
     }
     setPartQuantities(defaults);
     setCustomPart({ name: '', price: '' });

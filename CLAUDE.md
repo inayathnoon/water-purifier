@@ -1233,6 +1233,21 @@ through `createAdHocServiceRequest()`'s new optional `location` param.
 Verified live: a request with Office selected correctly stored
 `location: 'office'`.
 
+## Bug: Service Charge Default Silently Never Matched (2026-09-05)
+
+The default-qty-1 logic matched the part name with strict equality
+(`=== 'service charge'`), but the real row added to the sheet is named
+**"Service charges"** (plural) — so it silently never matched and always
+defaulted to 0, exactly like every other part. Fixed by switching to
+`.startsWith('service charge')`, which matches regardless of how it's
+pluralized/capitalized, and pulled the check into one shared
+`isServiceCharge()` used by both the default-quantity logic and the
+"show it first" sort (previously two separately-written, now provably
+consistent, copies of the same check). Also added a direct "Open Spare
+Parts Sheet" link on the Developer panel (previously only the main
+Product List sheet was linked, requiring an extra manual tab-switch to
+reach Spare Parts).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

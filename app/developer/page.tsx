@@ -29,6 +29,9 @@ const ROLE_LABEL: Record<UserRole, string> = {
 // Where spare parts / the product catalog actually live — the sheet is
 // the source of truth (§9), the app only ever syncs from it.
 const PRODUCT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1xRbDhklv0v10Tpl2BgdI9QnU2H8KQJ0NCHD21JKUBO4/edit';
+// Same spreadsheet, the "Spare Parts" tab specifically (gid points straight at it).
+const SPARE_PARTS_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/1xRbDhklv0v10Tpl2BgdI9QnU2H8KQJ0NCHD21JKUBO4/edit?gid=1620923747#gid=1620923747';
 
 const emptyNewStaff = { name: '', phone: '', role: 'service_staff' as UserRole };
 
@@ -224,6 +227,14 @@ export default function DeveloperPage() {
           {syncMessage && <span className="text-sm text-gray-900">{syncMessage}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t">
+          <a
+            href={SPARE_PARTS_SHEET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+          >
+            Open Spare Parts Sheet →
+          </a>
           <button
             onClick={handleSyncSpareParts}
             disabled={sparePartsSyncing}
