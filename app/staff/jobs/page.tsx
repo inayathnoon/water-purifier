@@ -18,6 +18,9 @@ interface Job {
   actual_notes: string | null;
   parts_used: string | null;
   charge_amount: number | null;
+  // For an ad-hoc Service Call this is "{product} — {reported issue}"; for
+  // an installation or a Yearly Service visit it's just the product name.
+  enquiry_product_interest: string | null;
   customers: { name: string; address: string; area: string; phone_number: string };
 }
 
@@ -54,6 +57,15 @@ function jobBadge(job: Job): { label: string; classes: string } {
   if (job.kind === 'installation') return { label: 'Installation', classes: 'bg-blue-100 text-blue-800' };
   if (job.parent_installation_id) return { label: 'Yearly Service', classes: 'bg-purple-100 text-purple-800' };
   return { label: 'Service Call', classes: 'bg-orange-100 text-orange-800' };
+}
+
+// Only an ad-hoc Service Call's enquiry_product_interest actually carries a
+// reported problem ("{product} — {issue}") — a Yearly Service visit copies
+// the same column from its parent installation, where it's just the
+// product name, nothing wrong reported yet.
+function reportedIssue(job: Job): string | null {
+  if (job.kind !== 'service_visit' || job.parent_installation_id) return null;
+  return job.enquiry_product_interest?.trim() || null;
 }
 
 const HALF_DAY_LABEL: Record<string, string> = {
@@ -319,6 +331,13 @@ export default function StaffJobsPage() {
               <a href={`tel:${job.customers.phone_number}`} className="text-blue-600 text-sm underline">
                 {job.customers.phone_number}
               </a>
+
+              {reportedIssue(job) && (
+                <div className="mt-2 bg-orange-50 border border-orange-200 rounded-md px-3 py-2">
+                  <p className="text-xs font-medium text-orange-800 uppercase tracking-wide">Reported problem</p>
+                  <p className="text-sm text-orange-900">{reportedIssue(job)}</p>
+                </div>
+              )}
 
               {job.status === 'booked' && completingId !== job.id && (
                 <button

@@ -147,24 +147,12 @@ async function getTicketOrThrow(ticketId: string) {
  */
 export async function closeEnquiry(
   ticketId: string,
-  action: 'call_back_later' | 'pass_to_owner' | 'mark_inactive' | 'convert',
-  input: { explanation?: string; callbackDate?: string; linkedPurchaseNote?: string }
+  action: 'pass_to_owner' | 'mark_inactive' | 'convert',
+  input: { explanation?: string; linkedPurchaseNote?: string }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.kind !== 'enquiry') throw new ApiError(400, 'Not an enquiry');
   if (ticket.status !== 'open') throw new ApiError(400, 'Enquiry is already closed');
-
-  if (action === 'call_back_later') {
-    if (!input.callbackDate) throw new ApiError(400, 'A callback date is required');
-    const { data, error } = await supabaseAdmin
-      .from('tickets')
-      .update({ callback_date: input.callbackDate })
-      .eq('id', ticketId)
-      .select('*')
-      .single();
-    if (error) throw new ApiError(500, error.message);
-    return data; // stays open — §5.3: "returns to the list on that day"
-  }
 
   if (action === 'pass_to_owner' || action === 'mark_inactive') {
     // §5.5: an enquiry that has never been called cannot be passed to an owner.

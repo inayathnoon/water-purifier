@@ -6,7 +6,7 @@ import { logNotification } from './notifications';
 // Same spreadsheet as products, a different tab. Overridable in case the
 // business ever renames this tab too, same reasoning as
 // GOOGLE_SHEETS_RANGE for the product tab.
-const SALES_TAB = process.env.GOOGLE_SALES_SHEET_TAB || 'Sales';
+export const SALES_TAB = process.env.GOOGLE_SALES_SHEET_TAB || 'Sales';
 
 /**
  * Keeps one Sales-sheet row per real sale in sync with the DB, from the

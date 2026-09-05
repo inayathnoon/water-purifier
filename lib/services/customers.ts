@@ -1,5 +1,10 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
+import { renamePhoneNumberInSheet } from './googleSheets';
+import { logNotification } from './notifications';
+import { SALES_TAB } from './salesSheet';
+import { SERVICE_TAB } from './serviceSheet';
+import { ENQUIRY_TAB } from './enquirySheet';
 
 /**
  * §4.1/§4.2 (revised): phone number is still how staff look a customer
@@ -73,6 +78,98 @@ export async function findCustomersByPhone(phoneNumber: string) {
 
   if (error) throw new ApiError(500, error.message);
   return data ?? [];
+}
+
+/**
+ * Corrects a customer's own record — a typo'd phone number (the primary
+ * lookup key everywhere, §4.1) chief among them. Phone number no longer
+ * has to be unique (§4.1 revised, migration 007), so this never conflicts
+ * with another customer record the way a naive uniqueness check might
+ * suggest.
+ *
+ * If the phone number itself changes, this also re-keys that customer's
+ * existing Sales/Service/Enquiry sheet rows in place (§9's one-way sync
+ * uses phone_number as its match key) — done here, in the same operation,
+ * specifically because doing it by a direct database write instead once
+ * broke the Service sheet sync for a real customer: the corrected row
+ * couldn't find its original under the new number and inserted a
+ * duplicate next to it.
+ */
+export async function updateCustomer(
+  customerId: string,
+  updates: { phoneNumber?: string; name?: string; address?: string; area?: string }
+) {
+  const { data: existing, error: findError } = await supabaseAdmin
+    .from('customers')
+    .select('*')
+    .eq('id', customerId)
+    .single();
+  if (findError || !existing) throw new ApiError(404, 'Customer not found');
+
+  const patch: Record<string, string> = {};
+  if (updates.phoneNumber !== undefined) {
+    const phoneNumber = updates.phoneNumber.trim();
+    if (!phoneNumber) throw new ApiError(400, 'Phone number is required');
+    if (phoneNumber !== existing.phone_number) patch.phone_number = phoneNumber;
+  }
+  if (updates.name !== undefined) patch.name = updates.name;
+  if (updates.address !== undefined) patch.address = updates.address;
+  if (updates.area !== undefined) patch.area = updates.area;
+
+  if (Object.keys(patch).length === 0) return existing;
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('customers')
+    .update(patch)
+    .eq('id', customerId)
+    .select('*')
+    .single();
+  if (updateError) throw new ApiError(500, updateError.message);
+
+  if (patch.phone_number) {
+    await rekeyCustomerPhoneInSheetsSafely(existing.phone_number, patch.phone_number);
+  }
+
+  return updated;
+}
+
+/**
+ * Renames this customer's existing sheet rows from the old phone number
+ * to the new one, across every one-way sheet that's keyed on it. Skips
+ * the rename (loudly, not silently) if another customer record still
+ * holds the old number — a blind rename in that case would wrongly move
+ * a different customer's rows too, since the sheets have no customer id
+ * to disambiguate on, only the phone number itself.
+ */
+async function rekeyCustomerPhoneInSheetsSafely(oldPhone: string, newPhone: string) {
+  try {
+    const { data: stillOnOldNumber, error } = await supabaseAdmin
+      .from('customers')
+      .select('id')
+      .eq('phone_number', oldPhone);
+    if (error) throw error;
+    if ((stillOnOldNumber?.length ?? 0) > 0) {
+      await logNotification(
+        'customer_phone_rekey_failed',
+        'failed',
+        `Skipped: ${oldPhone} → ${newPhone} — another customer record still uses ${oldPhone}, so sheet rows were left as-is to avoid moving their data too. Rename manually in the sheet if needed.`
+      );
+      return;
+    }
+
+    // §9.6/§10.5: silent on success, same as every other sheet sync — a
+    // failure is what needs to stay visible, not the routine case.
+    await Promise.all([
+      renamePhoneNumberInSheet(SALES_TAB, oldPhone, newPhone),
+      renamePhoneNumberInSheet(SERVICE_TAB, oldPhone, newPhone),
+      renamePhoneNumberInSheet(ENQUIRY_TAB, oldPhone, newPhone),
+    ]);
+  } catch (e) {
+    // §9.6/§10.5: never blocks the customer edit that triggered this —
+    // the DB is already correct either way, this just keeps the sheets
+    // in step, and a failure here must stay visible, not swallowed.
+    await logNotification('customer_phone_rekey_failed', 'failed', (e as Error).message);
+  }
 }
 
 export async function getCustomerWithHistory(customerId: string) {

@@ -27,18 +27,16 @@ interface RecentPurchase {
 }
 
 const ACTION_LABEL: Record<string, string> = {
-  call_back_later: 'Call Back Later',
   pass_to_owner: 'Pass To Owner',
   mark_inactive: 'Mark Inactive',
   convert: 'Convert',
 };
 
 // Every outcome gets its own color, always visible, not just once
-// clicked: yellow for "still open, decide later" (call back / pass to
-// owner), red for the lost sale, green for a sale (convert / link to an
-// existing purchase).
+// clicked: yellow for "still open, decide later" (pass to owner), red
+// for the lost sale, green for a sale (convert / link to an existing
+// purchase).
 const ACTION_STYLE: Record<string, string> = {
-  call_back_later: 'bg-yellow-500 text-white border-yellow-500',
   pass_to_owner: 'bg-yellow-500 text-white border-yellow-500',
   mark_inactive: 'bg-red-600 text-white border-red-600',
   convert: 'bg-green-600 text-white border-green-600',
@@ -51,9 +49,8 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [calls, setCalls] = useState<Call[]>([]);
   const [callNote, setCallNote] = useState('');
-  const [action, setAction] = useState<'call_back_later' | 'pass_to_owner' | 'mark_inactive' | ''>('');
+  const [action, setAction] = useState<'pass_to_owner' | 'mark_inactive' | ''>('');
   const [explanation, setExplanation] = useState('');
-  const [callbackDate, setCallbackDate] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
@@ -98,7 +95,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
     const res = await fetch(`/api/admin/enquiries/${id}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, explanation, callbackDate }),
+      body: JSON.stringify({ action, explanation }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -267,7 +264,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
               </button>
               {showOther && (
                 <div className="flex gap-2 mt-2 flex-wrap">
-                  {(['call_back_later', 'pass_to_owner'] as const).map((a) => (
+                  {(['pass_to_owner'] as const).map((a) => (
                     <button
                       key={a}
                       onClick={() => setAction(a)}
@@ -312,16 +309,6 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
             {action && (
               <form onSubmit={handleClose} className="space-y-3">
-                {action === 'call_back_later' && (
-                  <input
-                    type="date"
-                    required
-                    className="border rounded px-3 py-2"
-                    value={callbackDate}
-                    onChange={(e) => setCallbackDate(e.target.value)}
-                  />
-                )}
-
                 {(action === 'pass_to_owner' || action === 'mark_inactive') && (
                   <div>
                     <textarea

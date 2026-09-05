@@ -4,7 +4,7 @@ import { upsertRowByHeader } from './googleSheets';
 import { logNotification } from './notifications';
 
 // Same spreadsheet as Sales/Product List, a different tab.
-const SERVICE_TAB = process.env.GOOGLE_SERVICE_SHEET_TAB || 'Service';
+export const SERVICE_TAB = process.env.GOOGLE_SERVICE_SHEET_TAB || 'Service';
 
 /**
  * Mirrors a service_visit ticket into the spreadsheet's Service tab —

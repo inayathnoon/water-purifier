@@ -5,12 +5,13 @@ type EventType =
   | 'job_assigned'
   | 'job_completed'
   | 'leave_requested'
-  | 'payment_reminder'
+  | 'leave_decided'
   | 'product_sync_failed'
   | 'sales_sheet_failed'
   | 'service_sheet_failed'
   | 'enquiry_passed_to_owner'
-  | 'enquiry_sheet_failed';
+  | 'enquiry_sheet_failed'
+  | 'customer_phone_rekey_failed';
 
 /**
  * Records something that needs a human's attention even though nobody was
@@ -93,6 +94,24 @@ export async function notifyLeaveRequested(input: { requesterName: string; start
     `${appUrl('/owner/leave')}`;
 
   await sendAndLog('leave_requested', text);
+}
+
+/** §11.3/§11.4: the owner's decision, sent back to the same group the
+ * request itself was posted to — the requester's only reliable channel,
+ * since there's no per-person Telegram DM in this setup. */
+export async function notifyLeaveDecided(input: {
+  requesterName: string;
+  decision: 'approved' | 'denied';
+  startDate: string;
+  endDate: string;
+  reason?: string | null;
+}) {
+  const text =
+    input.decision === 'approved'
+      ? `🌴 <b>Leave approved</b>\n${input.requesterName}: ${input.startDate} to ${input.endDate}`
+      : `🌴 <b>Leave denied</b>\n${input.requesterName}: ${input.startDate} to ${input.endDate}\n${input.reason}`;
+
+  await sendAndLog('leave_decided', text);
 }
 
 /** §2.1: an admin couldn't close this enquiry themselves and passed it up. */

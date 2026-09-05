@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
+import AreaSelect from '@/components/AreaSelect';
 
 interface Customer {
   id: string;
@@ -75,6 +76,12 @@ function CustomerDirectoryPageInner() {
   const [history, setHistory] = useState<Record<string, Ticket[]>>({});
   const [loadingHistory, setLoadingHistory] = useState<string | null>(null);
   const [error, setError] = useState('');
+  // §4.1: correcting a customer's own details, chief among them a
+  // typo'd phone number — the primary lookup key everywhere.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ phoneNumber: '', name: '', address: '', area: '' });
+  const [editError, setEditError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const runSearch = async (e?: React.FormEvent, overrideQuery?: string) => {
     e?.preventDefault();
@@ -109,6 +116,32 @@ function CustomerDirectoryPageInner() {
       }
       setLoadingHistory(null);
     }
+  };
+
+  const startEditing = (c: Customer) => {
+    setEditError('');
+    setEditingId(c.id);
+    setEditForm({ phoneNumber: c.phone_number, name: c.name, address: c.address, area: c.area });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent, customerId: string) => {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setEditError('');
+    const res = await fetch(`/api/admin/customers/${customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    const { customer } = await res.json();
+    setResults((rs) => rs.map((r) => (r.id === customerId ? customer : r)));
+    setEditingId(null);
   };
 
   // Arriving via ?phone=... — search automatically and open the first
@@ -160,18 +193,70 @@ function CustomerDirectoryPageInner() {
             const tickets = history[c.id];
             return (
               <div key={c.id}>
-                <button
-                  onClick={() => toggleExpand(c)}
-                  className="w-full text-left p-4 hover:bg-gray-50 flex justify-between items-center"
-                >
-                  <div>
+                <div className="w-full p-4 hover:bg-gray-50 flex justify-between items-center gap-2">
+                  <button onClick={() => toggleExpand(c)} className="flex-1 text-left">
                     <p className="font-medium">{c.name}</p>
                     <p className="text-sm text-gray-600">
                       {c.phone_number} · {c.address}, {c.area}
                     </p>
-                  </div>
-                  <span className="text-blue-600 text-sm">{isExpanded ? 'Hide ▲' : 'History ▼'}</span>
-                </button>
+                  </button>
+                  <button
+                    onClick={() => (editingId === c.id ? setEditingId(null) : startEditing(c))}
+                    className="text-sm text-gray-600 hover:underline whitespace-nowrap"
+                  >
+                    {editingId === c.id ? 'Cancel' : 'Edit'}
+                  </button>
+                  <button onClick={() => toggleExpand(c)} className="text-blue-600 text-sm whitespace-nowrap">
+                    {isExpanded ? 'Hide ▲' : 'History ▼'}
+                  </button>
+                </div>
+
+                {editingId === c.id && (
+                  <form onSubmit={(e) => handleSaveEdit(e, c.id)} className="bg-blue-50 border-t border-b p-4 space-y-2">
+                    {editError && <p className="text-red-600 text-sm">{editError}</p>}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        required
+                        placeholder="Phone number"
+                        className="border rounded px-3 py-2 text-gray-900"
+                        value={editForm.phoneNumber}
+                        onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                      />
+                      <input
+                        required
+                        placeholder="Name"
+                        className="border rounded px-3 py-2 text-gray-900"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value.toUpperCase() })}
+                      />
+                      <input
+                        required
+                        placeholder="Address"
+                        className="border rounded px-3 py-2 text-gray-900"
+                        value={editForm.address}
+                        onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                      />
+                      <AreaSelect
+                        required
+                        value={editForm.area}
+                        onChange={(area) => setEditForm({ ...editForm, area })}
+                      />
+                    </div>
+                    {editForm.phoneNumber.trim() !== c.phone_number && (
+                      <p className="text-xs text-orange-700">
+                        Changing the phone number also renames this customer&apos;s existing Sales/Service/Enquiry
+                        sheet rows to match, so future syncs keep finding them.
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving...' : 'Save changes'}
+                    </button>
+                  </form>
+                )}
 
                 {isExpanded && (
                   <div className="bg-gray-50 border-t p-4">

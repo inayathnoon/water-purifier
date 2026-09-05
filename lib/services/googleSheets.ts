@@ -74,6 +74,10 @@ export function permissionAwareError(e: unknown, action: string): ApiError {
   return new ApiError(500, `Failed to ${action}: ${message}`);
 }
 
+// Every one-way sheet (Sales/Service/Enquiry) uses this exact header name
+// for the column it matches rows on.
+const PHONE_HEADER = 'phone_number';
+
 /** Read-only client — for pulling data in (product sync, reading a header row before a write). */
 export function readSheetsClient() {
   const { sheetId, credentials } = sheetCredentials();
@@ -174,4 +178,47 @@ export async function upsertRowByHeader(
     throw permissionAwareError(e, rowIdx === -1 ? `add a row to "${tab}"` : `update a row in "${tab}"`);
   }
   return rowIdx === -1 ? 'inserted' : 'updated';
+}
+
+/**
+ * Corrects every existing row in one tab that's keyed on `oldPhone`,
+ * in place — for when a customer's phone number itself was wrong and
+ * gets fixed. The normal upsert functions can't handle this on their
+ * own: after the DB is corrected they'd look up rows by the *new*
+ * number, never find the old row, and insert a duplicate next to it
+ * (exactly what happened once with a real customer's corrected number,
+ * before this existed). A tab with no `phone_number` column (Product
+ * List, Spare Parts) is a no-op, not an error.
+ */
+export async function renamePhoneNumberInSheet(tab: string, oldPhone: string, newPhone: string): Promise<number> {
+  const { headers, qtab, sheets, sheetId } = await readRealHeader(tab);
+  const phoneIdx = headers.indexOf(PHONE_HEADER);
+  if (phoneIdx === -1) return 0;
+
+  const col = columnLetter(phoneIdx);
+  let column: string[][];
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!${col}2:${col}` });
+    column = res.data.values ?? [];
+  } catch (e) {
+    throw new ApiError(500, `Could not read the "${tab}" sheet: ${(e as Error).message}`);
+  }
+
+  const matchedRows = column
+    .map((r, i) => (normalizeForMatch(r[0] ?? '') === normalizeForMatch(oldPhone) ? i : -1))
+    .filter((i) => i !== -1);
+  if (matchedRows.length === 0) return 0;
+
+  try {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: matchedRows.map((i) => ({ range: `${qtab}!${col}${i + 2}`, values: [[newPhone]] })),
+      },
+    });
+  } catch (e) {
+    throw permissionAwareError(e, `rename a phone number in "${tab}"`);
+  }
+  return matchedRows.length;
 }

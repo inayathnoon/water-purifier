@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { notifyLeaveRequested } from './notifications';
+import { notifyLeaveRequested, notifyLeaveDecided } from './notifications';
 
 /** §11.1: a technician requests leave, giving dates and a reason. */
 export async function requestLeave(requesterId: string, startDate: string, endDate: string, reason: string) {
@@ -58,10 +58,22 @@ export async function decideLeave(
       decided_at: new Date().toISOString(),
     })
     .eq('id', requestId)
-    .select('*')
+    .select('*, users:requester_id(name)')
     .single();
 
   if (error) throw new ApiError(500, error.message);
+
+  // §10.5: fired only after the status change above has committed — the
+  // one notification the requester actually cares about, previously the
+  // only silent step in the whole leave flow.
+  await notifyLeaveDecided({
+    requesterName: data.users?.name ?? 'Unknown',
+    decision,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    reason: data.decision_reason,
+  });
+
   return data;
 }
 

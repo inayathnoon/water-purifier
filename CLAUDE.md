@@ -1670,6 +1670,140 @@ frontend removal (`dateFrom`/`dateTo` state, the `filtered` memo, both
 date inputs and the Clear button) — no API or data change, so nothing
 needed live-verifying beyond `tsc`/`next build`.
 
+## Bug: Technician Never Saw the Reported Problem on a Service Call (2026-09-06)
+
+Found during a full operational review: the "+ New Service" form
+*requires* the admin to type the reported issue (§ the ad-hoc form's own
+validation refuses a blank one), and it's stored on
+`tickets.enquiry_product_interest` as `"{product} — {issue note}"` — but
+`/api/staff/jobs`'s SELECT never included that column, so the technician
+dispatched to fix it saw the customer's name, address, and time slot and
+nothing about what was actually wrong. Whatever the tech knew, they were
+finding out by phone or on the group chat — the app was adding a step,
+not removing one.
+
+Root cause: this same column is reused three ways — a plain product
+name on an installation, a product name copied from the parent
+installation on a Yearly Service visit (§8.2), and `"{product} — {issue}"`
+only on an ad-hoc Service Call (`createAdHocServiceRequest`) — so a
+naive "just show the field" fix would have wrongly labeled a Yearly
+Service's routine check-up as a "reported problem." Fixed with a
+`reportedIssue()` helper in `app/staff/jobs/page.tsx` that only returns
+non-null for a `service_visit` with no `parent_installation_id` (i.e.
+genuinely ad-hoc) — a Yearly Service or an installation shows nothing,
+correctly, since neither has an actual complaint attached. Added the
+column to `/api/staff/jobs`'s SELECT (no price/business-sensitive data
+in it) and a highlighted "Reported problem" box on the job card, right
+under the customer's contact info.
+
+Verified live: a real ad-hoc Service Call with the issue note "Water not
+coming out at all" round-tripped through the exact SELECT the staff API
+uses and came back correctly; a real Yearly Service ticket (spawned from
+a backdated closed installation) came back with `enquiry_product_interest:
+"Vessel"` and `parent_installation_id` set, which `reportedIssue()`
+correctly treats as "nothing to report" — both cleaned up afterward.
+
+This doesn't yet split the overloaded column into two honest ones
+(`product_interest` / `issue_note`) — that's a real cleanup worth doing
+later, since the field's dual meaning is exactly what let this bug hide
+for as long as it did, but this fix already makes the technician-facing
+symptom correct.
+
+## "Call Back Later" Removed — Never Actually Reminded Anyone (2026-09-06)
+
+Found in the same review: an enquiry's "Call back later" action asked
+for a date, validated it, and saved it to `tickets.callback_date` — and
+nothing anywhere ever read that column. §5.3's "returns to the list on
+that day" never happened; the enquiry just sat in the same open list it
+was always in, with an invisible promised date attached to it. Business
+call once this was flagged: don't build the reminder, remove the
+feature — an enquiry that's still undecided already stays in the calls-
+to-be-made list with no date needed, and that's sufficient.
+
+Removed the whole path rather than wiring it up: the button, the date
+input, `callbackDate` state, and the `call_back_later` branch of
+`closeEnquiry()` (now typed `'pass_to_owner' | 'mark_inactive' |
+'convert'`, dropped from the union). The enquiry detail page's "Other ▾"
+section now holds just Pass To Owner. `tickets.callback_date` itself is
+left in the schema (harmless, unread, same "no need to touch a column
+just because nothing writes it anymore" call as `CRON_SECRET`) rather
+than a disruptive column-drop for zero benefit.
+
+## Dead Code Removed: `payment_reminder` Notification Type (2026-09-06)
+
+Also flagged in the same review: `payment_reminder` existed as an
+`EventType` value in `lib/services/notifications.ts` with no function
+ever sending one — specified for Stage 6, never built, effectively dead
+since Stage 1. Rather than build the 7-day overdue-payment push now,
+removed the unused type from the `EventType` union so it stops implying
+a feature exists. The underlying Postgres enum value (declared in the
+original `001_init_schema.sql`) is left alone — Postgres enums can't
+drop a value without recreating the whole type, and it's harmless to
+leave sitting unused, same call as `callback_date` above.
+
+## Leave Decisions Now Notify Back (2026-09-06)
+
+Requesting leave already posted to the Telegram group
+(`notifyLeaveRequested`); approving or denying it fired nothing —
+found in the same review, and the most likely of that review's findings
+to actually matter to a technician, since it's the one thing that
+affects them personally rather than the business's records. New
+`notifyLeaveDecided()` (migration 025 adds the `leave_decided` event
+type), called from `decideLeave()` after the status-change write
+commits — approved posts the dates, denied posts the dates plus the
+required denial reason (§11.4 already guarantees one exists). Same
+group chat every other notification already goes to, since there's no
+per-person Telegram DM set up in this app.
+
+Verified live: a real leave request approved and a second one denied
+both correctly posted (`notifications_log` shows `leave_decided` /
+`sent` for each) — these were real messages to the live staff Telegram
+group, not a mocked send, same as every other notification
+verification in this project; the two leave requests themselves were
+cleaned up from the DB afterward.
+
+## Customers Can Now Be Edited In-App (2026-09-06)
+
+Found in the same review: there was no update path for a customer's own
+record at all — a typo'd phone number (§4.1, the primary lookup key
+everywhere) could only be fixed by a direct database write, and that's
+exactly how a real Farhan phone-number correction earlier this project
+broke the Service sheet sync — the corrected row couldn't find its
+original under the new number and inserted a duplicate next to it,
+since the sheet's one-way syncs (§9) match rows purely on
+`phone_number`, with no customer id in the sheet to fall back on.
+
+New `updateCustomer()` in `lib/services/customers.ts`, a `PATCH` on
+`/api/admin/customers/[id]`, and an inline edit form on the Customer
+Directory (phone/name/address, `AreaSelect` for area) — reachable via a
+new "Edit" button next to each search result, alongside "History".
+Phone number doesn't need a uniqueness check (migration 007 already
+dropped that constraint when multiple addresses per number became
+allowed).
+
+The part that actually fixes the root cause: when the phone number
+itself changes, `updateCustomer()` re-keys that customer's existing
+Sales/Service/Enquiry sheet rows *in the same operation* — new
+`renamePhoneNumberInSheet()` in `lib/services/googleSheets.ts` finds
+every row in a tab still showing the old number (by scanning just that
+one column, not the whole row) and rewrites the cell in place, so the
+next normal sync finds the row under its new number instead of
+inserting a duplicate. Guarded against the one real edge case: if
+another customer record still shares the old phone number (§4.1
+revised allows this), the rename is skipped rather than risking moving
+a different customer's rows — logged loudly (`customer_phone_rekey_failed`,
+migration 026) rather than silently doing nothing, so it doesn't
+masquerade as success.
+
+**Verified live, both paths**: a real customer with a real Service
+sheet row had their phone corrected — confirmed the sheet's phone
+column changed from the old number to the new one, not a duplicate row.
+Separately, two real customers sharing one phone number were created,
+one had their number "corrected," and the rekey was correctly skipped
+(logged with the reason) while the other customer's number was left
+untouched. All test customers/tickets deleted afterward, and the one
+touched sheet row cleared back out.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

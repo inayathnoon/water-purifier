@@ -4,7 +4,7 @@ import { upsertRowByHeader } from './googleSheets';
 import { logNotification } from './notifications';
 
 // Same spreadsheet as Sales/Service/Product List, a different tab.
-const ENQUIRY_TAB = process.env.GOOGLE_ENQUIRY_SHEET_TAB || 'Enquiry';
+export const ENQUIRY_TAB = process.env.GOOGLE_ENQUIRY_SHEET_TAB || 'Enquiry';
 
 const STAGE_LABEL: Record<string, string> = {
   open: 'ACTIVE',

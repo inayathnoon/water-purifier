@@ -12,8 +12,12 @@ function daysAgoDateString(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// enquiry_product_interest included: for an ad-hoc service visit it's
+// "{product} — {reported issue}" (createAdHocServiceRequest), and it's
+// what tells a tech what's actually wrong with the unit before they show
+// up — no price/business-sensitive data in it, so no RLS concern.
 const SELECT =
-  'id, kind, status, booked_date, booked_half_day, location, parent_installation_id, installation_date, actual_date, actual_notes, parts_used, charge_amount, customers(name, address, area, phone_number)';
+  'id, kind, status, booked_date, booked_half_day, location, parent_installation_id, installation_date, actual_date, actual_notes, parts_used, charge_amount, enquiry_product_interest, customers(name, address, area, phone_number)';
 
 // §2.3: service staff see only their own jobs. Price/discount/balance
 // columns live on `orders`, not `tickets`, and this query never touches
