@@ -9,6 +9,7 @@ export interface PickableProduct {
   brand: string;
   variant: string | null;
   active: boolean;
+  list_price: number | null;
 }
 
 /**
@@ -24,7 +25,7 @@ export default function ProductPicker({
   onChange,
   required = false,
 }: {
-  onChange: (value: { display: string; code: string } | null) => void;
+  onChange: (value: { display: string; code: string; listPrice: number | null } | null) => void;
   required?: boolean;
 }) {
   const [products, setProducts] = useState<PickableProduct[]>([]);
@@ -56,7 +57,11 @@ export default function ProductPicker({
     if (variants.length === 1) {
       const only = variants[0];
       setVariantCode(only.code);
-      onChange({ display: only.variant ? `${brand} ${name} — ${only.variant}` : `${brand} ${name}`, code: only.code });
+      onChange({
+        display: only.variant ? `${brand} ${name} — ${only.variant}` : `${brand} ${name}`,
+        code: only.code,
+        listPrice: only.list_price,
+      });
     } else {
       setVariantCode('');
     }
@@ -113,6 +118,7 @@ export default function ProductPicker({
             onChange({
               display: chosen.variant ? `${brand} ${name} — ${chosen.variant}` : `${brand} ${name}`,
               code: chosen.code,
+              listPrice: chosen.list_price,
             });
           }
         }}

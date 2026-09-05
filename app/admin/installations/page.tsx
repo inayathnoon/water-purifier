@@ -59,10 +59,11 @@ interface PurchaseItem {
   price: string;
   paidAmount: string;
   isFree: boolean;
+  listPrice: number | null;
 }
 
 function emptyPurchaseItem(id: number): PurchaseItem {
-  return { id, productDetails: '', productCode: '', extraDetails: '', price: '', paidAmount: '', isFree: false };
+  return { id, productDetails: '', productCode: '', extraDetails: '', price: '', paidAmount: '', isFree: false, listPrice: null };
 }
 
 interface StaffMember {
@@ -300,9 +301,16 @@ function InstallationsPageInner() {
                       key={item.id}
                       required
                       onChange={(picked) =>
-                        updatePurchaseItem(item.id, { productDetails: picked?.display ?? '', productCode: picked?.code ?? '' })
+                        updatePurchaseItem(item.id, {
+                          productDetails: picked?.display ?? '',
+                          productCode: picked?.code ?? '',
+                          listPrice: picked?.listPrice ?? null,
+                        })
                       }
                     />
+                    {item.listPrice != null && (
+                      <p className="text-xs text-gray-900 mt-1">List price: ₹{item.listPrice}</p>
+                    )}
                     <input
                       placeholder="Extra details (optional — e.g. 'and Prefilter')"
                       className="w-full border rounded px-3 py-2 text-gray-900 mt-2 text-sm"

@@ -1444,6 +1444,16 @@ UI-level swap (the page fetches the same `/api/admin/orders` data for
 both roles either way, so this isn't a data-access boundary, just which
 button shows) — reads the signed-in user's role client-side to decide.
 
+## New Purchase: Show List Price Once Product+Variant Picked (2026-09-05)
+
+`ProductPicker` never exposed `list_price` at all — the New Purchase form
+had no reference point for what a product normally sells for while
+typing the actual sold price/discount. `onChange` now also returns
+`listPrice`, shown as a small "List price: ₹X" line under the picker the
+moment a product (and its variant, if it has one) is fully selected.
+Display-only — doesn't pre-fill or constrain the actual Sold Price field,
+since that's a separate negotiated figure.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
