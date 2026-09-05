@@ -208,7 +208,7 @@ function ServiceCallsPageInner() {
     <div className="max-w-5xl mx-auto py-8 px-4">
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
-        <h1 className="text-2xl font-bold">Service Calls</h1>
+        <h1 className="text-2xl font-bold">Services</h1>
         <button
           onClick={() => setShowNewForm((s) => !s)}
           className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"

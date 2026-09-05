@@ -1345,6 +1345,28 @@ pass), not guessed:
 - `CRON_SECRET` (GitHub repo secret + Railway variable) — no code reads
   it anymore. Removed from both by the business directly.
 
+## Dashboard Nav: Matched to the Business's Own Naming, Easier to Scan (2026-09-05)
+
+The business keeps its own reference sheet naming the five core things
+consistently: Purchases, Enquiries, Services, Customers, Products (the
+same sheet that already drove the Order→Purchase rename). Two follow-ups
+from it:
+
+- **Reordered and relabeled** the dashboard nav links (both admin and
+  owner rows) to that exact order, and renamed "Service Calls" → "Services"
+  everywhere it was a plain category label (nav links, the "Jobs to
+  Dispatch" card's view-all links, and `/admin/service-calls`'s own page
+  heading) — left more specific phrases alone (`"Yearly service calls
+  due"`, `"+ New Service"`, the "Requested" section heading), since those
+  describe something more specific than the bare category name.
+- **Visually split browsing from creating.** The nav row used to mix
+  plain underlined text links and solid action buttons in one run with no
+  separation. Browse links are now a distinct group of bordered pill
+  buttons (clearer click targets than underlined text), separated by a
+  vertical rule from the "+ New ..." action buttons, which are now also
+  ordered Purchase → Enquiry → Service to match. Owner's row got the same
+  treatment (it only ever had the one "+ New Purchase" action).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

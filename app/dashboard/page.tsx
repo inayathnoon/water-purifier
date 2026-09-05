@@ -195,32 +195,46 @@ function AdminDashboard() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+      <div className="flex flex-col gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/admin/enquiries" className="text-blue-600 hover:underline">Enquiries</Link>
-          <Link href="/admin/customers" className="text-blue-600 hover:underline">Customers</Link>
-          <Link href="/admin/orders" className="text-blue-600 hover:underline">Purchases</Link>
-          <Link href="/admin/products" className="text-blue-600 hover:underline">Products</Link>
-          <Link href="/admin/service-calls" className="text-blue-600 hover:underline">Service Calls</Link>
-          <Link
-            href="/admin/enquiries?new=1"
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            + New Enquiry
-          </Link>
-          <Link
-            href="/admin/installations?new=1"
-            className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700"
-          >
-            + New Purchase
-          </Link>
-          <Link
-            href="/admin/service-calls?new=1"
-            className="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-          >
-            + New Service
-          </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <nav className="flex flex-wrap items-center gap-1.5">
+            {[
+              { href: '/admin/orders', label: 'Purchases' },
+              { href: '/admin/enquiries', label: 'Enquiries' },
+              { href: '/admin/service-calls', label: 'Services' },
+              { href: '/admin/customers', label: 'Customers' },
+              { href: '/admin/products', label: 'Products' },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm text-gray-900 hover:bg-gray-50 hover:border-gray-400"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex flex-wrap items-center gap-2 pl-4 border-l border-gray-300">
+            <Link
+              href="/admin/installations?new=1"
+              className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+            >
+              + New Purchase
+            </Link>
+            <Link
+              href="/admin/enquiries?new=1"
+              className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+            >
+              + New Enquiry
+            </Link>
+            <Link
+              href="/admin/service-calls?new=1"
+              className="px-3 py-1.5 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
+            >
+              + New Service
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -251,7 +265,7 @@ function AdminDashboard() {
           emptyText="Nothing waiting on a technician."
           viewAllLinks={[
             { label: 'Installations', href: '/admin/installations' },
-            { label: 'Service Calls', href: '/admin/service-calls' },
+            { label: 'Services', href: '/admin/service-calls' },
           ]}
         >
           {data.jobsToDispatch.slice(0, 5).map((t) => {
@@ -495,15 +509,34 @@ function OwnerDashboard() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+      <div className="flex flex-col gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Business overview</h2>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/admin/enquiries" className="text-green-700 hover:underline">Enquiries</Link>
-          <Link href="/admin/installations" className="text-green-700 hover:underline">New Purchase</Link>
-          <Link href="/admin/customers" className="text-green-700 hover:underline">Customers</Link>
-          <Link href="/admin/orders" className="text-green-700 hover:underline">Purchases</Link>
-          <Link href="/admin/products" className="text-green-700 hover:underline">Products</Link>
-          <Link href="/admin/service-calls" className="text-green-700 hover:underline">Service Calls</Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <nav className="flex flex-wrap items-center gap-1.5">
+            {[
+              { href: '/admin/orders', label: 'Purchases' },
+              { href: '/admin/enquiries', label: 'Enquiries' },
+              { href: '/admin/service-calls', label: 'Services' },
+              { href: '/admin/customers', label: 'Customers' },
+              { href: '/admin/products', label: 'Products' },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm text-gray-900 hover:bg-gray-50 hover:border-gray-400"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex items-center gap-2 pl-4 border-l border-gray-300">
+            <Link
+              href="/admin/installations?new=1"
+              className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+            >
+              + New Purchase
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -629,7 +662,7 @@ function OwnerDashboard() {
           emptyText="Nothing waiting on a technician."
           viewAllLinks={[
             { label: 'Installations', href: '/admin/installations' },
-            { label: 'Service Calls', href: '/admin/service-calls' },
+            { label: 'Services', href: '/admin/service-calls' },
           ]}
         >
           {data.jobsToDispatch.slice(0, 5).map((t) => {
