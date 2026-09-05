@@ -1,0 +1,30 @@
+import { requireUser, handleApiError } from '@/lib/api-auth';
+import { recordSparePartSale, listRecentSparePartSales } from '@/lib/services/sparePartSales';
+
+export async function GET() {
+  try {
+    await requireUser(['admin', 'owner']);
+    const sales = await listRecentSparePartSales();
+    return Response.json({ sales });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await requireUser(['admin', 'owner']);
+    const body = await request.json();
+
+    const sale = await recordSparePartSale({
+      items: body.items ?? [],
+      customerName: body.customerName,
+      phoneNumber: body.phoneNumber,
+      soldBy: user.id,
+    });
+
+    return Response.json({ sale }, { status: 201 });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}

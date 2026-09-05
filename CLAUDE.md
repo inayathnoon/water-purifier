@@ -1533,6 +1533,29 @@ Purely a label change on the New Service form's field — matches the
 wording every other booking form in the app already uses ("Assign to...").
 Internal field name (`staffAttendedId`) and behavior unchanged.
 
+## Office Spare Part Sales — Standalone, No Visit Required (2026-09-05)
+
+Spare parts could only be sold in the context of a technician's Mark
+Done — no way to record one sold on its own at the office (a walk-in
+customer buying just a valve, no job, often no phone number given).
+New `spare_part_sales` table (migration 023 — the first one ever applied
+purely through the Developer panel's migration runner, no manual SQL at
+all) — deliberately not a `service_visit` ticket, since there's no work
+being done, no tech, and forcing it through the ticket model would
+misrepresent it as a job everywhere else that reads tickets.
+
+`/admin/service-calls` gained a **"+ Sell Spare Part"** button (yellow,
+matching New Service's sibling actions) — the same qty-stepper picker
+staff use on Mark Done, reading the same live Spare Parts sheet
+(`/api/staff/spare-parts`, now also allowed for admin/owner), minus the
+"Service charges" row (doesn't apply to a sale with no visit happening).
+Customer name/phone are optional. A "Recent spare part sales" list shows
+the last 5 underneath, who sold it and when.
+
+Verified live: recorded a real 2× Solenoid valve sale, confirmed it in
+the recent list with the seller's name correctly resolved, empty phone
+stored as null rather than an empty string.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
