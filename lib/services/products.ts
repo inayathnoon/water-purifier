@@ -18,7 +18,6 @@ import { sheetCredentials, quotedTab, writeSheetsClient, permissionAwareError, c
 // read; whichever aren't get left out of the upsert entirely (so an
 // existing value already in the DB is preserved, not nulled).
 const REQUIRED_HEADERS = ['sku', 'category', 'brand', 'product_name', 'variant'];
-const OPTIONAL_HEADERS = ['master_sku', 'list_price'];
 const SHEET_RANGE = process.env.GOOGLE_SHEETS_RANGE || "'Product List'!A:F";
 
 interface ParsedRow {

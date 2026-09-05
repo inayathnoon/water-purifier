@@ -1329,6 +1329,23 @@ by clicking through `runPendingMigrations()` rather than a SQL Editor
 paste — worked correctly on the first live schema change since the
 runner was built.
 
+## Dead-Code Sweep After the Product/Cron Cleanup (2026-09-05)
+
+Audited for leftover unused pathways after removing the nightly cron and
+"+ Add Product" — found via a real check (grepped every exported
+`lib/services/*.ts` function for callers elsewhere, plus a full `eslint`
+pass), not guessed:
+
+- `appendRowByHeader()` in `googleSheets.ts` — its only caller was the
+  just-removed `appendProductToSheet()`. Removed.
+- `OPTIONAL_HEADERS` in `products.ts` — declared but never actually wired
+  into the parsing logic below it (pre-existing, not from this session's
+  changes). Removed; the comment above it already documents the
+  optional-column behavior, which the real logic implements inline.
+- `CRON_SECRET` (GitHub repo secret + Railway variable) — no code reads
+  it anymore. Left for the business to remove manually via each
+  dashboard (not a code change).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

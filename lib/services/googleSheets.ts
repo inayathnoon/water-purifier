@@ -125,45 +125,6 @@ async function readRealHeader(tab: string): Promise<{ headers: string[]; qtab: s
 }
 
 /**
- * Appends one row to `tab`, placed under whichever columns the sheet's
- * own header row actually has (by name, not position) — so this doesn't
- * need to assume or hard-code a column order for a sheet a human can
- * reorder at any time. Silently drops values whose column doesn't exist
- * in the sheet.
- *
- * Writes with an explicit values.update to the first empty row rather
- * than values.append — append's own "find the table" detection isn't
- * reliable on a sheet with stray data far outside the real table (see
- * readRealHeader above), and lands the row in the wrong columns.
- */
-export async function appendRowByHeader(tab: string, valuesByColumn: Record<string, string>): Promise<void> {
-  const { headers, qtab, sheets, sheetId } = await readRealHeader(tab);
-  const lastCol = columnLetter(headers.length - 1);
-
-  let dataRowCount: number;
-  try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!A2:${lastCol}` });
-    dataRowCount = (res.data.values ?? []).length;
-  } catch (e) {
-    throw new ApiError(500, `Could not read the "${tab}" sheet: ${(e as Error).message}`);
-  }
-
-  const row = headers.map((h) => valuesByColumn[h] ?? '');
-  const nextRow = dataRowCount + 2; // +1 for the header row, +1 for 1-indexing
-
-  try {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: `${qtab}!A${nextRow}:${lastCol}${nextRow}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [row] },
-    });
-  } catch (e) {
-    throw permissionAwareError(e, `add a row to "${tab}"`);
-  }
-}
-
-/**
  * Like appendRowByHeader, but first looks for an existing row matching on
  * `matchColumns` (e.g. phone_number + bill_date + sold_price for a sale)
  * and updates it in place instead of adding a duplicate — for a sheet
