@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, signOut, type User } from '@/lib/auth';
 import { daysAgoIST } from '@/lib/dates';
@@ -58,9 +58,23 @@ interface OwnerDashboardData {
 const daysAgo = daysAgoIST;
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p>Loading...</p></div>}>
+      <DashboardPageInner />
+    </Suspense>
+  );
+}
+
+function DashboardPageInner() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // The Developer panel's "View As" links land here with ?viewAs=admin or
+  // ?viewAs=owner — lets the app's own maintainer preview those dashboards
+  // without actually having an admin/owner account. Ignored for anyone
+  // whose real role isn't 'developer', so it can't be used to escalate.
+  const viewAs = searchParams.get('viewAs');
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +91,13 @@ export default function DashboardPage() {
         return;
       }
       // The app's own developer/maintainer sees a maintenance panel, not
-      // the business dashboard — a separate account/page from 'owner'.
+      // the business dashboard — a separate account/page from 'owner' —
+      // unless they've explicitly asked to preview one (see viewAs above).
+      if (currentUser.role === 'developer' && (viewAs === 'admin' || viewAs === 'owner')) {
+        setUser({ ...currentUser, role: viewAs });
+        setLoading(false);
+        return;
+      }
       if (currentUser.role === 'developer') {
         router.replace('/developer');
         return;
@@ -88,7 +108,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, viewAs]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -105,6 +125,14 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {viewAs && (
+        <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-900 text-sm text-center py-2">
+          Previewing as {viewAs} —{' '}
+          <Link href="/developer" className="underline font-medium">
+            back to Developer panel
+          </Link>
+        </div>
+      )}
       <header className="bg-white shadow">
         <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-2">
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Water Purifier Service</h1>

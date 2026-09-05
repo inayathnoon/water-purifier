@@ -1403,6 +1403,38 @@ row. (2) "+ New Service" recolored from purple to yellow
 (`bg-yellow-500`, dark text for contrast against a light background,
 unlike the white text every other solid button uses).
 
+## Developer Panel: "View As" Admin/Owner/Staff (2026-09-05)
+
+The developer role has its own account and page, separate from
+owner/admin/service_staff — meaning `/dashboard` and `/staff/jobs` were
+otherwise unreachable to it (both role-redirect away, and their APIs
+403'd anyone whose role wasn't the exact one expected). Added a "View
+As" section to `/developer` (deliberately not pinned to the very top —
+placed as its own card) with three links:
+
+- **View as Admin / View as Owner** → `/dashboard?viewAs=admin|owner`.
+  `DashboardPageInner` only honors `viewAs` for a caller whose *real*
+  role is `developer` — anyone else's `viewAs` param is ignored, so it
+  can't be used to escalate. A yellow "Previewing as ___" banner with a
+  link back to `/developer` shows while active.
+- **View as Staff** → straight to `/staff/jobs` (no query param needed —
+  that page never redirected by role in the first place, so once its API
+  allows `developer` it just works, correctly showing "no jobs" since a
+  developer has none assigned).
+
+`/api/admin/dashboard`, `/api/owner/dashboard`, `/api/admin/staff`, and
+`/api/staff/jobs` all extended their allowed-roles list to include
+`developer` — read-only endpoints only; every *action* endpoint (booking,
+closing, deciding leave, etc.) deliberately still rejects `developer`, so
+a preview can look but can't accidentally act on real live data.
+
+**Not independently HTTP-tested** — Supabase's cookie-based session
+format isn't practical to fake from a script (confirmed: an
+Authorization-header-only request gets redirected by the auth middleware
+before ever reaching the route, unlike a real browser session). Verified
+by code review, `tsc`, and a clean production build instead; asked the
+business to click through the three real links themselves to confirm.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

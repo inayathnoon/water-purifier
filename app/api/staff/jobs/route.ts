@@ -23,7 +23,10 @@ const SELECT =
 // they entered themselves, not new information for them.
 export async function GET() {
   try {
-    const user = await requireUser(['service_staff']);
+    // 'developer' included so the Developer panel's "View As Staff"
+    // preview works — a developer has no assigned tickets, so this
+    // correctly comes back empty rather than leaking anyone else's jobs.
+    const user = await requireUser(['service_staff', 'developer']);
 
     const [active, recentlyClosed] = await Promise.all([
       // Anything still open to act on — book to complete, or completed

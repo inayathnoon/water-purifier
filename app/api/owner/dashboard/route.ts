@@ -21,7 +21,8 @@ function dateAddDays(dateStr: string, days: number): string {
  */
 export async function GET() {
   try {
-    await requireUser(['owner']);
+    // 'developer' included so the Developer panel's "View As Owner" preview works.
+    await requireUser(['owner', 'developer']);
 
     const today = todayIST();
     const weekEnd = dateAddDays(today, 6);

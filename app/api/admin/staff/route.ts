@@ -7,7 +7,9 @@ import { getApprovedLeaveByStaff } from '@/lib/services/leave';
 // booking screen can show it as context — never as a block.
 export async function GET() {
   try {
-    await requireUser(['admin', 'owner']);
+    // 'developer' included so the Developer panel's "View As" previews
+    // (both admin and owner dashboards use this for the assign-staff list) work.
+    await requireUser(['admin', 'owner', 'developer']);
 
     const { data, error } = await supabaseAdmin
       .from('users')

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser, signOut, type User, type UserRole } from '@/lib/auth';
 
 interface StaffRow {
@@ -164,6 +165,24 @@ export default function DeveloperPage() {
       <p className="text-sm text-gray-900 mb-6">Maintenance tools — not part of the business dashboard.</p>
 
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4 text-sm">{error}</p>}
+
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <h2 className="font-semibold mb-1">View As</h2>
+        <p className="text-sm text-gray-900 mb-3">
+          Preview what each role actually sees — read-only, doesn't need a separate account.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard?viewAs=admin" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
+            View as Admin
+          </Link>
+          <Link href="/dashboard?viewAs=owner" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
+            View as Owner
+          </Link>
+          <Link href="/staff/jobs" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
+            View as Staff
+          </Link>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="flex justify-between items-center mb-2">

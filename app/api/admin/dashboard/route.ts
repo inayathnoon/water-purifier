@@ -21,7 +21,8 @@ function dateMinusDays(dateStr: string, days: number): string {
  */
 export async function GET() {
   try {
-    await requireUser(['admin', 'owner']);
+    // 'developer' included so the Developer panel's "View As Admin" preview works.
+    await requireUser(['admin', 'owner', 'developer']);
     const today = todayIST();
 
     const [newEnquiries, jobsToDispatch, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([

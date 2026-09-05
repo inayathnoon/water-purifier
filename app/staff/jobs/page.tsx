@@ -227,6 +227,14 @@ export default function StaffJobsPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-4 pb-24">
+      {user?.role === 'developer' && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-900 text-sm text-center py-2 rounded mb-3">
+          Previewing as staff —{' '}
+          <Link href="/developer" className="underline font-medium">
+            back to Developer panel
+          </Link>
+        </div>
+      )}
       <div className="flex justify-between items-center gap-2">
         <span className="text-sm text-gray-900">{user?.name}</span>
         <div className="flex items-center gap-3">
