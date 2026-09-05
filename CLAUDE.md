@@ -1157,6 +1157,69 @@ name + price field for anything not yet in the sheet, added straight into
 the running total and recorded in `parts_used` as `"O-ring (₹120)"`
 alongside whatever else was picked. Verified live end-to-end.
 
+## Real Security Gap Found and Fixed: `users` Had No RLS (2026-09-05)
+
+Asked "RLS needed or not" while reviewing the new `schema_migrations`
+table, and checking properly turned up something worse: `users` has had
+**zero row-level security since migration 001** — that migration enabled
+RLS on customers, tickets, orders, products, notifications_log,
+call_log, and leave_requests, but never on `users` itself. With RLS off,
+Postgres applies no row restriction at all, so the table was fully
+readable by anyone holding the public anon key (shipped in the browser
+bundle — not a secret) with **no login required**. Confirmed live before
+fixing: an unauthenticated request returned every staff member's name,
+phone number, and role.
+
+Fixed (migration 021): `ALTER TABLE users ENABLE ROW LEVEL SECURITY`
+plus one policy, `users_read_own` (`id = auth.uid()`) — every legitimate
+non-admin read of this table (`getCurrentUser()`, `requireUser()`) only
+ever needs the caller's own row; every cross-user lookup (staff
+dropdowns, the Developer panel, job assignment checks) already goes
+through `supabaseAdmin`, which bypasses RLS entirely, so no broader
+policy was needed. Verified live, in this order: (1) anon-key read
+returned every user before the fix, (2) returned `[]` after, (3) a real
+signed-in user (Cristeen) could still read exactly her own row and only
+her own row afterward — confirming the fix closes the leak without
+breaking login. The new `schema_migrations` table (below) also got RLS
+enabled with zero policies from the start, since only `supabaseAdmin`
+ever needs to touch it.
+
+## Developer Panel: One-Click Database Migrations (2026-09-05)
+
+The single most repeated friction this session: four separate times, a
+schema change meant pasting raw SQL into the Supabase SQL Editor by hand.
+Fixed at the root with a real migration runner in `/developer`:
+
+- One-time bootstrap (migration 020, run by hand — the last one, ever):
+  an `exec_sql(sql text)` Postgres function (`SECURITY DEFINER`) plus a
+  `schema_migrations(filename, applied_at)` tracking table, backfilled
+  with every migration already applied by hand so the runner never
+  replays them.
+- `lib/services/migrations.ts`: `listMigrationStatus()` reads
+  `supabase/migrations/*.sql` off disk (the full repo is present in
+  Railway's container at runtime — this isn't a pruned serverless
+  bundle) and diffs against `schema_migrations`; `runPendingMigrations()`
+  runs whatever's missing, in filename order, via the `exec_sql` RPC,
+  recording each as it succeeds, stopping at the first failure rather
+  than skipping ahead.
+- **Deliberately not a SQL console**: the Developer panel only ever feeds
+  `exec_sql` the fixed contents of a migration file already committed to
+  the repo — never free-typed SQL from the browser. The security
+  tradeoff (a `developer`-gated capability to run arbitrary SQL exists at
+  all) was surfaced to the business explicitly before building it, given
+  every other admin operation in this app already has full DB access via
+  the same service-role key — the actual new surface is narrow.
+- New `/developer` section: pending/applied list, "Run Pending
+  Migrations" button, shows exactly what ran or where it stopped.
+
+**Verified fully live before trusting it for anything real**: wrote a
+disposable throwaway migration file, confirmed it showed up as the only
+pending one, ran it through the real `runPendingMigrations()`, confirmed
+the table it created actually existed, then dropped that table and
+removed both its `schema_migrations` row and the test file — nothing
+left behind. From here on, every future schema change ships as a
+migration file and applies with one click, not a copy-paste round trip.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

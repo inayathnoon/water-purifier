@@ -97,7 +97,13 @@ export default function StaffJobsPage() {
       });
     fetch('/api/staff/spare-parts')
       .then((res) => res.json())
-      .then((data) => !cancelled && setSpareParts(data.parts ?? []));
+      .then((data) => {
+        if (cancelled) return;
+        // Service Charge (default-on) shown first, everything else after.
+        const parts: SparePart[] = data.parts ?? [];
+        const isServiceCharge = (p: SparePart) => p.name.trim().toLowerCase() === 'service charge';
+        setSpareParts([...parts.filter(isServiceCharge), ...parts.filter((p) => !isServiceCharge(p))]);
+      });
     return () => {
       cancelled = true;
     };
@@ -117,7 +123,15 @@ export default function StaffJobsPage() {
   const startCompleting = (job: Job) => {
     setError('');
     setCompletingId(job.id);
-    setPartQuantities({});
+    // A part named exactly "Service Charge" (however it's spelled in the
+    // sheet) is on by default — every out-of-warranty visit has a base
+    // charge unless a tech actively removes it — while every other part
+    // starts at 0 and has to be added deliberately.
+    const defaults: Record<string, number> = {};
+    for (const p of spareParts) {
+      if (p.name.trim().toLowerCase() === 'service charge') defaults[p.name] = 1;
+    }
+    setPartQuantities(defaults);
     setCustomPart({ name: '', price: '' });
     const times = HALF_DAY_TIMES[job.booked_half_day] ?? { start: '', end: '' };
     setForm({

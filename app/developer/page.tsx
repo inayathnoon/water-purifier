@@ -13,6 +13,12 @@ interface StaffRow {
   created_at: string;
 }
 
+interface MigrationRow {
+  filename: string;
+  applied: boolean;
+  appliedAt: string | null;
+}
+
 const ROLE_LABEL: Record<UserRole, string> = {
   owner: 'Owner',
   admin: 'Admin',
@@ -39,6 +45,10 @@ export default function DeveloperPage() {
   const [syncMessage, setSyncMessage] = useState('');
   const [sparePartsSyncing, setSparePartsSyncing] = useState(false);
   const [sparePartsSyncMessage, setSparePartsSyncMessage] = useState('');
+  const [migrations, setMigrations] = useState<MigrationRow[]>([]);
+  const [migrationsLoading, setMigrationsLoading] = useState(true);
+  const [runningMigrations, setRunningMigrations] = useState(false);
+  const [migrationResult, setMigrationResult] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -48,14 +58,39 @@ export default function DeveloperPage() {
     setLoading(false);
   };
 
+  const loadMigrations = async () => {
+    setMigrationsLoading(true);
+    const res = await fetch('/api/developer/migrations');
+    const data = await res.json();
+    setMigrations(data.migrations ?? []);
+    setMigrationsLoading(false);
+  };
+
   useEffect(() => {
     getCurrentUser().then(setUser);
     load();
+    loadMigrations();
   }, []);
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/auth/login');
+  };
+
+  const handleRunMigrations = async () => {
+    setMigrationResult('');
+    setRunningMigrations(true);
+    const res = await fetch('/api/developer/migrations/run', { method: 'POST' });
+    const data = await res.json();
+    setRunningMigrations(false);
+    if (!res.ok) {
+      setMigrationResult(data.error ?? 'Failed to run migrations');
+    } else if (data.failed) {
+      setMigrationResult(`Ran ${data.ran.length}, then ${data.failed.filename} failed: ${data.failed.error}`);
+    } else {
+      setMigrationResult(data.ran.length > 0 ? `Applied: ${data.ran.join(', ')}` : 'Already up to date.');
+    }
+    loadMigrations();
   };
 
   const handleAddStaff = async (e: React.FormEvent) => {
@@ -126,6 +161,43 @@ export default function DeveloperPage() {
       <p className="text-sm text-gray-900 mb-6">Maintenance tools — not part of the business dashboard.</p>
 
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4 text-sm">{error}</p>}
+
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="font-semibold">Database Migrations</h2>
+          {!migrationsLoading && migrations.filter((m) => !m.applied).length > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-orange-100 text-orange-800">
+              {migrations.filter((m) => !m.applied).length} pending
+            </span>
+          )}
+        </div>
+        {migrationsLoading ? (
+          <p className="text-sm text-gray-900">Loading...</p>
+        ) : (
+          <>
+            <div className="divide-y mb-3 max-h-48 overflow-y-auto">
+              {migrations.map((m) => (
+                <div key={m.filename} className="flex justify-between items-center py-1.5 text-sm">
+                  <span className={m.applied ? 'text-gray-900' : 'font-medium'}>{m.filename}</span>
+                  <span className={m.applied ? 'text-green-700' : 'text-orange-700'}>
+                    {m.applied ? 'Applied' : 'Pending'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRunMigrations}
+                disabled={runningMigrations || migrations.every((m) => m.applied)}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {runningMigrations ? 'Running...' : 'Run Pending Migrations'}
+              </button>
+              {migrationResult && <span className="text-sm text-gray-900">{migrationResult}</span>}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <h2 className="font-semibold mb-2">Product / Spare Parts Sheet</h2>

@@ -1,0 +1,12 @@
+import { requireUser, handleApiError } from '@/lib/api-auth';
+import { listMigrationStatus } from '@/lib/services/migrations';
+
+export async function GET() {
+  try {
+    await requireUser(['developer']);
+    const migrations = await listMigrationStatus();
+    return Response.json({ migrations });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
