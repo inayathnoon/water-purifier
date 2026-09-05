@@ -1468,6 +1468,25 @@ same-size button. **Call Back Later** and **Pass To Owner** — for a still
 "Other ▾" toggle. No change to any of the underlying logic/API calls,
 purely a visual restructure of the same five actions.
 
+## New Purchase: Assign Staff Right When a Planned Date Is Set (2026-09-05)
+
+Picking a "Planned installation" date now reveals an "Assign to Staff"
+row (staff + half-day) — filling it books every ticket the purchase just
+created straight to that person, at that date/half-day, at home
+(installations are always home, per the earlier rule), instead of making
+the admin repeat the same assignment from the booking queue right after.
+Left blank, behaves exactly as before (open, unbooked, ready for the
+queue below). Implemented client-side as a follow-up call to the
+existing `/api/admin/installations/[id]/book` endpoint per ticket
+created (one purchase can be multiple items/tickets, sharing one planned
+date — they all get the same assignment) — no changes to
+`createDirectPurchase()` itself. A booking failure surfaces as a warning
+but doesn't touch the purchase, which already succeeded by that point.
+
+Verified live: a real purchase's ticket, immediately booked to a real
+technician for the planned date, came back correctly `status: 'booked'`
+with the right `assigned_to_id`/`booked_date`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

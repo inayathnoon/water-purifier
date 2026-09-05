@@ -110,6 +110,8 @@ function InstallationsPageInner() {
     forceNewAddress: false,
     billDate: todayIST(),
     plannedInstallationDate: '',
+    assignedToId: '',
+    bookedHalfDay: 'morning',
   });
   // Usually one product, but a Vessel sale can come with a free Kitchen
   // unit thrown in for inventory reasons — each still needs its own
@@ -183,11 +185,41 @@ function InstallationsPageInner() {
         })),
       }),
     });
-    setPurchaseSubmitting(false);
+    const data = await res.json();
     if (!res.ok) {
-      const data = await res.json();
+      setPurchaseSubmitting(false);
       setPurchaseError(data.error ?? 'Failed to record purchase');
       return;
+    }
+
+    // A staff member was picked alongside the planned installation date —
+    // book every ticket just created straight to them, same as the
+    // separate "Book" step below would, instead of making the admin
+    // repeat it right after. All items in one purchase share the same
+    // planned date, so they get the same assignment too. A booking
+    // failure here doesn't undo the purchase, which already succeeded —
+    // just surfaced as a warning; the ticket(s) stay ready to book below.
+    let bookingFailed = false;
+    if (purchaseForm.assignedToId) {
+      const bookingResults = await Promise.all(
+        (data.results ?? []).map((r: { ticket: { id: string } }) =>
+          fetch(`/api/admin/installations/${r.ticket.id}/book`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              assignedToId: purchaseForm.assignedToId,
+              bookedDate: purchaseForm.plannedInstallationDate,
+              bookedHalfDay: purchaseForm.bookedHalfDay,
+              location: 'home',
+            }),
+          })
+        )
+      );
+      bookingFailed = bookingResults.some((r) => !r.ok);
+    }
+    setPurchaseSubmitting(false);
+    if (bookingFailed) {
+      setPurchaseError('Purchase recorded, but assigning staff failed — book it manually below.');
     }
 
     // The purchase is real now — this is the moment the source enquiry
@@ -213,6 +245,8 @@ function InstallationsPageInner() {
       forceNewAddress: false,
       billDate: todayIST(),
       plannedInstallationDate: '',
+      assignedToId: '',
+      bookedHalfDay: 'morning',
     });
     // Fresh id (not reused) so the ProductPicker below remounts and clears
     // its own brand/name/variant state instead of appearing stale.
@@ -387,6 +421,33 @@ function InstallationsPageInner() {
               onChange={(e) => setPurchaseForm({ ...purchaseForm, plannedInstallationDate: e.target.value })}
             />
           </FormRow>
+          {purchaseForm.plannedInstallationDate && (
+            <FormRow label="Assign to Staff">
+              <div className="flex-1 flex gap-2">
+                <select
+                  className="flex-1 border rounded px-3 py-2 text-gray-900"
+                  value={purchaseForm.assignedToId}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, assignedToId: e.target.value })}
+                >
+                  <option value="">(not yet decided)</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="border rounded px-3 py-2 text-gray-900"
+                  value={purchaseForm.bookedHalfDay}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, bookedHalfDay: e.target.value })}
+                >
+                  <option value="morning">Morning</option>
+                  <option value="afternoon">Afternoon</option>
+                  <option value="evening">Evening</option>
+                </select>
+              </div>
+            </FormRow>
+          )}
           <button
             type="submit"
             disabled={purchaseSubmitting}
