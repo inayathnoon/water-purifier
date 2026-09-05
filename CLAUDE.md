@@ -1849,6 +1849,24 @@ gone after); a purchase with a partial payment correctly refused
 `actual_date`, correctly refused for that reason too. All test data
 cleaned up afterward.
 
+## Purchases: Find a Customer by Phone or Name (2026-09-06)
+
+Same review's Medium finding: removing the bill-date filter (above) was
+right, but it left the Purchases table with no way at all to jump to
+one customer, no problem yet at 97 rows but a real one as the table
+grows. Considered folding the whole Customer Directory (search, edit,
+full enquiry/service/purchase history) into this page and removing it
+as a separate tab — built partway, then reverted: the Directory's edit
+form and cross-kind history stay genuinely useful as their own page,
+and collapsing them in would have made Purchases do two jobs. Kept both
+pages; Purchases just gained its own quick filter.
+
+New search box — phone number or name, filtered client-side over the
+purchases already loaded (no separate request, nothing to keep in
+sync), narrowing both the on-screen table and "Download Excel" to the
+match. `/admin/customers` is untouched and still the place for editing
+a customer or seeing their non-purchase history.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

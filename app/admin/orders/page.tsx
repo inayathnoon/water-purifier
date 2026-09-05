@@ -84,6 +84,9 @@ export default function OrdersPage() {
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
+  // Find a purchase by customer — phone number or name, filtered
+  // client-side over what's already loaded (no separate search request).
+  const [query, setQuery] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -99,6 +102,15 @@ export default function OrdersPage() {
   }, []);
 
   const daysSince = (d: string | null) => (d ? daysAgoIST(d) : Infinity);
+
+  const q = query.trim().toLowerCase();
+  const visibleOrders = q
+    ? orders.filter(
+        (o) =>
+          o.tickets.customers.phone_number.toLowerCase().includes(q) ||
+          o.tickets.customers.name.toLowerCase().includes(q)
+      )
+    : orders;
 
   const handlePay = async (orderId: string) => {
     setError('');
@@ -211,7 +223,7 @@ export default function OrdersPage() {
       'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Payment Status', 'Installation Status',
       'Follow-up Call Status', 'Follow-up Call Note', 'Warranty Expires',
     ];
-    const rows = orders.map((o) => {
+    const rows = visibleOrders.map((o) => {
       const p = productFields(o);
       return [
         billDate(o),
@@ -257,7 +269,7 @@ export default function OrdersPage() {
           {user?.role === 'owner' ? (
             <button
               onClick={handleDownload}
-              disabled={orders.length === 0}
+              disabled={visibleOrders.length === 0}
               className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
             >
               Download Excel
@@ -272,12 +284,30 @@ export default function OrdersPage() {
           )}
         </div>
       </div>
+
+      <div className="relative mb-4 max-w-sm">
+        <input
+          placeholder="Find a customer — phone number or name"
+          className="w-full border rounded px-3 py-2 text-gray-900"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <button
+            onClick={() => setQuery('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
         <p>Loading...</p>
-      ) : orders.length === 0 ? (
-        <p className="text-gray-900">No purchases yet.</p>
+      ) : visibleOrders.length === 0 ? (
+        <p className="text-gray-900">{query ? `No purchases match "${query}".` : 'No purchases yet.'}</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full text-sm">
@@ -299,7 +329,7 @@ export default function OrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => {
+              {visibleOrders.map((o) => {
                 const overdueCall = o.status === 'open' && daysSince(o.last_payment_call_at) >= 3;
                 const isExpanded = expandedId === o.id;
                 const p = productFields(o);
