@@ -958,6 +958,25 @@ to and highlights (yellow ring) the matching row once loaded. All three
 dashboard cards' service_visit/due rows now pass the right one instead of
 a bare link.
 
+## Jobs to Dispatch: Inline Assign, Two-Kind View All (2026-09-05)
+
+Two gaps found once this card was actually used live: (1) "View all"
+pointed only at `/admin/installations`, so an unassigned service call
+(the only real job waiting right then) was invisible the moment you
+clicked through — that page structurally only ever shows installations.
+(2) The card was just a list of links — assigning still meant navigating
+away to the right page. Fixed both: `DashboardCard` gained an optional
+`viewAllLinks` (label+href pairs) alongside the existing single
+`viewAllHref`, used here for "Installations" and "Service Calls"
+side by side. Each row also got an inline **Assign** button that expands
+a compact staff/date/half-day/location form right on the dashboard,
+posting to whichever endpoint matches the ticket's kind
+(`/api/admin/installations/[id]/book` or `/api/admin/service-calls/[id]/book`
+— both just call the same `bookJob()`, so no new service-layer code was
+needed), then reloads the dashboard. Verified live: both endpoints
+correctly move a real installation and a real service_visit from
+`open`/unassigned to `booked`/assigned.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

@@ -105,18 +105,64 @@ export default function DashboardPage() {
   );
 }
 
+interface StaffMember {
+  id: string;
+  name: string;
+}
+
+const emptyAssignForm = { assignedToId: '', bookedDate: '', bookedHalfDay: 'morning', location: 'home' };
+
 function AdminDashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [assignForm, setAssignForm] = useState(emptyAssignForm);
+  const [assignError, setAssignError] = useState('');
+  const [assigning, setAssigning] = useState(false);
+
+  const loadDashboard = () => {
+    fetch('/api/admin/dashboard')
+      .then((res) => res.json())
+      .then(setData);
+  };
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/admin/dashboard')
       .then((res) => res.json())
       .then((d) => !cancelled && setData(d));
+    fetch('/api/admin/staff')
+      .then((res) => res.json())
+      .then((d) => !cancelled && setStaff(d.staff ?? []));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const startAssigning = (id: string) => {
+    setAssignError('');
+    setAssigningId(id);
+    setAssignForm(emptyAssignForm);
+  };
+
+  const handleAssign = async (e: React.FormEvent, job: { id: string; kind: string }) => {
+    e.preventDefault();
+    setAssignError('');
+    setAssigning(true);
+    const endpoint = job.kind === 'installation' ? `/api/admin/installations/${job.id}/book` : `/api/admin/service-calls/${job.id}/book`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assignForm),
+    });
+    setAssigning(false);
+    if (!res.ok) {
+      setAssignError((await res.json()).error ?? 'Failed to assign');
+      return;
+    }
+    setAssigningId(null);
+    loadDashboard();
+  };
 
   if (!data) return <p>Loading...</p>;
 
@@ -176,19 +222,85 @@ function AdminDashboard() {
           badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} over 3 days` : undefined}
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing waiting on a technician."
-          viewAllHref="/admin/installations"
+          viewAllLinks={[
+            { label: 'Installations', href: '/admin/installations' },
+            { label: 'Service Calls', href: '/admin/service-calls' },
+          ]}
         >
           {data.jobsToDispatch.slice(0, 5).map((t) => {
             const age = daysAgo(t.created_at);
             return (
-              <Row
-                key={t.id}
-                href={t.kind === 'installation' ? '/admin/installations' : `/admin/service-calls?highlightTicket=${t.id}`}
-                primary={t.customers.name}
-                secondary={t.enquiry_product_interest || t.customers.phone_number}
-                tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 3 ? ' — overdue' : ''}`}
-                tagColor={age >= 3 ? 'text-red-600' : undefined}
-              />
+              <div key={t.id} className="py-2 border-b last:border-0">
+                <div className="flex justify-between items-center gap-2">
+                  <div>
+                    <p className="text-sm font-medium">{t.customers.name}</p>
+                    <p className="text-xs text-gray-900">{t.enquiry_product_interest || t.customers.phone_number}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
+                      {t.kind === 'installation' ? 'Installation' : 'Service visit'} · {age}d
+                      {age >= 3 ? ' — overdue' : ''}
+                    </span>
+                    <button
+                      onClick={() => (assigningId === t.id ? setAssigningId(null) : startAssigning(t.id))}
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap"
+                    >
+                      Assign
+                    </button>
+                  </div>
+                </div>
+
+                {assigningId === t.id && (
+                  <form onSubmit={(e) => handleAssign(e, t)} className="mt-2 pt-2 border-t space-y-2">
+                    {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
+                    <select
+                      required
+                      className="border rounded px-2 py-1.5 w-full text-sm"
+                      value={assignForm.assignedToId}
+                      onChange={(e) => setAssignForm({ ...assignForm, assignedToId: e.target.value })}
+                    >
+                      <option value="">Assign to...</option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        required
+                        className="border rounded px-2 py-1.5 flex-1 text-sm"
+                        value={assignForm.bookedDate}
+                        onChange={(e) => setAssignForm({ ...assignForm, bookedDate: e.target.value })}
+                      />
+                      <select
+                        className="border rounded px-2 py-1.5 text-sm"
+                        value={assignForm.bookedHalfDay}
+                        onChange={(e) => setAssignForm({ ...assignForm, bookedHalfDay: e.target.value })}
+                      >
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                        <option value="evening">Evening</option>
+                      </select>
+                      <select
+                        className="border rounded px-2 py-1.5 text-sm"
+                        value={assignForm.location}
+                        onChange={(e) => setAssignForm({ ...assignForm, location: e.target.value })}
+                      >
+                        <option value="home">Home</option>
+                        <option value="office">Office</option>
+                      </select>
+                    </div>
+                    <button
+                      disabled={assigning}
+                      className="w-full py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {assigning ? 'Assigning...' : 'Confirm assignment'}
+                    </button>
+                  </form>
+                )}
+              </div>
             );
           })}
         </DashboardCard>
@@ -384,6 +496,7 @@ function DashboardCard({
   badgeColor,
   emptyText,
   viewAllHref,
+  viewAllLinks,
   children,
 }: {
   title: string;
@@ -391,6 +504,10 @@ function DashboardCard({
   badgeColor?: string;
   emptyText: string;
   viewAllHref?: string;
+  // For a card that mixes two ticket kinds living on two different pages
+  // (Jobs to Dispatch: installations + service visits) — a single "View
+  // all" link can only ever show one of them, silently hiding the other.
+  viewAllLinks?: { label: string; href: string }[];
   children: React.ReactNode;
 }) {
   const isEmpty = Array.isArray(children) ? children.length === 0 : !children;
@@ -405,6 +522,15 @@ function DashboardCard({
         <Link href={viewAllHref} className="block text-sm text-blue-600 hover:underline mt-2">
           View all →
         </Link>
+      )}
+      {viewAllLinks && (
+        <div className="flex gap-3 mt-2">
+          {viewAllLinks.map((l) => (
+            <Link key={l.href} href={l.href} className="text-sm text-blue-600 hover:underline">
+              {l.label} →
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );
