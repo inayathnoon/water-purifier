@@ -181,6 +181,50 @@ export async function upsertRowByHeader(
 }
 
 /**
+ * Blanks the one existing row matching `matchColumns` — for un-writing a
+ * sheet row after its underlying record is deleted (a voided purchase).
+ * Unlike upsertRowByHeader, this never creates a row — a miss is a no-op,
+ * since there's nothing to un-write.
+ */
+export async function clearMatchingRowByHeader(
+  tab: string,
+  matchValues: Record<string, string>,
+  matchColumns: string[]
+): Promise<boolean> {
+  const { headers, qtab, sheets, sheetId } = await readRealHeader(tab);
+  const lastCol = columnLetter(headers.length - 1);
+
+  const matchIdx = matchColumns.map((c) => headers.indexOf(c));
+  const missingMatchCols = matchColumns.filter((_, i) => matchIdx[i] === -1);
+  if (missingMatchCols.length > 0) {
+    throw new ApiError(422, `The "${tab}" sheet is missing column(s) needed to match rows: ${missingMatchCols.join(', ')}`);
+  }
+
+  let dataRows: string[][];
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!A2:${lastCol}` });
+    dataRows = res.data.values ?? [];
+  } catch (e) {
+    throw new ApiError(500, `Could not read the "${tab}" sheet: ${(e as Error).message}`);
+  }
+
+  const rowIdx = dataRows.findIndex((r) =>
+    matchColumns.every(
+      (col, i) => normalizeForMatch(r[matchIdx[i]] ?? '') === normalizeForMatch(matchValues[col] ?? '')
+    )
+  );
+  if (rowIdx === -1) return false;
+
+  const targetRow = rowIdx + 2; // +1 header, +1 1-indexing
+  try {
+    await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${qtab}!A${targetRow}:${lastCol}${targetRow}` });
+  } catch (e) {
+    throw permissionAwareError(e, `clear a row in "${tab}"`);
+  }
+  return true;
+}
+
+/**
  * Corrects every existing row in one tab that's keyed on `oldPhone`,
  * in place — for when a customer's phone number itself was wrong and
  * gets fixed. The normal upsert functions can't handle this on their

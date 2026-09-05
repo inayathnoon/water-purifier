@@ -79,6 +79,11 @@ export default function OrdersPage() {
   const [satisfactionNote, setSatisfactionNote] = useState('');
   const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  // Voiding a purchase entered against the wrong customer or product —
+  // only offered before any payment or visit, see cancelJob().
+  const [voidingId, setVoidingId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -124,6 +129,29 @@ export default function OrdersPage() {
     }
     setCallingId(null);
     setCallNote('');
+    load();
+  };
+
+  const handleVoid = async (ticketId: string) => {
+    if (voiding) return;
+    if (!voidReason.trim()) {
+      setError('A reason is required to void a purchase');
+      return;
+    }
+    setVoiding(true);
+    setError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: voidReason }),
+    });
+    setVoiding(false);
+    if (!res.ok) {
+      setError((await res.json()).error);
+      return;
+    }
+    setVoidingId(null);
+    setVoidReason('');
     load();
   };
 
@@ -394,6 +422,43 @@ export default function OrdersPage() {
                                   Close purchase
                                 </button>
                               )}
+                              {o.paid_amount === 0 && !o.tickets.actual_date && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setVoidingId(voidingId === o.ticket_id ? null : o.ticket_id);
+                                    setVoidReason('');
+                                    setError('');
+                                  }}
+                                  className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                                >
+                                  Void — wrong entry
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {voidingId === o.ticket_id && (
+                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-2">
+                              <p className="text-xs text-gray-600">
+                                Deletes this purchase and its Sales sheet row — for the wrong customer or wrong
+                                product, caught before any payment or visit. Cannot be undone.
+                              </p>
+                              <div className="flex gap-2">
+                                <input
+                                  placeholder="Why is this being voided?"
+                                  className="border rounded px-3 py-2 flex-1 bg-white"
+                                  value={voidReason}
+                                  onChange={(e) => setVoidReason(e.target.value)}
+                                />
+                                <button
+                                  onClick={() => handleVoid(o.ticket_id)}
+                                  disabled={voiding}
+                                  className="px-4 py-2 bg-red-600 text-white rounded-md disabled:opacity-50"
+                                >
+                                  {voiding ? 'Voiding...' : 'Confirm void'}
+                                </button>
+                              </div>
                             </div>
                           )}
 

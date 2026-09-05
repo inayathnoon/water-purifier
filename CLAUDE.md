@@ -1804,6 +1804,51 @@ one had their number "corrected," and the rekey was correctly skipped
 untouched. All test customers/tickets deleted afterward, and the one
 touched sheet row cleared back out.
 
+## Voiding a Wrongly-Entered Purchase (2026-09-06)
+
+Last of this review's findings: `cancelJob()` existed (§6.8) and had a
+live route at `/api/admin/tickets/[id]/cancel`, but nothing in the UI
+ever called it — meanwhile a purchase entered against the wrong
+customer or wrong product had no undo anywhere. Decision from the
+review stands: void, don't delete the ticket — but the order itself
+*is* deleted rather than kept in a "voided" state, because so many
+revenue queries in this app (owner's month revenue, Sales-by-Category,
+the Purchases page itself) read straight off `orders` with no status
+filter at all — a `status: 'voided'` value would need every one of
+those call sites individually taught to exclude it, and missing even
+one leaks a voided sale's money into a report. Deleting the order
+removes it from all of them at once, with the ticket itself (now
+`status: 'inactive'`, `cancellation_reason` set) left as the audit
+trail of what was entered and why it didn't count.
+
+`cancelJob()` extended with guards that keep this scoped to genuine
+data-entry mistakes, not real business events: refuses if a technician
+has already recorded a visit (`actual_date` set — there's real work to
+account for by then, not a typo), refuses if any payment has already
+been recorded (real money needs a human refund/adjustment decision, not
+a delete), and refuses on an enquiry (closed through its own actions,
+not this). For an installation with an order, it also un-writes that
+order's Sales sheet row *before* deleting it — new
+`removeOrderFromSalesSheet()` (`lib/services/salesSheet.ts`) and a
+generic `clearMatchingRowByHeader()` added to the shared
+`googleSheets.ts` plumbing, matched on the same phone_number/bill_date
+/sold_price key the row was written with, same fail-safe-logged pattern
+as every other sheet write.
+
+New "Void — wrong entry" button on `/admin/orders`, shown only when
+`paid_amount === 0` and no visit has happened yet — asks for a reason
+inline, same pattern as every other required-reason action in this app.
+A voided purchase simply disappears from the Purchases list on the next
+load, since its order row is genuinely gone.
+
+**Verified live, all three paths**: a real unpaid purchase voided
+correctly — order deleted, ticket flipped to `inactive` with the reason,
+and its Sales sheet row confirmed cleared (phone number present before,
+gone after); a purchase with a partial payment correctly refused
+("cannot be cancelled here"); the same purchase, once given a recorded
+`actual_date`, correctly refused for that reason too. All test data
+cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

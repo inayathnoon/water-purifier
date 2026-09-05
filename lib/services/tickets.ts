@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } from './notifications';
-import { syncOrderToSalesSheetSafely } from './salesSheet';
+import { syncOrderToSalesSheetSafely, removeOrderFromSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely } from './serviceSheet';
 import { syncEnquiryToSheetSafely } from './enquirySheet';
 import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
@@ -529,9 +529,50 @@ export async function unassignJob(ticketId: string) {
   return data;
 }
 
-/** §6.8: cancelling a job requires a reason. */
+/**
+ * §6.8: cancelling a job requires a reason. For an installation this
+ * doubles as "void a wrong purchase" (wrong customer, wrong product) —
+ * the ticket alone isn't the whole record of a purchase, so cancelling
+ * it also deletes its order and un-writes the Sales sheet row, rather
+ * than leaving a stray order sitting around still counting toward
+ * revenue/balance-owed everywhere those are read straight off the
+ * `orders` table with no status filter.
+ *
+ * Refuses once a technician has actually recorded a visit (`actual_date`
+ * set) — at that point there's real work done, not a data-entry mistake
+ * to undo — and refuses an installation with any payment already
+ * recorded, since undoing money that's actually changed hands needs a
+ * human decision (a refund, an adjustment), not a delete.
+ */
 export async function cancelJob(ticketId: string, reason: string) {
   if (!reason.trim()) throw new ApiError(400, 'A cancellation reason is required');
+  const ticket = await getTicketOrThrow(ticketId);
+
+  if (ticket.kind === 'enquiry') throw new ApiError(400, 'An enquiry is closed via its own actions, not this');
+  if (ticket.status === 'inactive') throw new ApiError(400, 'This is already cancelled');
+  if (ticket.actual_date) {
+    throw new ApiError(400, 'A visit has already been recorded — this can no longer be cancelled here');
+  }
+
+  if (ticket.kind === 'installation') {
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .select('id, paid_amount')
+      .eq('ticket_id', ticketId)
+      .maybeSingle();
+    if (orderError) throw new ApiError(500, orderError.message);
+
+    if (order) {
+      if (Number(order.paid_amount) > 0) {
+        throw new ApiError(400, 'A payment has already been recorded against this purchase — it cannot be cancelled here');
+      }
+      // Before the delete below — needs the order's own data to find its
+      // Sales-sheet row by the same phone_number/bill_date/sold_price key.
+      await removeOrderFromSalesSheetSafely(order.id);
+      const { error: deleteError } = await supabaseAdmin.from('orders').delete().eq('id', order.id);
+      if (deleteError) throw new ApiError(500, deleteError.message);
+    }
+  }
 
   const { data, error } = await supabaseAdmin
     .from('tickets')

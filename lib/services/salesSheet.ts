@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { upsertRowByHeader } from './googleSheets';
+import { upsertRowByHeader, clearMatchingRowByHeader } from './googleSheets';
 import { logNotification } from './notifications';
 
 // Same spreadsheet as products, a different tab. Overridable in case the
@@ -92,6 +92,39 @@ export async function syncOrderToSalesSheet(orderId: string): Promise<void> {
 export async function syncOrderToSalesSheetSafely(orderId: string): Promise<void> {
   try {
     await syncOrderToSalesSheet(orderId);
+  } catch (e) {
+    await logNotification('sales_sheet_failed', 'failed', (e as Error).message);
+  }
+}
+
+/**
+ * Un-writes a sale's Sales-sheet row — for voiding a wrongly-entered
+ * purchase (a mistaken customer or product, caught before any payment
+ * came in). Must be called *before* the order row itself is deleted,
+ * since it needs the same phone_number/bill_date/sold_price the sheet
+ * row was originally matched on to find it again.
+ */
+export async function removeOrderFromSalesSheet(orderId: string): Promise<void> {
+  const { data: order, error } = await supabaseAdmin
+    .from('orders')
+    .select('created_at, sold_price, tickets(customers(phone_number))')
+    .eq('id', orderId)
+    .single();
+  if (error || !order) throw new ApiError(500, error?.message ?? `Order ${orderId} not found`);
+
+  const phoneNumber = (order.tickets as unknown as { customers: { phone_number: string } }).customers.phone_number;
+
+  await clearMatchingRowByHeader(
+    SALES_TAB,
+    { phone_number: phoneNumber, bill_date: order.created_at.slice(0, 10), sold_price: String(order.sold_price) },
+    ['phone_number', 'bill_date', 'sold_price']
+  );
+}
+
+/** Same as removeOrderFromSalesSheet(), but never throws — see §10.5/§9.6. */
+export async function removeOrderFromSalesSheetSafely(orderId: string): Promise<void> {
+  try {
+    await removeOrderFromSalesSheet(orderId);
   } catch (e) {
     await logNotification('sales_sheet_failed', 'failed', (e as Error).message);
   }
