@@ -12,6 +12,12 @@ function dateMinusDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function dateAddDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
  * enquiries, jobs waiting to be dispatched to a technician, customers to
@@ -24,8 +30,9 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Admin" preview works.
     await requireUser(['admin', 'owner', 'developer']);
     const today = todayIST();
+    const weekEnd = dateAddDays(today, 6);
 
-    const [newEnquiries, jobsToDispatch, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue] = await Promise.all([
+    const [newEnquiries, jobsToDispatch, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue, weekJobs] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
@@ -72,6 +79,19 @@ export async function GET() {
         .eq('confirmation_status', 'pending')
         .not('tickets.installation_date', 'is', null)
         .gte('tickets.installation_date', dateMinusDays(today, 30)),
+
+      // This week's schedule, per technician — same "who's busy + what's
+      // still unassigned" picture the owner dashboard already has, now
+      // here too, right next to Jobs to Dispatch. status included so the
+      // frontend only offers to edit a still-'booked' job, not one
+      // already completed.
+      supabaseAdmin
+        .from('tickets')
+        .select('id, kind, status, booked_date, booked_half_day, location, assigned_to_id, customers(name)')
+        .in('kind', ['installation', 'service_visit'])
+        .gte('booked_date', today)
+        .lte('booked_date', weekEnd)
+        .in('status', ['booked', 'completed']),
     ]);
 
     // Plain read-time computation, not a DB query — see
@@ -132,6 +152,9 @@ export async function GET() {
       paymentsOutstanding: paymentsOutstandingByPerson,
       overdueCallCount,
       satisfactionCallsDue: satisfactionCallsDueList,
+      weekJobs: weekJobs.data ?? [],
+      weekStart: today,
+      weekEnd,
       today,
     });
   } catch (err) {

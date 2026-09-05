@@ -1487,6 +1487,25 @@ Verified live: a real purchase's ticket, immediately booked to a real
 technician for the planned date, came back correctly `status: 'booked'`
 with the right `assigned_to_id`/`booked_date`.
 
+## Admin Dashboard: Week Schedule + Edit a Dispatched Job (2026-09-05)
+
+The "This Week" staff schedule (built earlier for owner's dashboard) now
+also shows on admin's, right below the main card grid — same table,
+staff as rows, the next 7 days as columns. New here: **each booked job's
+name in the grid is clickable**, opening an inline form to reassign it
+(staff/date/half-day, plus location for a service visit) — reuses the
+exact same book endpoint a fresh assignment does, since reassigning is
+just another update to the same fields. Scoped to `status='booked'`
+jobs only (a completed one isn't shown as clickable — that's not
+"dispatch" territory anymore, it's "Confirm Finished Work"'s). 
+`/api/admin/dashboard` gained the same `weekJobs`/`weekStart`/`weekEnd`
+query the owner route already had.
+
+Verified live: the query correctly finds a real booked job, and calling
+the book endpoint again with a different staff member/date/half-day
+correctly reassigns it in place — exactly what clicking a job and saving
+the edit form does.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

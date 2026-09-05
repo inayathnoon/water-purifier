@@ -25,6 +25,18 @@ interface AdminDashboardData {
   overdueCallCount: number;
   overdueConfirmationCount: number;
   satisfactionCallsDue: { orderId: string; installationDate: string; customers: { name: string; phone_number: string } }[];
+  weekJobs: {
+    id: string;
+    kind: string;
+    status: string;
+    booked_date: string;
+    booked_half_day: string;
+    location: 'home' | 'office';
+    assigned_to_id: string | null;
+    customers: { name: string };
+  }[];
+  weekStart: string;
+  weekEnd: string;
 }
 
 interface OwnerDashboardData {
@@ -168,6 +180,7 @@ function AdminDashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState(emptyAssignForm);
   const [assignError, setAssignError] = useState('');
   const [assigning, setAssigning] = useState(false);
@@ -193,8 +206,25 @@ function AdminDashboard() {
 
   const startAssigning = (id: string) => {
     setAssignError('');
+    setEditingJobId(null);
     setAssigningId(id);
     setAssignForm(emptyAssignForm);
+  };
+
+  // §5: reassign/reschedule a job that's already booked, straight from
+  // the This Week grid — same book endpoint as a fresh assignment (it's
+  // just an update either way), pre-filled with what's there now instead
+  // of starting blank.
+  const startEditingJob = (job: AdminDashboardData['weekJobs'][number]) => {
+    setAssignError('');
+    setAssigningId(null);
+    setEditingJobId(job.id);
+    setAssignForm({
+      assignedToId: job.assigned_to_id ?? '',
+      bookedDate: job.booked_date,
+      bookedHalfDay: job.booked_half_day,
+      location: job.location,
+    });
   };
 
   const handleAssign = async (e: React.FormEvent, job: { id: string; kind: string }) => {
@@ -216,10 +246,21 @@ function AdminDashboard() {
       return;
     }
     setAssigningId(null);
+    setEditingJobId(null);
     loadDashboard();
   };
 
   if (!data) return <p>Loading...</p>;
+
+  const days = weekDates(data.weekStart, data.weekEnd);
+  const jobsByStaffAndDay = new Map<string, Map<string, typeof data.weekJobs>>();
+  for (const job of data.weekJobs) {
+    if (!job.assigned_to_id) continue;
+    if (!jobsByStaffAndDay.has(job.assigned_to_id)) jobsByStaffAndDay.set(job.assigned_to_id, new Map());
+    const byDay = jobsByStaffAndDay.get(job.assigned_to_id)!;
+    if (!byDay.has(job.booked_date)) byDay.set(job.booked_date, []);
+    byDay.get(job.booked_date)!.push(job);
+  }
 
   return (
     <div>
@@ -436,6 +477,125 @@ function AdminDashboard() {
             />
           ))}
         </DashboardCard>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          This Week ({data.weekStart} – {data.weekEnd})
+        </h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 pr-3 whitespace-nowrap">Staff</th>
+                {days.map((d) => (
+                  <th key={d} className="text-left py-2 px-2 whitespace-nowrap">
+                    {dayLabel(d)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => (
+                <tr key={s.id} className="border-b last:border-0 align-top">
+                  <td className="py-2 pr-3 font-medium whitespace-nowrap">{s.name}</td>
+                  {days.map((d) => {
+                    const jobs = jobsByStaffAndDay.get(s.id)?.get(d) ?? [];
+                    return (
+                      <td key={d} className="py-2 px-2">
+                        {jobs.map((j) => (
+                          <button
+                            key={j.id}
+                            onClick={() => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
+                            disabled={j.status !== 'booked'}
+                            className={`block text-xs mb-1 whitespace-nowrap text-left ${
+                              j.status === 'booked' ? 'hover:underline cursor-pointer' : 'cursor-default'
+                            } ${editingJobId === j.id ? 'font-semibold underline' : ''}`}
+                          >
+                            <span className={j.kind === 'installation' ? 'text-blue-700' : 'text-orange-700'}>
+                              {j.kind === 'installation' ? 'I' : 'S'}
+                            </span>{' '}
+                            {j.customers.name}
+                            <span className="text-gray-900"> ({j.booked_half_day[0].toUpperCase()})</span>
+                          </button>
+                        ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {editingJobId &&
+          (() => {
+            const job = data.weekJobs.find((j) => j.id === editingJobId);
+            if (!job) return null;
+            return (
+              <form
+                onSubmit={(e) => handleAssign(e, job)}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 space-y-2 max-w-md"
+              >
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-medium">
+                    Editing {job.customers.name}'s {job.kind === 'installation' ? 'installation' : 'service visit'}
+                  </p>
+                  <button type="button" onClick={() => setEditingJobId(null)} className="text-xs text-gray-600 hover:underline">
+                    Cancel
+                  </button>
+                </div>
+                {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
+                <select
+                  required
+                  className="border rounded px-2 py-1.5 w-full text-sm"
+                  value={assignForm.assignedToId}
+                  onChange={(e) => setAssignForm({ ...assignForm, assignedToId: e.target.value })}
+                >
+                  <option value="">Assign to...</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    required
+                    className="border rounded px-2 py-1.5 flex-1 text-sm"
+                    value={assignForm.bookedDate}
+                    onChange={(e) => setAssignForm({ ...assignForm, bookedDate: e.target.value })}
+                  />
+                  <select
+                    className="border rounded px-2 py-1.5 text-sm"
+                    value={assignForm.bookedHalfDay}
+                    onChange={(e) => setAssignForm({ ...assignForm, bookedHalfDay: e.target.value })}
+                  >
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                  {job.kind !== 'installation' && (
+                    <select
+                      className="border rounded px-2 py-1.5 text-sm"
+                      value={assignForm.location}
+                      onChange={(e) => setAssignForm({ ...assignForm, location: e.target.value })}
+                    >
+                      <option value="home">Home</option>
+                      <option value="office">Office</option>
+                    </select>
+                  )}
+                </div>
+                <button
+                  disabled={assigning}
+                  className="w-full py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {assigning ? 'Saving...' : 'Save changes'}
+                </button>
+              </form>
+            );
+          })()}
       </div>
     </div>
   );
