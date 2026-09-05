@@ -199,13 +199,38 @@ export default function StaffJobsPage() {
     const partsUsedParts = selectedParts.map((p) => `${p.name} x${partQuantities[p.name]}`);
     if (customPart.name.trim()) partsUsedParts.push(`${customPart.name.trim()} (₹${customPartPrice})`);
     const partsUsed = partsUsedParts.join(', ');
+    // Structured mirror of the same picks — lets a revenue report split
+    // spare-parts money from the flat service-charge line without having
+    // to parse the free-text partsUsed summary above.
+    const chargeBreakdown = [
+      ...selectedParts.map((p) => ({
+        name: p.name,
+        quantity: partQuantities[p.name],
+        unitPrice: p.price,
+        total: partQuantities[p.name] * p.price,
+        isServiceCharge: isServiceCharge(p),
+      })),
+      ...(customPart.name.trim()
+        ? [{ name: customPart.name.trim(), quantity: 1, unitPrice: customPartPrice, total: customPartPrice, isServiceCharge: false }]
+        : []),
+    ];
 
     const endpoint =
       formMode === 'edit' ? `/api/staff/jobs/${job.id}/edit` : `/api/staff/jobs/${job.id}/complete`;
     const body =
       formMode === 'edit'
-        ? { notes: form.notes, partsUsed: chargeable ? partsUsed : undefined, chargeAmount: chargeable ? sparePartsTotal : undefined }
-        : { ...form, partsUsed: chargeable ? partsUsed : undefined, chargeAmount: chargeable ? sparePartsTotal : undefined };
+        ? {
+            notes: form.notes,
+            partsUsed: chargeable ? partsUsed : undefined,
+            chargeAmount: chargeable ? sparePartsTotal : undefined,
+            chargeBreakdown: chargeable ? chargeBreakdown : undefined,
+          }
+        : {
+            ...form,
+            partsUsed: chargeable ? partsUsed : undefined,
+            chargeAmount: chargeable ? sparePartsTotal : undefined,
+            chargeBreakdown: chargeable ? chargeBreakdown : undefined,
+          };
 
     const res = await fetch(endpoint, {
       method: 'POST',

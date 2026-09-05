@@ -45,6 +45,17 @@ export function monthStartISTThreshold(now: Date = new Date()): string {
 }
 
 /**
+ * Plain 'YYYY-MM-DD' for the 1st of the current IST month — for filtering
+ * a plain DATE column (e.g. tickets.actual_date), where comparing against
+ * a full UTC-instant ISO timestamp (monthStartISTThreshold) would get
+ * silently truncated to the wrong day by Postgres's own date cast.
+ */
+export function monthStartDateIST(now: Date = new Date()): string {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/**
  * Which half of the day it currently is, in IST — used when a job is
  * booked as already decided/attended at creation time and needs a
  * booked_half_day value with no separate time picker in that form.

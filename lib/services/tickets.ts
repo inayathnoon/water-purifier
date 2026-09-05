@@ -8,6 +8,17 @@ import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
 
+// One line item behind a service visit's charge_amount — lets a revenue
+// report split "spare parts sold on this visit" from "the flat service
+// charge line" without parsing the free-text parts_used summary.
+export interface ChargeBreakdownItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  isServiceCharge: boolean;
+}
+
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -390,6 +401,7 @@ export async function completeJob(
     notes: string;
     partsUsed?: string;
     chargeAmount?: number;
+    chargeBreakdown?: ChargeBreakdownItem[];
   }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
@@ -415,9 +427,9 @@ export async function completeJob(
     // §8.5/§13.3: but *whether* it's chargeable at all is worked out from
     // installation_date, never taken from the form — so a visit inside the
     // warranty year is forced to 0 no matter what the tech typed.
-    update.charge_amount = isWithinWarranty(ticket.installation_date, input.actualDate)
-      ? 0
-      : input.chargeAmount ?? null;
+    const chargeable = !isWithinWarranty(ticket.installation_date, input.actualDate);
+    update.charge_amount = chargeable ? input.chargeAmount ?? null : 0;
+    update.charge_breakdown = chargeable ? input.chargeBreakdown ?? [] : [];
   }
 
   const { data, error } = await supabaseAdmin
@@ -472,7 +484,7 @@ const EDIT_WINDOW_DAYS = 7;
 export async function editCompletedServiceVisit(
   ticketId: string,
   callerId: string,
-  input: { notes: string; partsUsed?: string; chargeAmount?: number }
+  input: { notes: string; partsUsed?: string; chargeAmount?: number; chargeBreakdown?: ChargeBreakdownItem[] }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.kind !== 'service_visit') throw new ApiError(400, 'Not a service visit');
@@ -482,14 +494,14 @@ export async function editCompletedServiceVisit(
     throw new ApiError(400, `This job is more than ${EDIT_WINDOW_DAYS} days old and can no longer be edited here`);
   }
 
+  // §13.3 still applies on a correction, exactly as it did the first time
+  // — checked against the visit's own actual_date, not today's.
+  const chargeable = !isWithinWarranty(ticket.installation_date, ticket.actual_date);
   const update = {
     actual_notes: input.notes,
     parts_used: input.partsUsed ?? null,
-    // §13.3 still applies on a correction, exactly as it did the first
-    // time — checked against the visit's own actual_date, not today's.
-    charge_amount: isWithinWarranty(ticket.installation_date, ticket.actual_date)
-      ? 0
-      : input.chargeAmount ?? null,
+    charge_amount: chargeable ? input.chargeAmount ?? null : 0,
+    charge_breakdown: chargeable ? input.chargeBreakdown ?? [] : [],
   };
 
   const { data, error } = await supabaseAdmin

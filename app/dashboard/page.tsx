@@ -43,6 +43,7 @@ interface OwnerDashboardData {
   todaysJobs: { id: string; kind: string; customers: { name: string } }[];
   whoIsBusy: Record<string, number>;
   monthRevenue: { sold: number; discount: number; collected: number };
+  salesByCategory: { KITCHEN: number; VESSEL: number; COMMERCIAL: number; other: number; spare: number; serviceCharge: number };
   pendingLeaveCount: number;
   passedToOwner: { id: string; closure_explanation: string; customers: { name: string; phone_number: string } }[];
   paymentsOutstanding: {
@@ -720,6 +721,46 @@ function OwnerDashboard() {
         <StatCard label="Jobs today" value={String(data.todaysJobs.length)} />
         <StatCard label="Sold this month" value={`₹${data.monthRevenue.sold.toFixed(2)}`} />
         <StatCard label="Collected this month" value={`₹${data.monthRevenue.collected.toFixed(2)}`} />
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+        <h2 className="font-semibold mb-3">Sales by category — this month</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <tbody className="divide-y">
+              {[
+                ['Vessel', data.salesByCategory.VESSEL],
+                ['Kitchen', data.salesByCategory.KITCHEN],
+                ['Commercial', data.salesByCategory.COMMERCIAL],
+                ['Spare parts', data.salesByCategory.spare],
+                ['Service charge', data.salesByCategory.serviceCharge],
+                ...(data.salesByCategory.other > 0 ? [['Other (no product on record)', data.salesByCategory.other]] as [string, number][] : []),
+              ].map(([label, amount]) => (
+                <tr key={label}>
+                  <td className="py-2 text-gray-900">{label}</td>
+                  <td className="py-2 text-right font-medium">₹{Number(amount).toFixed(2)}</td>
+                </tr>
+              ))}
+              <tr className="border-t-2">
+                <td className="py-2 font-semibold">Total</td>
+                <td className="py-2 text-right font-semibold">
+                  ₹
+                  {(
+                    data.salesByCategory.VESSEL +
+                    data.salesByCategory.KITCHEN +
+                    data.salesByCategory.COMMERCIAL +
+                    data.salesByCategory.spare +
+                    data.salesByCategory.serviceCharge +
+                    data.salesByCategory.other
+                  ).toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-gray-900 mt-2">
+          Spare parts includes both an office walk-in sale and whatever a tech sold during a visit.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

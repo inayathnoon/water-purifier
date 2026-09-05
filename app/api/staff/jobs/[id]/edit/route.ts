@@ -11,6 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       notes: body.notes,
       partsUsed: body.partsUsed,
       chargeAmount: body.chargeAmount,
+      chargeBreakdown: body.chargeBreakdown,
     });
 
     return Response.json({ ticket });

@@ -17,6 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       notes: body.notes,
       partsUsed: body.partsUsed,
       chargeAmount: body.chargeAmount != null ? Number(body.chargeAmount) : undefined,
+      chargeBreakdown: body.chargeBreakdown,
     });
 
     return Response.json({ ticket });

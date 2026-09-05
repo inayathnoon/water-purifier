@@ -1603,6 +1603,62 @@ Re-verified live directly against the service layer: recorded a real 2×
 test-part sale, confirmed it appeared in `listRecentSparePartSales()`,
 deleted it afterward.
 
+(While investigating this: found and deleted one leftover stray test row
+in `spare_part_sales` from an earlier session's verification that never
+got cleaned up. Doesn't affect any real customer data, just a reminder
+that this table needs the same cleanup discipline as anything else that
+gets a live-data test run against it.)
+
+## Sales by Category — Clubbed Into One Table on the Owner Dashboard (2026-09-06)
+
+Purchases (Vessel/Kitchen/Commercial), office spare-part sales, a tech's
+spare-parts usage on a visit, and the flat service-charge line were four
+separate places with no combined view of "what did we actually sell this
+month, broken down." New "Sales by category" table on the owner
+dashboard, right under the existing Jobs/Sold/Collected stat row, with
+one row each for Vessel, Kitchen, Commercial, Spare parts, Service
+charge (plus an Other row, shown only if it's ever non-zero, for a sale
+with no linked product row — historical import, hand-typed "Other" —
+so real money can never silently vanish from the total), and a Total row.
+
+The hard part was splitting a service visit's `charge_amount` into
+"spare parts" vs. "service charge" — that total was only ever stored as
+one opaque number plus a free-text `parts_used` summary, not safe to
+parse. Added `tickets.charge_breakdown` (migration 024, JSONB, same
+"one column, no new table" pattern as `orders.payment_history`) — an
+array of `{name, quantity, unitPrice, total, isServiceCharge}`, built
+client-side in `/staff/jobs`'s Mark Done picker from the exact same
+selections that already build `parts_used`/`chargeAmount`, so there's
+no new data entry, just a structured mirror of what was already being
+picked. `completeJob()`/`editCompletedServiceVisit()` both force it to
+`[]` inside warranty, exactly like `charge_amount` is forced to 0 —
+same §13.3 override, same code path. An office spare-part sale
+(`spare_part_sales`) is always pure spare-parts revenue by construction
+(its picker never offers the "Service charges" row), so no split needed
+there.
+
+`GET /api/owner/dashboard` now also queries `spare_part_sales` and
+service-visit `charge_breakdown` for the current IST month (a new
+`monthStartDateIST()` helper in `lib/dates.ts`, for filtering the plain
+`tickets.actual_date` DATE column — comparing a DATE column against the
+existing `monthStartISTThreshold()`'s full UTC-instant timestamp would
+get silently truncated to the wrong calendar day by Postgres's own cast)
+and sums everything into one `salesByCategory` object. Admin's dashboard
+doesn't get this table — it was asked for on the owner's screen only.
+
+First migration applied through the runner after being genuinely
+useful for a second time in a row (022, 023, now 024) — no manual SQL
+Editor step. **Verified live** with a full synthetic run against
+production: a closed service_visit ticket with a real 2-item
+`charge_breakdown` (spare + service charge), a real office spare-part
+sale, and a real product-linked Vessel order — then replicated the
+dashboard route's exact aggregation query and confirmed the totals
+matched precisely (`VESSEL: 9000`, `spare: 1500` = 1200 parts + 300
+office sale, `serviceCharge: 550`), with the real Kitchen revenue
+already on the books that month showing up correctly alongside the test
+data rather than being overwritten by it. All test rows cleaned up
+afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

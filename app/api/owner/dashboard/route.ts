@@ -1,6 +1,19 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { todayIST, monthStartISTThreshold } from '@/lib/dates';
+import { todayIST, monthStartISTThreshold, monthStartDateIST } from '@/lib/dates';
+
+// §15.3's "what did we earn this month" split out by category — the three
+// product categories (from the sold purifier itself), spare parts (both
+// an office walk-in sale and whatever a tech sold during a visit), and
+// the flat service-charge line, so a category with zero this month
+// doesn't just vanish from the object.
+const CATEGORY_KEYS = ['KITCHEN', 'VESSEL', 'COMMERCIAL'] as const;
+type CategoryKey = (typeof CATEGORY_KEYS)[number];
+
+interface ChargeBreakdownItem {
+  total: number;
+  isServiceCharge: boolean;
+}
 
 // booked_date is a plain DATE column — string arithmetic avoids the
 // timestamptz-threshold helpers built for created_at-style columns.
@@ -27,6 +40,7 @@ export async function GET() {
     const today = todayIST();
     const weekEnd = dateAddDays(today, 6);
     const monthStartISO = monthStartISTThreshold();
+    const monthStartDate = monthStartDateIST();
 
     const [
       todaysJobs,
@@ -37,6 +51,8 @@ export async function GET() {
       commercialVesselEnquiries,
       weekJobs,
       jobsToDispatch,
+      monthOfficeSpareSales,
+      monthServiceVisits,
     ] = await Promise.all([
       // What's happening today — every job booked for today, by technician.
       supabaseAdmin
@@ -46,8 +62,14 @@ export async function GET() {
         .eq('booked_date', today)
         .in('status', ['booked', 'completed']),
 
-      // What did we earn this month — orders created (i.e. sale closed) this month.
-      supabaseAdmin.from('orders').select('sold_price, discount, paid_amount').gte('created_at', monthStartISO),
+      // What did we earn this month — orders created (i.e. sale closed) this
+      // month. products(category) comes along via tickets.product_code, for
+      // the by-category revenue split below (null for a hand-typed/historical
+      // order with no linked product row).
+      supabaseAdmin
+        .from('orders')
+        .select('sold_price, discount, paid_amount, tickets(products(category))')
+        .gte('created_at', monthStartISO),
 
       supabaseAdmin.from('leave_requests').select('id, requester_id, start_date, end_date, users:requester_id(name)').eq('status', 'pending'),
 
@@ -95,6 +117,19 @@ export async function GET() {
         .in('kind', ['installation', 'service_visit'])
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
+
+      // A spare part sold on its own at the office (no visit) — always
+      // pure spare-parts revenue, never a service-charge line.
+      supabaseAdmin.from('spare_part_sales').select('total').gte('created_at', monthStartISO),
+
+      // Spare parts / service-charge revenue that came from an actual
+      // technician visit this month — split via each item's own
+      // isServiceCharge flag, not by parsing the free-text parts_used.
+      supabaseAdmin
+        .from('tickets')
+        .select('charge_breakdown')
+        .eq('kind', 'service_visit')
+        .gte('actual_date', monthStartDate),
     ]);
 
     // Grouped per person, not per order — a customer with two open orders
@@ -144,10 +179,39 @@ export async function GET() {
       { sold: 0, discount: 0, collected: 0 }
     );
 
+    // Sales by category: the purifier itself (by products.category, from
+    // sold_price), spare parts (office sale + whatever a tech sold on a
+    // visit), and the flat service-charge line — clubbed into one table
+    // for the owner instead of three separate places to look.
+    const salesByCategory: Record<CategoryKey, number> & { other: number; spare: number; serviceCharge: number } = {
+      KITCHEN: 0,
+      VESSEL: 0,
+      COMMERCIAL: 0,
+      other: 0, // a sale with no linked product row (historical import, hand-typed "Other")
+      spare: 0,
+      serviceCharge: 0,
+    };
+    for (const o of monthOrders.data ?? []) {
+      const category = (o.tickets as unknown as { products: { category: CategoryKey } | null } | null)?.products
+        ?.category;
+      if (category && CATEGORY_KEYS.includes(category)) salesByCategory[category] += Number(o.sold_price);
+      else salesByCategory.other += Number(o.sold_price);
+    }
+    for (const s of monthOfficeSpareSales.data ?? []) {
+      salesByCategory.spare += Number(s.total);
+    }
+    for (const t of monthServiceVisits.data ?? []) {
+      for (const item of (t.charge_breakdown as ChargeBreakdownItem[] | null) ?? []) {
+        if (item.isServiceCharge) salesByCategory.serviceCharge += Number(item.total);
+        else salesByCategory.spare += Number(item.total);
+      }
+    }
+
     return Response.json({
       todaysJobs: todaysJobs.data ?? [],
       whoIsBusy,
       monthRevenue,
+      salesByCategory,
       pendingLeaveCount: pendingLeave.data?.length ?? 0,
       passedToOwner: passedToOwner.data ?? [],
       paymentsOutstanding: paymentsOutstandingByPerson,
