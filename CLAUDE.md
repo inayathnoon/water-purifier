@@ -1659,6 +1659,17 @@ already on the books that month showing up correctly alongside the test
 data rather than being overwritten by it. All test rows cleaned up
 afterward.
 
+## Purchases Page: Bill-Date Filter Removed (2026-09-06)
+
+`/admin/orders` had a From/To bill-date range filter above the table,
+narrowing both the on-screen list and the CSV export to whatever range
+was picked. Removed entirely at the business's request — the table and
+"Download Excel" now always show every purchase, unfiltered, and the
+downloaded file is plain `orders.csv` (no date-range suffix). Pure
+frontend removal (`dateFrom`/`dateTo` state, the `filtered` memo, both
+date inputs and the Clear button) — no API or data change, so nothing
+needed live-verifying beyond `tsc`/`next build`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

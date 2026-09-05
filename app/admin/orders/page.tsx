@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import HomeLink from '@/components/HomeLink';
 import { daysAgoIST } from '@/lib/dates';
@@ -78,8 +78,6 @@ export default function OrdersPage() {
   const [satisfactionNoteFor, setSatisfactionNoteFor] = useState<string | null>(null);
   const [satisfactionNote, setSatisfactionNote] = useState('');
   const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [user, setUser] = useState<User | null>(null);
 
   const load = async () => {
@@ -96,17 +94,6 @@ export default function OrdersPage() {
   }, []);
 
   const daysSince = (d: string | null) => (d ? daysAgoIST(d) : Infinity);
-
-  const filtered = useMemo(
-    () =>
-      orders.filter((o) => {
-        const d = billDate(o);
-        if (dateFrom && d < dateFrom) return false;
-        if (dateTo && d > dateTo) return false;
-        return true;
-      }),
-    [orders, dateFrom, dateTo]
-  );
 
   const handlePay = async (orderId: string) => {
     setError('');
@@ -196,7 +183,7 @@ export default function OrdersPage() {
       'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Payment Status', 'Installation Status',
       'Follow-up Call Status', 'Follow-up Call Note', 'Warranty Expires',
     ];
-    const rows = filtered.map((o) => {
+    const rows = orders.map((o) => {
       const p = productFields(o);
       return [
         billDate(o),
@@ -227,9 +214,8 @@ export default function OrdersPage() {
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM so Excel reads UTF-8 correctly
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const suffix = dateFrom || dateTo ? `_${dateFrom || 'start'}_to_${dateTo || 'end'}` : '';
     a.href = url;
-    a.download = `orders${suffix}.csv`;
+    a.download = 'orders.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -240,19 +226,10 @@ export default function OrdersPage() {
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4 mt-2">
         <h1 className="text-2xl font-bold">Purchases & Payments</h1>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <label className="text-gray-900">From</label>
-          <input type="date" className="border rounded px-2 py-1" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          <label className="text-gray-900">To</label>
-          <input type="date" className="border rounded px-2 py-1" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          {(dateFrom || dateTo) && (
-            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-blue-600 hover:underline">
-              Clear
-            </button>
-          )}
           {user?.role === 'owner' ? (
             <button
               onClick={handleDownload}
-              disabled={filtered.length === 0}
+              disabled={orders.length === 0}
               className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
             >
               Download Excel
@@ -271,8 +248,8 @@ export default function OrdersPage() {
 
       {loading ? (
         <p>Loading...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-gray-900">No purchases {orders.length > 0 ? 'in this date range.' : 'yet.'}</p>
+      ) : orders.length === 0 ? (
+        <p className="text-gray-900">No purchases yet.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="w-full text-sm">
@@ -294,7 +271,7 @@ export default function OrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((o) => {
+              {orders.map((o) => {
                 const overdueCall = o.status === 'open' && daysSince(o.last_payment_call_at) >= 3;
                 const isExpanded = expandedId === o.id;
                 const p = productFields(o);
