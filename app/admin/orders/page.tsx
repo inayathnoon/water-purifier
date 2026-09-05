@@ -1,9 +1,11 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import HomeLink from '@/components/HomeLink';
 import { daysAgoIST } from '@/lib/dates';
 import { toStartCase } from '@/lib/format';
+import { getCurrentUser, type User } from '@/lib/auth';
 
 interface Order {
   id: string;
@@ -78,6 +80,7 @@ export default function OrdersPage() {
   const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [user, setUser] = useState<User | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -89,6 +92,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     load();
+    getCurrentUser().then(setUser);
   }, []);
 
   const daysSince = (d: string | null) => (d ? daysAgoIST(d) : Infinity);
@@ -245,13 +249,22 @@ export default function OrdersPage() {
               Clear
             </button>
           )}
-          <button
-            onClick={handleDownload}
-            disabled={filtered.length === 0}
-            className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-          >
-            Download Excel
-          </button>
+          {user?.role === 'owner' ? (
+            <button
+              onClick={handleDownload}
+              disabled={filtered.length === 0}
+              className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              Download Excel
+            </button>
+          ) : (
+            <Link
+              href="/admin/installations?new=1"
+              className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              + New Purchase
+            </Link>
+          )}
         </div>
       </div>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}

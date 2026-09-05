@@ -1435,6 +1435,15 @@ before ever reaching the route, unlike a real browser session). Verified
 by code review, `tsc`, and a clean production build instead; asked the
 business to click through the three real links themselves to confirm.
 
+## Purchases & Payments: Download Excel Is Owner-Only Now (2026-09-05)
+
+"Download Excel" on `/admin/orders` showed for both admin and owner —
+now it's owner-only; admin gets a "+ New Purchase" button in that exact
+spot instead, since that's the more useful action there day to day. Pure
+UI-level swap (the page fetches the same `/api/admin/orders` data for
+both roles either way, so this isn't a data-access boundary, just which
+button shows) — reads the signed-in user's role client-side to decide.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
