@@ -62,6 +62,7 @@ const emptyNewService = {
   productInterest: '',
   issueNote: '',
   staffAttendedId: '',
+  location: 'home',
 };
 
 export default function ServiceCallsPage() {
@@ -269,6 +270,16 @@ function ServiceCallsPageInner() {
                   {s.name}
                 </option>
               ))}
+            </select>
+          </FormRow>
+          <FormRow label="Location">
+            <select
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={newService.location}
+              onChange={(e) => setNewService({ ...newService, location: e.target.value })}
+            >
+              <option value="home">Home</option>
+              <option value="office">Office</option>
             </select>
           </FormRow>
           <button

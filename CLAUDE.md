@@ -1220,6 +1220,19 @@ removed both its `schema_migrations` row and the test file — nothing
 left behind. From here on, every future schema change ships as a
 migration file and applies with one click, not a copy-paste round trip.
 
+## New Service: Location Field Added for Consistency (2026-09-05)
+
+The ad-hoc "New Service" form's Staff Attended immediate-booking path
+hardcoded `location: 'home'` — flagged during a full-conversation audit
+as a known gap. Reasoning for fixing it: it's the same `tickets.location`
+column every other service-visit booking already asks about, so hard-
+coding it here just because this particular form happened to be built
+without the field was an inconsistency, not a deliberate simplification.
+Added a Location select (Home/Office) next to Staff Attended, wired
+through `createAdHocServiceRequest()`'s new optional `location` param.
+Verified live: a request with Office selected correctly stored
+`location: 'office'`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

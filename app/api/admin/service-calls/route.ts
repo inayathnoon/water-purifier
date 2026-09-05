@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       productInterest: body.productInterest ?? '',
       issueNote: body.issueNote ?? '',
       staffAttendedId: body.staffAttendedId || undefined,
+      location: body.location === 'office' ? 'office' : 'home',
     });
 
     return Response.json({ customer, ticket }, { status: 201 });
