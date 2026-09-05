@@ -1581,6 +1581,28 @@ open-ticket shape) → reassigned to someone else → unassigned again
 (succeeds, was booked) → unassigned a third time (correctly refused,
 already open) — both an installation and a service visit.
 
+## Spare Part Sales Moved Out of Services, Onto the Dashboard (2026-09-06)
+
+Correction to the section above: selling a spare part isn't a Services
+action — it's not tied to a visit, a customer, or a job, so burying it
+inside `/admin/service-calls` next to yearly-due tracking and requested
+calls was the wrong home for it. Pulled the whole feature (form, qty
+picker, recent-sales list, `isServiceCharge` helper) out into its own
+page, **`/admin/spare-parts`**, and put a **"+ Sell Spare Part"** button
+on the dashboard's main nav grid, right next to "+ New Service" — same
+create-button-on-top / browse-link-below shape as Enquiries/Purchases/
+Services, just a 6th column (`grid-cols-5` → `grid-cols-6`), colored
+orange to stay visually distinct from New Service's yellow. Recolored
+the page's own button to match. Owner's dashboard has no "+ New Service"
+button to sit next to, so this stays admin-only, matching where the
+underlying `/api/admin/spare-part-sales` route already restricted itself.
+
+No backend change — `recordSparePartSale()`/`listRecentSparePartSales()`
+and their routes are untouched, this was purely a frontend relocation.
+Re-verified live directly against the service layer: recorded a real 2×
+test-part sale, confirmed it appeared in `listRecentSparePartSales()`,
+deleted it afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
