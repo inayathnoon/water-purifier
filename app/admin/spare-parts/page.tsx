@@ -37,8 +37,9 @@ export default function SparePartsPage() {
 }
 
 function SparePartsPageInner() {
-  // Dashboard's "+ Sell Spare Part" links here with ?new=1 to open the
-  // sale form directly, same pattern as New Enquiry/Purchase/Service.
+  // ?new=1 opens the sale form directly — no longer linked from the
+  // dashboard (this is the only place to sell a spare part now), kept
+  // for consistency with every other "+ New X" deep link in the app.
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [showSellForm, setShowSellForm] = useState(searchParams.get('new') === '1');
@@ -150,7 +151,7 @@ function SparePartsPageInner() {
           onClick={() => setShowSellForm((s) => !s)}
           className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
         >
-          {showSellForm ? 'Cancel' : '+ Sell Spare Part'}
+          {showSellForm ? 'Cancel' : '+ Spare Part'}
         </button>
       </div>
       <p className="text-sm text-gray-500 mb-6">

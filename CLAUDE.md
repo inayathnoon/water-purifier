@@ -2185,6 +2185,20 @@ back to full-strength text before this shipped. Verified with a full
 grep audit of every remaining `text-gray-500` spot by hand, not just
 `tsc`/`next build` passing.
 
+## "+ Sell Spare Part" Removed From the Dashboard (2026-09-06)
+
+Spares is now a browse-only column on the nav grid, same shape as
+Customers/Products (no "+ New X" action above it) — the dashboard was
+the only place this button lived that wasn't the Spares page itself,
+and it's not a category the business creates the way an Enquiry,
+Purchase, or Service gets created, so a dedicated dashboard shortcut
+wasn't pulling its weight. The action itself still exists, just only
+reachable from `/admin/spare-parts`, where its own button is now
+labeled **"+ Spare Part"** (was "+ Sell Spare Part") to match the
+shorter "+ New X" convention used everywhere else. The `?new=1` deep
+link still works for anything that wants to jump straight to the form —
+nothing else changed.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
