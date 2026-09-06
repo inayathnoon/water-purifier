@@ -2095,6 +2095,62 @@ parts produced exactly 2 fresh rows. Re-checked the office-sale path
 still writes `channel: 'Office'` correctly against the now-shared header.
 All test rows cleaned from both the DB and the sheet afterward.
 
+## Edit Support: Spare Part Sales, Enquiries, Purchases, Service Requests (2026-09-06)
+
+Explicit ask: "anything that the admin entered needs to have an option
+to be edited," reflected in both the DB and the sheet. Built all four,
+each with the same shape as everything else in this app — a real
+guardrail on *when* an edit is allowed, scoped to what's actually safe
+to change without corrupting a hard-rule invariant, a warranty date, or
+money already recorded — rather than an unconditional "edit anything"
+that would let a correction quietly break one of §13's rules.
+
+- **Spare Part Sales** (`updateSparePartSale()`) — part name, quantity,
+  unit price, customer name/phone. No state gate: a one-time retail
+  record with no payment or warranty riding on it, so nothing an edit
+  here could corrupt. Re-syncs the same sheet row in place (matched on
+  the sale's own id, same as when it was first written).
+- **Enquiries** (`updateEnquiry()`) — product interest, source, referrer
+  detail. Only while still `open`; once closed, `closure_reason`/
+  `closure_explanation` are the record of what happened, and editing
+  the enquiry's own details out from under that would muddy why it was
+  closed the way it was. The customer's own details were already
+  editable separately, via the Customer Directory.
+- **Purchases** (`updatePurchase()`) — product details, list price,
+  sold price. Same window as voiding one: nothing paid yet, no visit
+  recorded yet. The customer isn't editable here at all — a wrong
+  customer goes through Void instead, since re-pointing `customer_id`
+  has bigger implications than a product/price typo. The one real
+  wrinkle: `sold_price` is part of the Sales sheet's match key
+  (`phone_number + bill_date + sold_price`), so changing it would make
+  the very next sync unable to find the old row and insert a duplicate
+  next to it — exactly the bug class a phone-number correction hit
+  earlier this project. Fixed the same way: `removeOrderFromSalesSheetSafely()`
+  clears the old row *before* the price changes, then a fresh sync
+  writes the corrected one.
+- **Ad-hoc service requests** (`updateAdHocServiceRequest()`) — product
+  interest, issue note, location. Only while `open` or `booked` (not yet
+  visited) — once a technician marks it done, the visit itself is their
+  own §8.4 correction window, not this one. Never available on a Yearly
+  Service visit (`parent_installation_id` set): its product_interest is
+  copied from the parent installation, not typed on this ticket, and it
+  carries no issue to correct.
+
+New "Edit" affordances: inline on `/admin/spare-parts`'s recent-sales
+list, on `/admin/enquiries/[id]` (open enquiries only), on
+`/admin/orders` right next to "Void — wrong entry" (same gate, same
+row), and on `/admin/service-calls` next to each ad-hoc request's status
+line.
+
+**Verified live, all four, against production**: a spare-part sale
+edited and re-synced correctly; an enquiry's product/source edited and
+reflected in the Enquiry sheet; a purchase's product/prices edited with
+the Sales sheet re-checked to confirm **exactly one row** for that
+customer post-edit (the re-key fix actually preventing the duplicate it
+was built for); an ad-hoc service request's product/issue/location
+edited and reflected in the Service sheet. All test data cleaned from
+both the DB and every sheet touched.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

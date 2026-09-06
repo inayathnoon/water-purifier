@@ -1,5 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
+import { updateEnquiry } from '@/lib/services/tickets';
 
 // §4.3: full history visible on one page — ticket + customer + call log.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,6 +23,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (callsError) throw callsError;
 
     return Response.json({ ticket, calls: calls ?? [] });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+// Correcting what was typed on an enquiry — only while it's still open.
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireUser(['admin', 'owner']);
+    const { id } = await params;
+    const body = await request.json();
+
+    const ticket = await updateEnquiry(id, {
+      productInterest: body.productInterest,
+      source: body.source,
+      referrerName: body.referrerName,
+      referrerPhone: body.referrerPhone,
+    });
+
+    return Response.json({ ticket });
   } catch (err) {
     return handleApiError(err);
   }

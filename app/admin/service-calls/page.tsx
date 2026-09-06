@@ -30,6 +30,9 @@ interface ServiceCall {
   parts_used: string | null;
   actual_notes: string | null;
   assigned_to_id: string | null;
+  parent_installation_id: string | null;
+  product_interest: string | null;
+  issue_note: string | null;
   customers: { name: string; phone_number: string; address: string; area: string };
   users: { name: string } | null;
 }
@@ -114,6 +117,11 @@ function ServiceCallsPageInner() {
   const [newServiceError, setNewServiceError] = useState('');
   const [submittingNew, setSubmittingNew] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
+  // Correcting an ad-hoc request's own details — only while unvisited.
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const [requestEditForm, setRequestEditForm] = useState({ productInterest: '', issueNote: '', location: 'home' });
+  const [requestEditError, setRequestEditError] = useState('');
+  const [savingRequestEdit, setSavingRequestEdit] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -230,6 +238,34 @@ function ServiceCallsPageInner() {
     setError('');
     const res = await fetch(`/api/admin/tickets/${id}/unassign`, { method: 'POST' });
     if (!res.ok) return setError((await res.json()).error ?? 'Failed to put back to dispatch');
+    load();
+  };
+
+  const startEditingRequest = (c: ServiceCall) => {
+    setRequestEditError('');
+    setEditingRequestId(c.id);
+    setRequestEditForm({
+      productInterest: c.product_interest ?? '',
+      issueNote: c.issue_note ?? '',
+      location: c.location ?? 'home',
+    });
+  };
+
+  const handleSaveRequestEdit = async (id: string) => {
+    if (savingRequestEdit) return;
+    setSavingRequestEdit(true);
+    setRequestEditError('');
+    const res = await fetch(`/api/admin/service-calls/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestEditForm),
+    });
+    setSavingRequestEdit(false);
+    if (!res.ok) {
+      setRequestEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setEditingRequestId(null);
     load();
   };
 
@@ -429,7 +465,55 @@ function ServiceCallsPageInner() {
                     {c.booked_date} ({c.booked_half_day}) · {c.location} · assigned to {c.users?.name}
                   </>
                 )}
+                {!c.parent_installation_id && ['open', 'booked'].includes(c.status) && (
+                  <button
+                    onClick={() => (editingRequestId === c.id ? setEditingRequestId(null) : startEditingRequest(c))}
+                    className="ml-2 text-blue-600 hover:underline"
+                  >
+                    {editingRequestId === c.id ? 'Cancel edit' : 'Edit request'}
+                  </button>
+                )}
               </p>
+
+              {editingRequestId === c.id && (
+                <div className="mt-2 pt-2 border-t space-y-2">
+                  {requestEditError && <p className="text-red-600 text-xs">{requestEditError}</p>}
+                  <select
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    value={requestEditForm.productInterest}
+                    onChange={(e) => setRequestEditForm({ ...requestEditForm, productInterest: e.target.value })}
+                  >
+                    <option value="">(not sure yet)</option>
+                    <option value="Kitchen">Kitchen</option>
+                    <option value="Vessel">Vessel</option>
+                    <option value="Commercial">Commercial</option>
+                  </select>
+                  <input
+                    required
+                    placeholder="Reported problem"
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    value={requestEditForm.issueNote}
+                    onChange={(e) => setRequestEditForm({ ...requestEditForm, issueNote: e.target.value })}
+                  />
+                  <div className="flex gap-2">
+                    <select
+                      className="border rounded px-3 py-2 text-sm flex-1"
+                      value={requestEditForm.location}
+                      onChange={(e) => setRequestEditForm({ ...requestEditForm, location: e.target.value })}
+                    >
+                      <option value="home">Home</option>
+                      <option value="office">Office</option>
+                    </select>
+                    <button
+                      onClick={() => handleSaveRequestEdit(c.id)}
+                      disabled={savingRequestEdit}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingRequestEdit ? 'Saving...' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {c.status === 'open' && (
                 <div className="mt-3 pt-3 border-t space-y-3">

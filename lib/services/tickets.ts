@@ -62,6 +62,55 @@ export async function createEnquiry(input: {
   return data;
 }
 
+/**
+ * Correcting what was typed on an enquiry — wrong product interest, wrong
+ * source, a referrer detail fixed after the fact. Only while it's still
+ * `open`: once closed, `closure_reason`/`closure_explanation` are the
+ * record of what actually happened and editing the enquiry's own details
+ * out from under that would muddy why it was closed the way it was —
+ * the customer's own details are already editable separately, via the
+ * Customer Directory.
+ */
+export async function updateEnquiry(
+  ticketId: string,
+  updates: {
+    productInterest?: string;
+    source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
+    referrerName?: string;
+    referrerPhone?: string;
+  }
+) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.kind !== 'enquiry') throw new ApiError(400, 'Not an enquiry');
+  if (ticket.status !== 'open') throw new ApiError(400, 'Only an open enquiry can be edited here');
+
+  const source = updates.source ?? ticket.enquiry_source;
+  if (source === 'referral' && !(updates.referrerPhone ?? ticket.referrer_phone)?.trim()) {
+    throw new ApiError(400, 'A referrer phone number is required for a referral');
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (updates.productInterest !== undefined) {
+    patch.enquiry_product_interest = updates.productInterest;
+    patch.product_interest = updates.productInterest || null;
+  }
+  if (updates.source !== undefined) patch.enquiry_source = updates.source;
+  if (source === 'referral') {
+    if (updates.referrerName !== undefined) patch.referrer_name = updates.referrerName || null;
+    if (updates.referrerPhone !== undefined) patch.referrer_phone = updates.referrerPhone || null;
+  } else if (updates.source !== undefined) {
+    // Switched away from referral — the old referrer detail no longer applies.
+    patch.referrer_name = null;
+    patch.referrer_phone = null;
+  }
+
+  const { data, error } = await supabaseAdmin.from('tickets').update(patch).eq('id', ticketId).select('*').single();
+  if (error) throw new ApiError(500, error.message);
+
+  await syncEnquiryToSheetSafely(ticketId);
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Ad-hoc service requests — a customer calling in with a problem any time,
 // not tied to the 18-month yearly-service schedule (that flow is
@@ -124,6 +173,48 @@ export async function createAdHocServiceRequest(input: {
     });
   }
 
+  return data;
+}
+
+/**
+ * Correcting an ad-hoc service request's own details — wrong product,
+ * wrong issue note, wrong location. Only while it hasn't been visited
+ * yet (`open` or `booked`) — once a technician marks it done, the visit
+ * itself (parts/charge/notes) is their own §8.4 correction window, not
+ * this one, and the original request details stop being the live record
+ * of what's happening. Yearly Service visits aren't editable here at
+ * all (`parent_installation_id` set) — their product_interest is copied
+ * from the parent installation, not something typed on this ticket, and
+ * they carry no issue_note to correct in the first place.
+ */
+export async function updateAdHocServiceRequest(
+  ticketId: string,
+  updates: { productInterest?: string; issueNote?: string; location?: 'home' | 'office' }
+) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.kind !== 'service_visit') throw new ApiError(400, 'Not a service visit');
+  if (ticket.parent_installation_id) throw new ApiError(400, 'A Yearly Service visit is not editable here');
+  if (!['open', 'booked'].includes(ticket.status)) {
+    throw new ApiError(400, 'This visit has already been completed — it can no longer be edited here');
+  }
+  if (updates.issueNote !== undefined && !updates.issueNote.trim()) {
+    throw new ApiError(400, 'A note on the reported problem is required');
+  }
+
+  const productInterest = updates.productInterest !== undefined ? updates.productInterest : ticket.product_interest ?? '';
+  const issueNote = updates.issueNote !== undefined ? updates.issueNote : ticket.issue_note ?? '';
+
+  const patch: Record<string, unknown> = {
+    enquiry_product_interest: [productInterest, issueNote].filter(Boolean).join(' — '),
+    product_interest: productInterest || null,
+    issue_note: issueNote,
+  };
+  if (updates.location !== undefined) patch.location = updates.location;
+
+  const { data, error } = await supabaseAdmin.from('tickets').update(patch).eq('id', ticketId).select('*').single();
+  if (error) throw new ApiError(500, error.message);
+
+  await syncServiceToSheetSafely(ticketId);
   return data;
 }
 
@@ -612,6 +703,70 @@ export async function cancelJob(ticketId: string, reason: string) {
 
   if (error) throw new ApiError(500, error.message);
   return data;
+}
+
+/**
+ * Correcting a purchase's product or price — same window as voiding one
+ * (cancelJob above): no visit recorded yet, nothing paid yet. Once either
+ * of those is true, a correction needs a human decision (a refund, or
+ * redoing the confirmed work), not a plain edit — and the customer itself
+ * isn't editable here at all; a wrong-customer purchase goes through
+ * Void instead, since re-pointing customer_id has bigger implications
+ * (duplicate warnings, the Sales sheet's phone-based match key) than a
+ * product/price typo does.
+ */
+export async function updatePurchase(
+  ticketId: string,
+  updates: { productCode?: string | null; productDetails?: string; listPrice?: number; soldPrice?: number }
+) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.kind !== 'installation') throw new ApiError(400, 'Not a purchase');
+  if (ticket.actual_date) {
+    throw new ApiError(400, 'A visit has already been recorded — this can no longer be edited here');
+  }
+
+  const { data: order, error: orderError } = await supabaseAdmin.from('orders').select('*').eq('ticket_id', ticketId).single();
+  if (orderError || !order) throw new ApiError(404, 'Order not found for this purchase');
+  if (Number(order.paid_amount) > 0) {
+    throw new ApiError(400, 'A payment has already been recorded against this purchase — it cannot be edited here');
+  }
+  if (updates.listPrice !== undefined && updates.listPrice < 0) throw new ApiError(400, 'List price must be zero or more');
+  if (updates.soldPrice !== undefined && updates.soldPrice < 0) throw new ApiError(400, 'Sold price must be zero or more');
+
+  // sold_price is part of the Sales sheet's match key (phone_number +
+  // bill_date + sold_price) — clear the old row first, while it's still
+  // findable under the price about to change, so the fresh sync below
+  // doesn't leave a stale duplicate sitting next to the corrected row.
+  const soldPriceChanging = updates.soldPrice !== undefined && updates.soldPrice !== Number(order.sold_price);
+  if (soldPriceChanging) {
+    await removeOrderFromSalesSheetSafely(order.id);
+  }
+
+  const ticketPatch: Record<string, unknown> = {};
+  if (updates.productCode !== undefined) ticketPatch.product_code = updates.productCode || null;
+  if (updates.productDetails !== undefined) {
+    ticketPatch.enquiry_product_interest = updates.productDetails || null;
+    ticketPatch.product_interest = updates.productDetails || null;
+  }
+  if (updates.soldPrice !== undefined) ticketPatch.agreed_price = updates.soldPrice;
+  if (Object.keys(ticketPatch).length > 0) {
+    const { error } = await supabaseAdmin.from('tickets').update(ticketPatch).eq('id', ticketId);
+    if (error) throw new ApiError(500, error.message);
+  }
+
+  const orderPatch: Record<string, unknown> = {};
+  if (updates.listPrice !== undefined) orderPatch.list_price = updates.listPrice;
+  if (updates.soldPrice !== undefined) orderPatch.sold_price = updates.soldPrice;
+
+  let updatedOrder = order;
+  if (Object.keys(orderPatch).length > 0) {
+    const { data, error } = await supabaseAdmin.from('orders').update(orderPatch).eq('id', order.id).select('*').single();
+    if (error) throw new ApiError(500, error.message);
+    updatedOrder = data;
+  }
+
+  await syncOrderToSalesSheetSafely(order.id);
+  return updatedOrder;
 }
 
 /**

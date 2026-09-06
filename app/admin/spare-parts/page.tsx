@@ -49,6 +49,10 @@ function SparePartsPageInner() {
   const [sellError, setSellError] = useState('');
   const [submittingSell, setSubmittingSell] = useState(false);
   const [recentSales, setRecentSales] = useState<SparePartSale[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ partName: '', unitPrice: '', quantity: '', customerName: '', phoneNumber: '' });
+  const [editError, setEditError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -97,6 +101,43 @@ function SparePartsPageInner() {
     setSellCustomerName('');
     setSellPhoneNumber('');
     setShowSellForm(false);
+    load();
+  };
+
+  const startEditing = (s: SparePartSale) => {
+    setEditError('');
+    setEditingId(s.id);
+    setEditForm({
+      partName: s.part_name,
+      unitPrice: String(s.unit_price),
+      quantity: String(s.quantity),
+      customerName: s.customer_name ?? '',
+      phoneNumber: s.phone_number ?? '',
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent, saleId: string) => {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setEditError('');
+    const res = await fetch(`/api/admin/spare-part-sales/${saleId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        partName: editForm.partName,
+        unitPrice: Number(editForm.unitPrice),
+        quantity: Number(editForm.quantity),
+        customerName: editForm.customerName,
+        phoneNumber: editForm.phoneNumber,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setEditingId(null);
     load();
   };
 
@@ -185,17 +226,80 @@ function SparePartsPageInner() {
       ) : (
         <div className="bg-white rounded-lg shadow divide-y">
           {recentSales.map((s) => (
-            <div key={s.id} className="p-3 flex justify-between items-center text-sm">
-              <div>
-                <p className="font-medium">
-                  {s.part_name} x{s.quantity}
-                  {s.customer_name && <span className="text-gray-900 font-normal"> — {s.customer_name}</span>}
-                </p>
-                <p className="text-xs text-gray-900">
-                  {new Date(s.created_at).toLocaleString()} · sold by {s.users?.name ?? 'Unknown'}
-                </p>
+            <div key={s.id} className="p-3 text-sm">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium">
+                    {s.part_name} x{s.quantity}
+                    {s.customer_name && <span className="text-gray-900 font-normal"> — {s.customer_name}</span>}
+                  </p>
+                  <p className="text-xs text-gray-900">
+                    {new Date(s.created_at).toLocaleString()} · sold by {s.users?.name ?? 'Unknown'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">₹{s.total}</span>
+                  <button
+                    onClick={() => (editingId === s.id ? setEditingId(null) : startEditing(s))}
+                    className="text-xs text-gray-600 hover:underline"
+                  >
+                    {editingId === s.id ? 'Cancel' : 'Edit'}
+                  </button>
+                </div>
               </div>
-              <span className="font-medium">₹{s.total}</span>
+
+              {editingId === s.id && (
+                <form onSubmit={(e) => handleSaveEdit(e, s.id)} className="mt-3 pt-3 border-t space-y-2">
+                  {editError && <p className="text-red-600 text-xs">{editError}</p>}
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      required
+                      placeholder="Part name"
+                      className="border rounded px-2 py-1.5"
+                      value={editForm.partName}
+                      onChange={(e) => setEditForm({ ...editForm, partName: e.target.value })}
+                    />
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      placeholder="Quantity"
+                      className="border rounded px-2 py-1.5"
+                      value={editForm.quantity}
+                      onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+                    />
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Unit price"
+                      className="border rounded px-2 py-1.5"
+                      value={editForm.unitPrice}
+                      onChange={(e) => setEditForm({ ...editForm, unitPrice: e.target.value })}
+                    />
+                    <input
+                      placeholder="Customer name (optional)"
+                      className="border rounded px-2 py-1.5"
+                      value={editForm.customerName}
+                      onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value.toUpperCase() })}
+                    />
+                    <input
+                      placeholder="Phone number (optional)"
+                      className="border rounded px-2 py-1.5"
+                      value={editForm.phoneNumber}
+                      onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </form>
+              )}
             </div>
           ))}
         </div>

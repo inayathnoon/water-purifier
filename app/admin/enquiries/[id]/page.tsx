@@ -16,8 +16,18 @@ interface Ticket {
   status: string;
   call_count: number;
   enquiry_product_interest: string;
+  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
+  referrer_name: string | null;
+  referrer_phone: string | null;
   customers: { name: string; phone_number: string; address: string; area: string };
 }
+
+const SOURCE_LABEL: Record<string, string> = {
+  general: 'General enquiry',
+  water_test: 'Water test',
+  ready_to_buy: 'Ready to buy',
+  referral: 'Referral',
+};
 
 interface RecentPurchase {
   id: string;
@@ -59,6 +69,10 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
   const [linking, setLinking] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
+  const [editingTicket, setEditingTicket] = useState(false);
+  const [editForm, setEditForm] = useState({ productInterest: '', source: 'general', referrerName: '', referrerPhone: '' });
+  const [editError, setEditError] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = async () => {
     const res = await fetch(`/api/admin/enquiries/${id}`);
@@ -88,6 +102,37 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       return;
     }
     setCallNote('');
+    load();
+  };
+
+  const startEditingTicket = () => {
+    if (!ticket) return;
+    setEditError('');
+    setEditForm({
+      productInterest: ticket.enquiry_product_interest ?? '',
+      source: ticket.enquiry_source ?? 'general',
+      referrerName: ticket.referrer_name ?? '',
+      referrerPhone: ticket.referrer_phone ?? '',
+    });
+    setEditingTicket(true);
+  };
+
+  const handleSaveTicketEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (savingEdit) return;
+    setSavingEdit(true);
+    setEditError('');
+    const res = await fetch(`/api/admin/enquiries/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    });
+    setSavingEdit(false);
+    if (!res.ok) {
+      setEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setEditingTicket(false);
     load();
   };
 
@@ -196,16 +241,75 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-gray-900">
             {ticket.customers.phone_number} · {ticket.customers.address}, {ticket.customers.area}
           </p>
-          <p className="text-sm text-gray-900 mt-1">Interested in: {ticket.enquiry_product_interest || '—'}</p>
+          <p className="text-sm text-gray-900 mt-1">
+            Interested in: {ticket.enquiry_product_interest || '—'} · {SOURCE_LABEL[ticket.enquiry_source] ?? ticket.enquiry_source}
+            {ticket.enquiry_source === 'referral' && ticket.referrer_name && ` (via ${ticket.referrer_name})`}
+          </p>
           <p className="text-sm text-gray-900">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
         </div>
-        <button
-          onClick={handleDelete}
-          className="px-3 py-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
-        >
-          Delete enquiry
-        </button>
+        <div className="flex gap-2">
+          {ticket.status === 'open' && (
+            <button
+              onClick={() => (editingTicket ? setEditingTicket(false) : startEditingTicket())}
+              className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50"
+            >
+              {editingTicket ? 'Cancel' : 'Edit'}
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            className="px-3 py-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+          >
+            Delete enquiry
+          </button>
+        </div>
       </div>
+
+      {editingTicket && (
+        <form onSubmit={handleSaveTicketEdit} className="bg-white rounded-lg shadow p-4 space-y-3">
+          {editError && <p className="text-red-600 text-sm">{editError}</p>}
+          <input
+            placeholder="Product interest"
+            className="w-full border rounded px-3 py-2"
+            value={editForm.productInterest}
+            onChange={(e) => setEditForm({ ...editForm, productInterest: e.target.value })}
+          />
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={editForm.source}
+            onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+          >
+            <option value="general">General enquiry</option>
+            <option value="water_test">Water test</option>
+            <option value="ready_to_buy">Ready to buy</option>
+            <option value="referral">Referral</option>
+          </select>
+          {editForm.source === 'referral' && (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                placeholder="Referrer name"
+                className="border rounded px-3 py-2"
+                value={editForm.referrerName}
+                onChange={(e) => setEditForm({ ...editForm, referrerName: e.target.value })}
+              />
+              <input
+                required
+                placeholder="Referrer phone"
+                className="border rounded px-3 py-2"
+                value={editForm.referrerPhone}
+                onChange={(e) => setEditForm({ ...editForm, referrerPhone: e.target.value })}
+              />
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={savingEdit}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {savingEdit ? 'Saving...' : 'Save changes'}
+          </button>
+        </form>
+      )}
 
       {error && <p className="text-red-600 bg-red-50 p-3 rounded">{error}</p>}
 

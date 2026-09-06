@@ -84,6 +84,12 @@ export default function OrdersPage() {
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
+  // Correcting a purchase's product/price — same unpaid/unvisited window
+  // as voiding one, see updatePurchase().
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const [purchaseEditForm, setPurchaseEditForm] = useState({ productDetails: '', listPrice: '', soldPrice: '' });
+  const [purchaseEditError, setPurchaseEditError] = useState('');
+  const [savingPurchaseEdit, setSavingPurchaseEdit] = useState(false);
   // Find a purchase by customer — phone number or name, filtered
   // client-side over what's already loaded (no separate search request).
   const [query, setQuery] = useState('');
@@ -164,6 +170,38 @@ export default function OrdersPage() {
     }
     setVoidingId(null);
     setVoidReason('');
+    load();
+  };
+
+  const startEditingPurchase = (o: Order) => {
+    setPurchaseEditError('');
+    setEditingPurchaseId(o.ticket_id);
+    setPurchaseEditForm({
+      productDetails: productFields(o).name,
+      listPrice: String(o.list_price),
+      soldPrice: String(o.sold_price),
+    });
+  };
+
+  const handleSavePurchaseEdit = async (ticketId: string) => {
+    if (savingPurchaseEdit) return;
+    setSavingPurchaseEdit(true);
+    setPurchaseEditError('');
+    const res = await fetch(`/api/admin/installations/${ticketId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productDetails: purchaseEditForm.productDetails,
+        listPrice: Number(purchaseEditForm.listPrice),
+        soldPrice: Number(purchaseEditForm.soldPrice),
+      }),
+    });
+    setSavingPurchaseEdit(false);
+    if (!res.ok) {
+      setPurchaseEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setEditingPurchaseId(null);
     load();
   };
 
@@ -453,18 +491,66 @@ export default function OrdersPage() {
                                 </button>
                               )}
                               {o.paid_amount === 0 && !o.tickets.actual_date && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setVoidingId(voidingId === o.ticket_id ? null : o.ticket_id);
-                                    setVoidReason('');
-                                    setError('');
-                                  }}
-                                  className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
-                                >
-                                  Void — wrong entry
-                                </button>
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      editingPurchaseId === o.ticket_id ? setEditingPurchaseId(null) : startEditingPurchase(o);
+                                    }}
+                                    className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                                  >
+                                    {editingPurchaseId === o.ticket_id ? 'Cancel edit' : 'Edit'}
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setVoidingId(voidingId === o.ticket_id ? null : o.ticket_id);
+                                      setVoidReason('');
+                                      setError('');
+                                    }}
+                                    className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                                  >
+                                    Void — wrong entry
+                                  </button>
+                                </>
                               )}
+                            </div>
+                          )}
+
+                          {editingPurchaseId === o.ticket_id && (
+                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-2">
+                              {purchaseEditError && <p className="text-red-600 text-xs">{purchaseEditError}</p>}
+                              <input
+                                placeholder="Product details"
+                                className="border rounded px-3 py-2 w-full bg-white"
+                                value={purchaseEditForm.productDetails}
+                                onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, productDetails: e.target.value })}
+                              />
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="List price"
+                                  className="border rounded px-3 py-2 flex-1 bg-white"
+                                  value={purchaseEditForm.listPrice}
+                                  onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, listPrice: e.target.value })}
+                                />
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="Sold price"
+                                  className="border rounded px-3 py-2 flex-1 bg-white"
+                                  value={purchaseEditForm.soldPrice}
+                                  onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, soldPrice: e.target.value })}
+                                />
+                                <button
+                                  onClick={() => handleSavePurchaseEdit(o.ticket_id)}
+                                  disabled={savingPurchaseEdit}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50"
+                                >
+                                  {savingPurchaseEdit ? 'Saving...' : 'Save'}
+                                </button>
+                              </div>
                             </div>
                           )}
 
