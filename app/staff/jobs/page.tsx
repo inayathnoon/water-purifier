@@ -18,9 +18,10 @@ interface Job {
   actual_notes: string | null;
   parts_used: string | null;
   charge_amount: number | null;
-  // For an ad-hoc Service Call this is "{product} — {reported issue}"; for
-  // an installation or a Yearly Service visit it's just the product name.
-  enquiry_product_interest: string | null;
+  // Only ever set on an ad-hoc Service Call — null for an installation or
+  // a Yearly Service visit, which is the whole fix: no more guessing from
+  // kind/lineage whether there's an actual complaint to show (2026-09-06).
+  issue_note: string | null;
   customers: { name: string; address: string; area: string; phone_number: string };
 }
 
@@ -59,13 +60,8 @@ function jobBadge(job: Job): { label: string; classes: string } {
   return { label: 'Service Call', classes: 'bg-orange-100 text-orange-800' };
 }
 
-// Only an ad-hoc Service Call's enquiry_product_interest actually carries a
-// reported problem ("{product} — {issue}") — a Yearly Service visit copies
-// the same column from its parent installation, where it's just the
-// product name, nothing wrong reported yet.
 function reportedIssue(job: Job): string | null {
-  if (job.kind !== 'service_visit' || job.parent_installation_id) return null;
-  return job.enquiry_product_interest?.trim() || null;
+  return job.issue_note?.trim() || null;
 }
 
 const HALF_DAY_LABEL: Record<string, string> = {

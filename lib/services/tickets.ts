@@ -46,6 +46,7 @@ export async function createEnquiry(input: {
       kind: 'enquiry',
       status: 'open',
       enquiry_product_interest: input.productInterest,
+      product_interest: input.productInterest || null,
       enquiry_source: input.source ?? 'general',
       referrer_name: input.source === 'referral' ? input.referrerName ?? null : null,
       referrer_phone: input.source === 'referral' ? input.referrerPhone ?? null : null,
@@ -97,6 +98,12 @@ export async function createAdHocServiceRequest(input: {
       kind: 'service_visit',
       status: 'open',
       enquiry_product_interest: [input.productInterest, input.issueNote].filter(Boolean).join(' — '),
+      // The honest split behind that joined display string (§ split fix,
+      // 2026-09-06) — issue_note is what actually tells a technician
+      // what's wrong, read directly rather than reparsed out of the
+      // combined field above.
+      product_interest: input.productInterest || null,
+      issue_note: input.issueNote,
     })
     .select('*')
     .single();
@@ -273,6 +280,7 @@ export async function createDirectPurchase(input: {
         status: 'open',
         agreed_price: item.price,
         enquiry_product_interest: item.productDetails || null,
+        product_interest: item.productDetails || null,
         // Only set when ProductPicker resolved to an actual product row —
         // "Other" purchases and hand-typed extra details never have a code.
         product_code: item.productCode || null,

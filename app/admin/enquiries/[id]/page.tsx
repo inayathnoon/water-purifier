@@ -3,6 +3,7 @@
 import { useEffect, useState, use as usePromise } from 'react';
 import { useRouter } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
+import { useConfirm } from '@/components/useConfirm';
 
 interface Call {
   id: string;
@@ -57,6 +58,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [showOther, setShowOther] = useState(false);
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
   const [linking, setLinking] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = async () => {
     const res = await fetch(`/api/admin/enquiries/${id}`);
@@ -139,7 +141,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
     const nameMatches = purchase.customers.name.trim().toLowerCase() === ticket.customers.name.trim().toLowerCase();
     if (!phoneMatches || !nameMatches) {
       const mismatch = !phoneMatches ? 'phone number' : 'name';
-      const ok = window.confirm(
+      const ok = await confirm(
         `Heads up — the ${mismatch} doesn't match.\n\nThis enquiry: ${ticket.customers.name}, ${ticket.customers.phone_number}\nSelected purchase: ${purchase.customers.name}, ${purchase.customers.phone_number}\n\nLink anyway?`
       );
       if (!ok) return;
@@ -166,9 +168,9 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
   const handleDelete = async () => {
     if (
-      !window.confirm(
+      !(await confirm(
         `Delete the enquiry for ${ticket?.customers.name}? This removes it and its call history permanently — it cannot be undone.`
-      )
+      ))
     ) {
       return;
     }
@@ -186,6 +188,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+      {confirmDialog}
       <HomeLink />
       <div className="flex justify-between items-start">
         <div>

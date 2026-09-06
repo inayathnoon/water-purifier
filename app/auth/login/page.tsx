@@ -94,6 +94,9 @@ export default function LoginPage() {
         <p className="mt-2 text-center text-sm text-gray-900">
           Contact the admin to create an account
         </p>
+        <p className="text-center text-xs text-gray-500">
+          Forgot your password? There's no self-service reset — ask the app's developer to reset it for you.
+        </p>
       </div>
     </div>
   );

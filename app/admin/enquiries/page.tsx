@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
+import { useConfirm } from '@/components/useConfirm';
 import { daysAgoIST } from '@/lib/dates';
 import { useSearchParams } from 'next/navigation';
 
@@ -70,6 +71,7 @@ function EnquiriesPageInner() {
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   // Autofill: a referrer's phone number that's referred before fills in
   // their name automatically, same as a repeat customer's number does.
@@ -137,9 +139,9 @@ function EnquiriesPageInner() {
     e.preventDefault();
     e.stopPropagation();
     if (
-      !window.confirm(
+      !(await confirm(
         `Delete the enquiry for ${enquiry.customers?.name}? This removes it and its call history permanently — it cannot be undone.`
-      )
+      ))
     ) {
       return;
     }
@@ -157,6 +159,7 @@ function EnquiriesPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
+      {confirmDialog}
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
         <h1 className="text-2xl font-bold">Enquiries</h1>

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 import CustomerFields from '@/components/CustomerFields';
+import { useConfirm } from '@/components/useConfirm';
 
 // Label on the left, the field on the right — matches FormRow elsewhere.
 function FormRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -116,6 +117,7 @@ function ServiceCallsPageInner() {
   const [newService, setNewService] = useState(emptyNewService);
   const [newServiceError, setNewServiceError] = useState('');
   const [submittingNew, setSubmittingNew] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -228,7 +230,7 @@ function ServiceCallsPageInner() {
   };
 
   const handleUnassign = async (id: string) => {
-    if (!window.confirm('Put this back to dispatch? It stays a requested service call, just unassigned and unscheduled.')) return;
+    if (!(await confirm('Put this back to dispatch? It stays a requested service call, just unassigned and unscheduled.'))) return;
     setError('');
     const res = await fetch(`/api/admin/tickets/${id}/unassign`, { method: 'POST' });
     if (!res.ok) return setError((await res.json()).error ?? 'Failed to put back to dispatch');
@@ -244,6 +246,7 @@ function ServiceCallsPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
+      {confirmDialog}
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         <h1 className="text-2xl font-bold">Services</h1>

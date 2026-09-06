@@ -105,7 +105,7 @@ export async function getYearlyServiceDueThisMonth(): Promise<DueYearlyService[]
 export async function createServiceRequest(installationTicketId: string) {
   const { data: installation, error: findError } = await supabaseAdmin
     .from('tickets')
-    .select('id, kind, status, customer_id, installation_date, enquiry_product_interest, product_code')
+    .select('id, kind, status, customer_id, installation_date, enquiry_product_interest, product_interest, product_code')
     .eq('id', installationTicketId)
     .single();
   if (findError || !installation) throw new ApiError(404, 'Installation not found');
@@ -122,6 +122,9 @@ export async function createServiceRequest(installationTicketId: string) {
       parent_installation_id: installation.id,
       installation_date: installation.installation_date,
       enquiry_product_interest: installation.enquiry_product_interest,
+      // No issue_note here — a Yearly Service visit is a routine check-up
+      // copied from its parent installation, never a reported problem.
+      product_interest: installation.product_interest,
       product_code: installation.product_code,
     })
     .select('*')

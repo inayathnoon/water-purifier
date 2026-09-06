@@ -1867,6 +1867,78 @@ sync), narrowing both the on-screen table and "Download Excel" to the
 match. `/admin/customers` is untouched and still the place for editing
 a customer or seeing their non-purchase history.
 
+## Structural Cleanup Pass (2026-09-06)
+
+Working through the review's remaining "pay down before the next
+feature" list. Three items were explicitly deferred by business
+decision, not built: spare-part stock tracking stays on paper (no
+quantity column), the admin dashboard's four cards stay separate rather
+than merging into one "Today" list, and a second Supabase project for
+testing is deferred — this session keeps testing against production
+with the same cleanup discipline as always.
+
+**In-page confirmations replace `window.confirm()` everywhere.** Five
+call sites (`/admin/service-calls`, `/admin/installations`, both
+enquiries pages) used the native browser dialog for a destructive
+action — easy to dismiss by reflex on a phone, and unstyled. New
+`useConfirm()` hook (`components/useConfirm.tsx`) returns an
+async `confirm(message)` function with the same boolean-promise shape
+as `window.confirm()`, so every call site changed by exactly one line
+(`if (!window.confirm(m))` → `if (!(await confirm(m)))`) plus rendering
+the hook's own dialog element once per page. Pure frontend behavior
+match — same confirm/cancel semantics, just can't be dismissed by a
+stray tap outside where a native dialog sits.
+
+**Login page now names who to contact for a password reset** — there's
+no self-service reset by design (a developer resets manually), and the
+page previously said nothing, leaving a locked-out technician with
+retry as their only visible option.
+
+**Dead `app/api/jobs` directory removed** — empty since the nightly
+cron job it hosted was retired.
+
+## Root Cause Fix: `enquiry_product_interest` Split Into Two Columns (2026-09-06)
+
+The actual root cause behind the "technician never saw the reported
+problem" bug (fixed earlier by adding the field to a SELECT) — this
+single column meant three different things depending on kind and
+lineage: a plain product name on an enquiry or installation, a product
+name *copied* from the parent on a Yearly Service visit, and
+`"{product} — {issue}"` only on an ad-hoc Service Call. Any reader had
+to already know the ticket's kind and parentage to interpret it
+correctly, which is exactly the kind of ambiguity that let the original
+bug hide.
+
+New `tickets.product_interest` / `tickets.issue_note` columns (migration
+027) — `issue_note` is non-null *only* on an ad-hoc Service Call, by
+construction, so `/staff/jobs`'s "Reported problem" box now reads it
+directly instead of the kind/lineage heuristic (`reportedIssue()`)
+built as a stopgap earlier. `enquiry_product_interest` itself is left
+untouched, still written exactly as before — the Sales/Service/Enquiry
+sheets, the Purchases page, and the Customer Directory all still read
+it for a single free-text display line, and none of them have the
+ambiguity problem, so ripping it out everywhere would have been a much
+larger, riskier change for no benefit over just adding the two honest
+columns alongside it.
+
+**Backfill bug caught and fixed before it mattered**: migration 027's
+backfill assumed a no-separator value on an ad-hoc Service Call was
+always a bare issue note — true for every row with real issue text, but
+wrong for a handful of pre-validation historical imports that recorded
+*only* a product name ("Kitchen") with no issue text at all. One of
+those was a real, currently-booked job — would have shown a technician
+"Reported problem: Kitchen," which isn't a problem. Caught by checking
+the backfilled data against known product names before trusting it;
+migration 028 reclassifies any no-separator value that exactly matches
+one of the three known product categories (case-insensitive) back to
+`product_interest`, `issue_note` cleared.
+
+**Verified live**: the corrected row confirmed fixed (`issue_note: null,
+product_interest: 'Kitchen'`); a real ad-hoc request, a real enquiry,
+and a real Yearly Service creation (from a backdated closed
+installation) all produced exactly the expected split across all three
+columns — cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

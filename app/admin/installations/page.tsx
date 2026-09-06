@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProductPicker from '@/components/ProductPicker';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
+import { useConfirm } from '@/components/useConfirm';
 import { todayIST } from '@/lib/dates';
 
 // Label on the left, the field on the right — placeholder text alone was
@@ -121,6 +122,7 @@ function InstallationsPageInner() {
   const [purchaseError, setPurchaseError] = useState('');
   const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
 
   const updatePurchaseItem = (id: number, patch: Partial<PurchaseItem>) =>
     setPurchaseItems((items) => items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -182,7 +184,7 @@ function InstallationsPageInner() {
   };
 
   const handleUnassign = async (ticketId: string) => {
-    if (!window.confirm('Put this job back to dispatch? It stays as a purchase, just unassigned and unscheduled.')) return;
+    if (!(await confirm('Put this job back to dispatch? It stays as a purchase, just unassigned and unscheduled.'))) return;
     setError('');
     const res = await fetch(`/api/admin/tickets/${ticketId}/unassign`, { method: 'POST' });
     if (!res.ok) {
@@ -301,6 +303,7 @@ function InstallationsPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
+      {confirmDialog}
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
         <h1 className="text-2xl font-bold">New Purchase</h1>
