@@ -87,7 +87,7 @@ function DashboardPageInner() {
         <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-2">
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Water Purifier Service</h1>
           <div className="flex items-center gap-3 sm:gap-4">
-            <span className="text-sm text-gray-900">
+            <span className="text-sm text-gray-500">
               {user.name} ({user.role})
             </span>
             <button

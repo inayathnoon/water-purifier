@@ -69,7 +69,7 @@ export default function TimeOffPage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center gap-2">
-        <span className="text-sm text-gray-900">{user?.name}</span>
+        <span className="text-sm text-gray-500">{user?.name}</span>
         <div className="flex items-center gap-3">
           <Link href="/staff/jobs" className="text-sm text-blue-600 hover:underline">
             My Jobs
@@ -84,7 +84,7 @@ export default function TimeOffPage() {
       </div>
       <h1 className="text-2xl font-bold mb-6 mt-2">Time Off</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 mb-6 space-y-3">
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 space-y-3">
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <div className="flex gap-2">
           <input
@@ -125,13 +125,13 @@ export default function TimeOffPage() {
       ) : (
         <div className="space-y-3">
           {requests.map((r) => (
-            <div key={r.id} className="bg-white rounded-lg shadow p-4">
+            <div key={r.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-medium">
                     {r.start_date} to {r.end_date}
                   </p>
-                  <p className="text-sm text-gray-900 mt-1">{r.reason}</p>
+                  <p className="text-sm text-gray-500 mt-1">{r.reason}</p>
                   {r.status === 'denied' && r.decision_reason && (
                     <p className="text-sm text-red-600 mt-1">Reason: {r.decision_reason}</p>
                   )}

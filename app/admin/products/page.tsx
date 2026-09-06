@@ -68,7 +68,7 @@ export default function ProductsPage() {
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         <h1 className="text-2xl font-bold">Products</h1>
       </div>
-      <p className="text-sm text-gray-900 mb-6">
+      <p className="text-sm text-gray-500 mb-6">
         The spreadsheet is the source of truth — new products are added there, and pulled in via
         the Developer panel's sync. Editing a price here writes into the sheet directly, so the
         two never drift apart.
@@ -86,7 +86,7 @@ export default function ProductsPage() {
       ) : products.length === 0 ? (
         <p className="text-gray-900">No products yet — ask the developer to sync from the spreadsheet.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>

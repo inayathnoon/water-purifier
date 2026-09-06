@@ -320,8 +320,8 @@ function InstallationsPageInner() {
       </div>
 
       {showPurchaseForm && (
-        <form onSubmit={handleCreatePurchase} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
-          <p className="text-sm text-gray-900">
+        <form onSubmit={handleCreatePurchase} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 space-y-3">
+          <p className="text-sm text-gray-500">
             {fromEnquiryId
               ? "Converting this enquiry — it stays in Enquiries until you submit this purchase, then moves out for real."
               : "For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech."}
@@ -367,7 +367,7 @@ function InstallationsPageInner() {
                       }
                     />
                     {item.listPrice != null && (
-                      <p className="text-xs text-gray-900 mt-1">List price: ₹{item.listPrice}</p>
+                      <p className="text-xs text-gray-500 mt-1">List price: ₹{item.listPrice}</p>
                     )}
                     <input
                       placeholder="Extra details (optional — e.g. 'and Prefilter')"
@@ -491,21 +491,21 @@ function InstallationsPageInner() {
       ) : (
         <div className="space-y-4">
           {installations.map((inst) => (
-            <div key={inst.id} className="bg-white rounded-lg shadow p-4">
+            <div key={inst.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-medium">
                     {inst.customers.name} — {inst.customers.phone_number}
                   </p>
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-gray-500">
                     {inst.customers.address}, {inst.customers.area}
                   </p>
-                  <p className="text-sm text-gray-900 mt-1">Agreed price: ₹{inst.agreed_price}</p>
+                  <p className="text-sm text-gray-500 mt-1">Agreed price: ₹{inst.agreed_price}</p>
                   {inst.planned_installation_date && !inst.booked_date && (
                     <p className="text-sm text-blue-700">Planned for: {inst.planned_installation_date}</p>
                   )}
                   {firstOrder(inst.orders) && (
-                    <p className="text-sm text-gray-900">
+                    <p className="text-sm text-gray-500">
                       Paid: ₹{firstOrder(inst.orders)!.paid_amount}
                       {firstOrder(inst.orders)!.balance_owed > 0 && (
                         <span className="text-red-600"> · ₹{firstOrder(inst.orders)!.balance_owed} owed</span>
@@ -583,7 +583,7 @@ function InstallationsPageInner() {
                     extra={
                       bookForm.assignedToId &&
                       bookForm.bookedDate && (
-                        <p className="text-xs text-gray-900">
+                        <p className="text-xs text-gray-500">
                           This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
                           in this half-day.
                         </p>

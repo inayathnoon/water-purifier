@@ -2151,6 +2151,40 @@ was built for); an ad-hoc service request's product/issue/location
 edited and reflected in the Service sheet. All test data cleaned from
 both the DB and every sheet touched.
 
+## App-Wide Visual Consistency Pass (2026-09-06)
+
+Explicit ask: "a better UI, without adding complexity" — whole app,
+cleaner and calmer, no layout or flow changes. Two mechanical fixes,
+both drift that had accumulated over many sessions rather than a
+deliberate choice anyone made:
+
+- **Every card now uses the same chrome.** The dashboard family got
+  `bg-white rounded-lg shadow-sm border border-gray-200` back on
+  2026-09-05; every other page (`orders`, `installations`, `enquiries`,
+  `service-calls`, `spare-parts`, `products`, `customers`, `developer`,
+  `staff/jobs`, `staff/time-off`, `owner/leave`) was still on the older
+  plain `shadow` with no border, so the app visually split into "the
+  dashboards" and "everything else." All 22 remaining spots now match.
+- **Secondary text finally reads as secondary.** `text-gray-900` (near-
+  black) was the only text color used anywhere outside headings and
+  errors — a caption, a phone number, a timestamp, and the customer's
+  own name all read at the exact same visual weight, which is a real
+  part of why the app felt flat. Every genuine caption (`text-sm
+  text-gray-900` / `text-xs text-gray-900` — 61 spots) is now
+  `text-gray-500`, creating actual hierarchy without touching a single
+  layout, font size, or interaction.
+
+**Caught and corrected before shipping**: the mechanical pass initially
+over-applied — Sign Out buttons, the dashboard nav grid's own browse-
+link labels, a "Free" checkbox's label, and the confirmation dialog's
+own message text all matched the same `text-sm text-gray-900` pattern
+as a genuine caption, but are actually primary, actionable, or the
+whole point of what's being read — muting them would have made the app
+harder to use, the opposite of the goal. All four categories reverted
+back to full-strength text before this shipped. Verified with a full
+grep audit of every remaining `text-gray-500` spot by hand, not just
+`tsc`/`next build` passing.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

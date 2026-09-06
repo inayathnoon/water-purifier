@@ -159,7 +159,7 @@ function CustomerDirectoryPageInner() {
     <div className="max-w-4xl mx-auto py-8 px-4">
       <HomeLink />
       <h1 className="text-2xl font-bold mb-1 mt-2">Customer Directory</h1>
-      <p className="text-sm text-gray-900 mb-4">
+      <p className="text-sm text-gray-500 mb-4">
         Search by phone number or name to see everything a customer has enquired about or bought.
       </p>
 
@@ -187,7 +187,7 @@ function CustomerDirectoryPageInner() {
       )}
 
       {results.length > 0 && (
-        <div className="bg-white rounded-lg shadow divide-y">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
           {results.map((c) => {
             const isExpanded = expandedId === c.id;
             const tickets = history[c.id];

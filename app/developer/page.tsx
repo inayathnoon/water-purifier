@@ -152,7 +152,7 @@ export default function DeveloperPage() {
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center gap-2 mb-6">
-        <span className="text-sm text-gray-900">{user?.name} (developer)</span>
+        <span className="text-sm text-gray-500">{user?.name} (developer)</span>
         <button
           onClick={handleSignOut}
           className="px-3 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
@@ -162,13 +162,13 @@ export default function DeveloperPage() {
       </div>
 
       <h1 className="text-2xl font-bold mb-1">Developer Panel</h1>
-      <p className="text-sm text-gray-900 mb-6">Maintenance tools — not part of the business dashboard.</p>
+      <p className="text-sm text-gray-500 mb-6">Maintenance tools — not part of the business dashboard.</p>
 
       {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4 text-sm">{error}</p>}
 
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <h2 className="font-semibold mb-1">View As</h2>
-        <p className="text-sm text-gray-900 mb-3">
+        <p className="text-sm text-gray-500 mb-3">
           Preview what each role actually sees — read-only, doesn't need a separate account.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -184,7 +184,7 @@ export default function DeveloperPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex justify-between items-center mb-2">
           <h2 className="font-semibold">Database Migrations</h2>
           {!migrationsLoading && migrations.filter((m) => !m.applied).length > 0 && (
@@ -194,7 +194,7 @@ export default function DeveloperPage() {
           )}
         </div>
         {migrationsLoading ? (
-          <p className="text-sm text-gray-900">Loading...</p>
+          <p className="text-sm text-gray-500">Loading...</p>
         ) : (
           <>
             <div className="divide-y mb-3 max-h-48 overflow-y-auto">
@@ -215,15 +215,15 @@ export default function DeveloperPage() {
               >
                 {runningMigrations ? 'Running...' : 'Run Pending Migrations'}
               </button>
-              {migrationResult && <span className="text-sm text-gray-900">{migrationResult}</span>}
+              {migrationResult && <span className="text-sm text-gray-500">{migrationResult}</span>}
             </div>
           </>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <h2 className="font-semibold mb-1">Product / Spare Parts Sheet</h2>
-        <p className="text-sm text-gray-900 mb-3">
+        <p className="text-sm text-gray-500 mb-3">
           The sheet is the source of truth (§9) — add or edit rows there directly, then sync.
         </p>
 
@@ -246,7 +246,7 @@ export default function DeveloperPage() {
               >
                 {syncing ? 'Syncing...' : 'Sync products now'}
               </button>
-              {syncMessage && <span className="text-sm text-gray-900">{syncMessage}</span>}
+              {syncMessage && <span className="text-sm text-gray-500">{syncMessage}</span>}
             </div>
           </div>
 
@@ -268,13 +268,13 @@ export default function DeveloperPage() {
               >
                 {sparePartsSyncing ? 'Syncing...' : 'Sync spare parts'}
               </button>
-              {sparePartsSyncMessage && <span className="text-sm text-gray-900">{sparePartsSyncMessage}</span>}
+              {sparePartsSyncMessage && <span className="text-sm text-gray-500">{sparePartsSyncMessage}</span>}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold">Staff Accounts</h2>
           <button
@@ -321,7 +321,7 @@ export default function DeveloperPage() {
         )}
 
         {loading ? (
-          <p className="text-sm text-gray-900">Loading...</p>
+          <p className="text-sm text-gray-500">Loading...</p>
         ) : (
           <div className="divide-y">
             {staff.map((member) => (
@@ -330,7 +330,7 @@ export default function DeveloperPage() {
                   <p className={`text-sm font-medium ${!member.active ? 'text-gray-400 line-through' : ''}`}>
                     {member.name}
                   </p>
-                  <p className="text-xs text-gray-900">
+                  <p className="text-xs text-gray-500">
                     {member.phone} · {ROLE_LABEL[member.role]}
                     {!member.active && ' · deactivated'}
                   </p>

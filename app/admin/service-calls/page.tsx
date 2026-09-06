@@ -291,7 +291,7 @@ function ServiceCallsPageInner() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-gray-900 mb-6">
+      <p className="text-sm text-gray-500 mb-6">
         Yearly service is due every 18 months, then every 12 after that (§8.2) — newest
         installation first. "+ New Service" is for a customer calling in with a problem any
         time, not tied to that schedule.
@@ -299,7 +299,7 @@ function ServiceCallsPageInner() {
       {error && !showNewForm && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {showNewForm && (
-        <form onSubmit={handleNewServiceSubmit} className="bg-white p-4 rounded-lg shadow mb-8 space-y-3">
+        <form onSubmit={handleNewServiceSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-3">
           {newServiceError && <p className="text-red-600 text-sm">{newServiceError}</p>}
           <CustomerFields
             value={{
@@ -406,7 +406,7 @@ function ServiceCallsPageInner() {
       ) : due.length === 0 ? (
         <p className="text-gray-900 mb-6">Nothing due this month.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow divide-y mb-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y mb-8">
           {due.map((d) => (
             <div
               key={d.installationTicketId}
@@ -419,7 +419,7 @@ function ServiceCallsPageInner() {
                 <p className="font-medium">
                   {d.customerName} — {d.phoneNumber}
                 </p>
-                <p className="text-sm text-gray-900">
+                <p className="text-sm text-gray-500">
                   {d.area} · {d.productLabel || 'No product noted'} · installed{' '}
                   {(d.monthsSinceInstall / 12).toFixed(1)} years ago
                 </p>
@@ -447,14 +447,14 @@ function ServiceCallsPageInner() {
             <div
               key={c.id}
               id={`call-${c.id}`}
-              className={`bg-white rounded-lg shadow p-4 ${
+              className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${
                 highlightTicket === c.id ? 'ring-2 ring-yellow-400' : ''
               }`}
             >
               <p className="font-medium">
                 {c.customers.name} — {c.customers.phone_number}
               </p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-gray-500">
                 {c.customers.address}, {c.customers.area}
               </p>
               <p className="text-sm mt-1">

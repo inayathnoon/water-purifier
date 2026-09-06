@@ -174,7 +174,7 @@ function EnquiriesPageInner() {
       {error && !showForm && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
 
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
+        <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 space-y-3">
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <CustomerFields
             value={{
@@ -234,7 +234,7 @@ function EnquiriesPageInner() {
               </p>
             </>
           )}
-          <p className="text-xs text-gray-900">
+          <p className="text-xs text-gray-500">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
           <button
@@ -252,7 +252,7 @@ function EnquiriesPageInner() {
       ) : sorted.length === 0 ? (
         <p className="text-gray-900">No open enquiries.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow divide-y">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
           {sorted.map((e) => {
             const age = daysOld(e.created_at);
             return (
@@ -273,7 +273,7 @@ function EnquiriesPageInner() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-900">
+                    <p className="text-sm text-gray-500">
                       {e.customers?.area} · {e.enquiry_product_interest || 'No product noted'}
                     </p>
                   </div>

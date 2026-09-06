@@ -285,7 +285,7 @@ export default function StaffJobsPage() {
         </div>
       )}
       <div className="flex justify-between items-center gap-2">
-        <span className="text-sm text-gray-900">{user?.name}</span>
+        <span className="text-sm text-gray-500">{user?.name}</span>
         <div className="flex items-center gap-3">
           <Link href="/staff/time-off" className="text-sm text-blue-600 hover:underline">
             Time Off
@@ -299,7 +299,7 @@ export default function StaffJobsPage() {
         </div>
       </div>
       <h1 className="text-2xl font-bold mb-1 mt-2">My Jobs</h1>
-      <p className="text-sm text-gray-900 mb-4">
+      <p className="text-sm text-gray-500 mb-4">
         {showAll ? 'All jobs' : `Today, ${today}`}
         {!showAll && upcomingCount > 0 && (
           <button onClick={() => setShowAll(true)} className="ml-2 text-blue-600 underline">
@@ -324,18 +324,18 @@ export default function StaffJobsPage() {
       ) : (
         <div className="space-y-4">
           {visibleJobs.map((job) => (
-            <div key={job.id} className="bg-white rounded-xl shadow p-4">
+            <div key={job.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex justify-between items-start mb-2">
                 <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${jobBadge(job).classes}`}>
                   {jobBadge(job).label}
                 </span>
-                <span className="text-sm text-gray-900">
+                <span className="text-sm text-gray-500">
                   {job.booked_date} · {HALF_DAY_LABEL[job.booked_half_day] ?? job.booked_half_day}
                 </span>
               </div>
 
               <p className="font-semibold text-lg leading-tight">{job.customers.name}</p>
-              <p className="text-gray-900 text-sm">
+              <p className="text-sm text-gray-500">
                 {job.location === 'office'
                   ? 'Customer brings unit to office'
                   : `${job.customers.address}, ${job.customers.area}`}
@@ -392,19 +392,19 @@ export default function StaffJobsPage() {
 
                   {job.kind === 'service_visit' &&
                     (isWithinWarranty(job.installation_date, form.actualDate) ? (
-                      <p className="text-sm text-gray-900 bg-gray-50 rounded-lg px-3 py-2">
+                      <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
                         Still under warranty — no charge for this visit.
                       </p>
                     ) : (
                       <div className="border rounded-lg divide-y">
                         {spareParts.length === 0 ? (
-                          <p className="text-sm text-gray-900 p-3">No parts loaded — check with admin.</p>
+                          <p className="text-sm text-gray-500 p-3">No parts loaded — check with admin.</p>
                         ) : (
                           spareParts.map((p) => (
                             <div key={p.name} className="flex justify-between items-center p-3">
                               <div>
                                 <p className="text-sm font-medium">{p.name}</p>
-                                <p className="text-xs text-gray-900">₹{p.price}</p>
+                                <p className="text-xs text-gray-500">₹{p.price}</p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <button
@@ -485,7 +485,7 @@ export default function StaffJobsPage() {
           {showHistory && (
             <div className="mt-3 space-y-2">
               {history.map((h) => (
-                <div key={h.id} className="bg-white rounded-lg shadow p-3 text-sm">
+                <div key={h.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 text-sm">
                   <div className="flex justify-between items-start">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       h.kind === 'installation' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'

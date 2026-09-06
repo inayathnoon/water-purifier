@@ -67,12 +67,12 @@ export default function OwnerLeavePage() {
           ) : (
             <div className="space-y-3 mb-8">
               {pending.map((r) => (
-                <div key={r.id} className="bg-white rounded-lg shadow p-4">
+                <div key={r.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <p className="font-medium">{r.users.name}</p>
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-gray-500">
                     {r.start_date} to {r.end_date}
                   </p>
-                  <p className="text-sm text-gray-900 mt-1">{r.reason}</p>
+                  <p className="text-sm text-gray-500 mt-1">{r.reason}</p>
 
                   <div className="flex gap-2 mt-3">
                     <button
@@ -116,7 +116,7 @@ export default function OwnerLeavePage() {
           ) : (
             <div className="space-y-2">
               {decided.map((r) => (
-                <div key={r.id} className="bg-white rounded-lg shadow p-3 text-sm">
+                <div key={r.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 text-sm">
                   <p>
                     <span className="font-medium">{r.users.name}</span> — {r.start_date} to {r.end_date} —{' '}
                     <span className={r.status === 'approved' ? 'text-green-700' : 'text-red-700'}>{r.status}</span>

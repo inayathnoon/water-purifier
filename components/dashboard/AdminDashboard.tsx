@@ -187,7 +187,7 @@ export default function AdminDashboard() {
                 <div className="flex justify-between items-center gap-2">
                   <div>
                     <p className="text-sm font-medium">{t.customers.name}</p>
-                    <p className="text-xs text-gray-900">{t.enquiry_product_interest || t.customers.phone_number}</p>
+                    <p className="text-xs text-gray-500">{t.enquiry_product_interest || t.customers.phone_number}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-xs ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>

@@ -167,7 +167,7 @@ export default function OwnerDashboard() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-gray-900 mt-2">
+        <p className="text-xs text-gray-500 mt-2">
           Spare parts includes both an office walk-in sale and whatever a tech sold during a visit.
         </p>
       </div>
@@ -184,7 +184,7 @@ export default function OwnerDashboard() {
 
         <DashboardCard title="Discount given this month" emptyText="">
           <p className="text-2xl font-semibold text-gray-900">₹{data.monthRevenue.discount.toFixed(2)}</p>
-          <p className="text-sm text-gray-900 mt-1">Margin sits between list price and sold price (§7.6)</p>
+          <p className="text-sm text-gray-500 mt-1">Margin sits between list price and sold price (§7.6)</p>
         </DashboardCard>
 
         <DashboardCard
@@ -259,7 +259,7 @@ export default function OwnerDashboard() {
                 <div className="flex justify-between items-center gap-2">
                   <div>
                     <p className="text-sm font-medium">{t.customers.name}</p>
-                    <p className="text-xs text-gray-900">{t.enquiry_product_interest || t.customers.phone_number}</p>
+                    <p className="text-xs text-gray-500">{t.enquiry_product_interest || t.customers.phone_number}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-xs ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>

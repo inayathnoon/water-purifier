@@ -241,11 +241,11 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-gray-900">
             {ticket.customers.phone_number} · {ticket.customers.address}, {ticket.customers.area}
           </p>
-          <p className="text-sm text-gray-900 mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             Interested in: {ticket.enquiry_product_interest || '—'} · {SOURCE_LABEL[ticket.enquiry_source] ?? ticket.enquiry_source}
             {ticket.enquiry_source === 'referral' && ticket.referrer_name && ` (via ${ticket.referrer_name})`}
           </p>
-          <p className="text-sm text-gray-900">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
+          <p className="text-sm text-gray-500">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
         </div>
         <div className="flex gap-2">
           {ticket.status === 'open' && (
@@ -266,7 +266,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {editingTicket && (
-        <form onSubmit={handleSaveTicketEdit} className="bg-white rounded-lg shadow p-4 space-y-3">
+        <form onSubmit={handleSaveTicketEdit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
           {editError && <p className="text-red-600 text-sm">{editError}</p>}
           <input
             placeholder="Product interest"
@@ -315,7 +315,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
       {ticket.status === 'open' && (
         <>
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h2 className="font-semibold mb-2">Log a call</h2>
             <form onSubmit={handleLogCall} className="flex gap-2">
               <input
@@ -329,7 +329,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
             </form>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <h2 className="font-semibold mb-3">Close this enquiry</h2>
 
             {/* Mark Inactive and Convert are the two outcomes that actually
@@ -365,7 +365,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
             <div className="border-t pt-3">
               <button
                 onClick={() => setShowOther((s) => !s)}
-                className="text-sm text-gray-900 hover:underline flex items-center gap-1"
+                className="text-sm text-gray-500 hover:underline flex items-center gap-1"
               >
                 Other {showOther ? '▾' : '▸'}
               </button>
@@ -448,16 +448,16 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
         </>
       )}
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h2 className="font-semibold mb-2">Call history</h2>
         {calls.length === 0 ? (
-          <p className="text-sm text-gray-900">No calls logged yet.</p>
+          <p className="text-sm text-gray-500">No calls logged yet.</p>
         ) : (
           <ul className="space-y-2">
             {calls.map((c) => (
               <li key={c.id} className="text-sm border-b pb-2">
                 <p>{c.note}</p>
-                <p className="text-gray-900 text-xs">{new Date(c.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-500">{new Date(c.created_at).toLocaleString()}</p>
               </li>
             ))}
           </ul>

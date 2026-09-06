@@ -153,12 +153,12 @@ function SparePartsPageInner() {
           {showSellForm ? 'Cancel' : '+ Sell Spare Part'}
         </button>
       </div>
-      <p className="text-sm text-gray-900 mb-6">
+      <p className="text-sm text-gray-500 mb-6">
         A part sold on its own at the office — no visit, no job, customer details optional.
       </p>
 
       {showSellForm && (
-        <form onSubmit={handleSellSubmit} className="bg-white p-4 rounded-lg shadow mb-8 space-y-3">
+        <form onSubmit={handleSellSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-3">
           {sellError && <p className="text-red-600 text-sm">{sellError}</p>}
           <div className="grid grid-cols-2 gap-3">
             <input
@@ -176,13 +176,13 @@ function SparePartsPageInner() {
           </div>
           <div className="border rounded-lg divide-y">
             {spareParts.length === 0 ? (
-              <p className="text-sm text-gray-900 p-3">No spare parts loaded — check the sheet.</p>
+              <p className="text-sm text-gray-500 p-3">No spare parts loaded — check the sheet.</p>
             ) : (
               spareParts.map((p) => (
                 <div key={p.name} className="flex justify-between items-center p-3">
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-gray-900">₹{p.price}</p>
+                    <p className="text-xs text-gray-500">₹{p.price}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
@@ -224,7 +224,7 @@ function SparePartsPageInner() {
       ) : recentSales.length === 0 ? (
         <p className="text-gray-900">No spare part sales yet.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow divide-y">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
           {recentSales.map((s) => (
             <div key={s.id} className="p-3 text-sm">
               <div className="flex justify-between items-center">
@@ -233,7 +233,7 @@ function SparePartsPageInner() {
                     {s.part_name} x{s.quantity}
                     {s.customer_name && <span className="text-gray-900 font-normal"> — {s.customer_name}</span>}
                   </p>
-                  <p className="text-xs text-gray-900">
+                  <p className="text-xs text-gray-500">
                     {new Date(s.created_at).toLocaleString()} · sold by {s.users?.name ?? 'Unknown'}
                   </p>
                 </div>

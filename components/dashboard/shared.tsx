@@ -38,7 +38,7 @@ export function DashboardCard({
         <h3 className="font-semibold text-gray-900">{title}</h3>
         {badge && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>{badge}</span>}
       </div>
-      {isEmpty ? <p className="text-sm text-gray-900">{emptyText}</p> : children}
+      {isEmpty ? <p className="text-sm text-gray-500">{emptyText}</p> : children}
       {viewAllHref && (
         <Link href={viewAllHref} className="block text-sm text-blue-600 hover:underline mt-2">
           View all →
@@ -74,7 +74,7 @@ export function Row({
     <Link href={href} className="flex justify-between items-center py-2 border-b last:border-0 hover:bg-gray-50 -mx-1 px-1 rounded">
       <div>
         <p className="text-sm font-medium">{primary}</p>
-        {secondary && <p className="text-xs text-gray-900">{secondary}</p>}
+        {secondary && <p className="text-xs text-gray-500">{secondary}</p>}
       </div>
       {tag && <span className={`text-xs ${tagColor ?? 'text-gray-900'}`}>{tag}</span>}
     </Link>
@@ -84,7 +84,7 @@ export function Row({
 export function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      <p className="text-sm text-gray-900">{label}</p>
+      <p className="text-sm text-gray-500">{label}</p>
       <p className="text-2xl font-semibold text-gray-900 mt-1">{value}</p>
     </div>
   );

@@ -347,7 +347,7 @@ export default function OrdersPage() {
       ) : visibleOrders.length === 0 ? (
         <p className="text-gray-900">{query ? `No purchases match "${query}".` : 'No purchases yet.'}</p>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
