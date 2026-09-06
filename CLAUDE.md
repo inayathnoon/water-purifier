@@ -1939,6 +1939,47 @@ and a real Yearly Service creation (from a backdated closed
 installation) all produced exactly the expected split across all three
 columns — cleaned up afterward.
 
+## Structural Cleanup Pass, Part 2 (2026-09-06)
+
+Continuing down the review's list, after the BookingForm/dashboard split
+above:
+
+**Confirm-and-close now shows what the tech actually recorded** (T15) —
+both `/admin/service-calls` (charge, parts used, tech's notes, in a
+highlighted block right above "Confirm & close") and
+`/admin/installations` (tech's notes, above its own confirm button).
+Confirming here stamps `installation_date` or starts the warranty clock
+and can create an order — the admin was previously clicking it blind.
+`/admin/orders`'s own "Confirm date" flow already showed this in its
+expanded row, so it didn't need the same fix.
+
+**Technicians can now see their own last 30 days of completed work** (T14)
+— a collapsed "Show my last 30 days" list on `/staff/jobs`, below the
+active jobs, pulling installations and service visits both (the existing
+lists are service-visit-only or still-open). Deliberately no revenue
+figures (§13.4) — `charge_amount` is shown because it's the tech's own
+recorded amount for a chargeable visit, not a sale price. New parallel
+query in `/api/staff/jobs` (`HISTORY_SELECT`, a narrower column
+whitelist than the active-jobs one), returned as a separate `history`
+array alongside the existing `jobs`.
+
+**"Who changed what" now survives a correction** (T21) — two gaps, both
+fixed with the same JSONB-append pattern `orders.payment_history`
+already established (no new audit table): `recordPayment()` now takes
+a `recordedBy` and appends it into each payment entry (previously
+untracked — either admin or owner can record one, and nothing said
+which). `editCompletedServiceVisit()` — the one place a ticket's own
+charge/parts/notes get overwritten after the fact (a tech's §8.4
+mistake-fix window) — now appends the pre-edit values plus who and when
+to a new `tickets.edit_history` column (migration 029) before applying
+the correction, so the original entry isn't just lost.
+
+**Verified live**: a real payment recorded with a real admin's id came
+back correctly in `payment_history`; a real service-visit correction
+(1 valve/₹600 → corrected to 2 valves/₹1200) produced exactly the
+expected `edit_history` entry with the pre-edit values preserved and the
+right editor id — cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

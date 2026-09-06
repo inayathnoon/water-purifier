@@ -40,6 +40,7 @@ interface Installation {
   booked_date: string | null;
   booked_half_day: string | null;
   location: string | null;
+  actual_notes: string | null;
   customers: { name: string; phone_number: string; address: string; area: string };
   users: { name: string } | null;
   orders: { paid_amount: number; balance_owed: number } | { paid_amount: number; balance_owed: number }[] | null;
@@ -521,6 +522,14 @@ function InstallationsPageInner() {
                     )}
                     {inst.users && <> · assigned to {inst.users.name}</>}
                   </p>
+                  {/* What the tech recorded, right where the admin decides
+                      whether to confirm it — confirming here stamps
+                      installation_date and starts the warranty clock. */}
+                  {inst.status === 'completed' && (
+                    <p className="text-sm bg-gray-50 rounded-md p-2 mt-2">
+                      <span className="text-gray-600">Tech&apos;s notes:</span> {inst.actual_notes || '—'}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-x-2">

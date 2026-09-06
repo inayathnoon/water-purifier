@@ -19,6 +19,11 @@ function daysAgoDateString(days: number): string {
 const SELECT =
   'id, kind, status, booked_date, booked_half_day, location, parent_installation_id, installation_date, actual_date, actual_notes, parts_used, charge_amount, issue_note, customers(name, address, area, phone_number)';
 
+// §13.4: no price/business-sensitive data — same column whitelist as the
+// active-jobs SELECT, just narrower (a read-only history entry has no
+// use for booked_date/location/issue_note, only what was actually done).
+const HISTORY_SELECT = 'id, kind, actual_date, actual_notes, parts_used, charge_amount, customers(name)';
+
 // §2.3: service staff see only their own jobs. Price/discount/balance
 // columns live on `orders`, not `tickets`, and this query never touches
 // that table — so there's nothing to accidentally leak here even without
@@ -32,7 +37,7 @@ export async function GET() {
     // correctly comes back empty rather than leaking anyone else's jobs.
     const user = await requireUser(['service_staff', 'developer']);
 
-    const [active, recentlyClosed] = await Promise.all([
+    const [active, recentlyClosed, history] = await Promise.all([
       // Anything still open to act on — book to complete, or completed
       // and awaiting the admin's confirmation call.
       supabaseAdmin
@@ -55,12 +60,26 @@ export async function GET() {
         .eq('status', 'closed')
         .gte('actual_date', daysAgoDateString(7))
         .order('booked_date', { ascending: true }),
+
+      // "My last 30 days" — a plain record of what this tech actually did,
+      // installations included this time (the two lists above are
+      // service_visit-only or still-open). Read-only, no edit window;
+      // just confirmation of their own work, no revenue figures (§13.4).
+      supabaseAdmin
+        .from('tickets')
+        .select(HISTORY_SELECT)
+        .eq('assigned_to_id', user.id)
+        .in('kind', ['installation', 'service_visit'])
+        .eq('status', 'closed')
+        .gte('actual_date', daysAgoDateString(30))
+        .order('actual_date', { ascending: false }),
     ]);
 
     if (active.error) throw active.error;
     if (recentlyClosed.error) throw recentlyClosed.error;
+    if (history.error) throw history.error;
 
-    return Response.json({ jobs: [...active.data, ...recentlyClosed.data] });
+    return Response.json({ jobs: [...active.data, ...recentlyClosed.data], history: history.data });
   } catch (err) {
     return handleApiError(err);
   }

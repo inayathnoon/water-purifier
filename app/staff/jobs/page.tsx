@@ -25,6 +25,19 @@ interface Job {
   customers: { name: string; address: string; area: string; phone_number: string };
 }
 
+// "My last 30 days" — a plain record of completed work, no revenue
+// figures (§13.4). charge_amount is a tech's own recorded amount for a
+// chargeable visit, not the sale price — already something they entered.
+interface HistoryEntry {
+  id: string;
+  kind: 'installation' | 'service_visit';
+  actual_date: string | null;
+  actual_notes: string | null;
+  parts_used: string | null;
+  charge_amount: number | null;
+  customers: { name: string };
+}
+
 interface SparePart {
   name: string;
   price: number;
@@ -107,6 +120,8 @@ export default function StaffJobsPage() {
   const [customPart, setCustomPart] = useState({ name: '', price: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +131,7 @@ export default function StaffJobsPage() {
       .then((data) => {
         if (cancelled) return;
         setJobs(data.jobs ?? []);
+        setHistory(data.history ?? []);
         setLoading(false);
       });
     fetch('/api/staff/spare-parts')
@@ -455,6 +471,41 @@ export default function StaffJobsPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="mt-6 pt-4 border-t">
+          <button
+            onClick={() => setShowHistory((s) => !s)}
+            className="text-sm text-blue-600 underline"
+          >
+            {showHistory ? 'Hide' : 'Show'} my last 30 days ({history.length})
+          </button>
+          {showHistory && (
+            <div className="mt-3 space-y-2">
+              {history.map((h) => (
+                <div key={h.id} className="bg-white rounded-lg shadow p-3 text-sm">
+                  <div className="flex justify-between items-start">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                      h.kind === 'installation' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {h.kind === 'installation' ? 'Installation' : 'Service visit'}
+                    </span>
+                    <span className="text-gray-900">{h.actual_date}</span>
+                  </div>
+                  <p className="font-medium mt-1">{h.customers.name}</p>
+                  {h.kind === 'service_visit' && (
+                    <p className="text-gray-900 mt-1">
+                      {h.parts_used ? `Parts: ${h.parts_used}` : 'No parts used'}
+                      {h.charge_amount != null && (h.charge_amount > 0 ? ` · ₹${h.charge_amount}` : ' · Free (under warranty)')}
+                    </p>
+                  )}
+                  {h.actual_notes && <p className="text-gray-900 mt-1">{h.actual_notes}</p>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -9,7 +9,7 @@ async function getOrderOrThrow(orderId: string) {
 }
 
 /** §7.2: record a payment against an order. balance_owed recomputes itself (generated column). */
-export async function recordPayment(orderId: string, amount: number) {
+export async function recordPayment(orderId: string, amount: number, recordedBy?: string) {
   if (amount <= 0) throw new ApiError(400, 'Payment amount must be positive');
 
   const order = await getOrderOrThrow(orderId);
@@ -22,8 +22,10 @@ export async function recordPayment(orderId: string, amount: number) {
   // admin see payments against date later, not just "how much is paid
   // so far right now". Kept as a column on orders itself (not a separate
   // table) so there's nowhere else "how much was paid" can drift from
-  // orders.paid_amount.
-  const paymentHistory = [...(order.payment_history ?? []), { amount, date: new Date().toISOString() }];
+  // orders.paid_amount. recordedBy (added 2026-09-06) is who actually
+  // clicked it — admin and owner both can, and until now nothing said
+  // which one did for any given entry.
+  const paymentHistory = [...(order.payment_history ?? []), { amount, date: new Date().toISOString(), recordedBy: recordedBy ?? null }];
 
   const { data, error } = await supabaseAdmin
     .from('orders')

@@ -28,6 +28,7 @@ interface ServiceCall {
   location: string | null;
   charge_amount: number | null;
   parts_used: string | null;
+  actual_notes: string | null;
   assigned_to_id: string | null;
   customers: { name: string; phone_number: string; address: string; area: string };
   users: { name: string } | null;
@@ -428,12 +429,6 @@ function ServiceCallsPageInner() {
                     {c.booked_date} ({c.booked_half_day}) · {c.location} · assigned to {c.users?.name}
                   </>
                 )}
-                {c.status === 'completed' && (
-                  <>
-                    {' · '}
-                    charge: {c.charge_amount != null ? `₹${c.charge_amount}` : '—'}
-                  </>
-                )}
               </p>
 
               {c.status === 'open' && (
@@ -507,12 +502,29 @@ function ServiceCallsPageInner() {
               )}
 
               {c.status === 'completed' && (
-                <button
-                  onClick={() => handleConfirmClose(c.id)}
-                  className="mt-3 px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
-                >
-                  Confirm & close
-                </button>
+                <div className="mt-3 pt-3 border-t space-y-2">
+                  {/* What the tech actually recorded, right where the admin
+                      decides whether to confirm it — not hidden behind a
+                      click, since confirming here can create an order. */}
+                  <div className="bg-gray-50 rounded-md p-3 text-sm space-y-1">
+                    <p>
+                      <span className="text-gray-600">Charge:</span>{' '}
+                      {c.charge_amount != null ? `₹${c.charge_amount}` : '—'}
+                    </p>
+                    <p>
+                      <span className="text-gray-600">Parts used:</span> {c.parts_used || '—'}
+                    </p>
+                    <p>
+                      <span className="text-gray-600">Tech's notes:</span> {c.actual_notes || '—'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleConfirmClose(c.id)}
+                    className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                  >
+                    Confirm & close
+                  </button>
+                </div>
               )}
             </div>
           ))}

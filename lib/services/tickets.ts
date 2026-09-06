@@ -493,11 +493,26 @@ export async function editCompletedServiceVisit(
   // §13.3 still applies on a correction, exactly as it did the first time
   // — checked against the visit's own actual_date, not today's.
   const chargeable = !isWithinWarranty(ticket.installation_date, ticket.actual_date);
+
+  // Record what's about to be overwritten, and by whom — the one place a
+  // ticket's own charge/parts/notes get corrected after the fact, so
+  // "who changed what" has to survive the overwrite rather than just
+  // being lost (same JSONB-append pattern as orders.payment_history).
+  const editHistory = [
+    ...(ticket.edit_history ?? []),
+    {
+      editedBy: callerId,
+      editedAt: new Date().toISOString(),
+      previous: { notes: ticket.actual_notes, partsUsed: ticket.parts_used, chargeAmount: ticket.charge_amount },
+    },
+  ];
+
   const update = {
     actual_notes: input.notes,
     parts_used: input.partsUsed ?? null,
     charge_amount: chargeable ? input.chargeAmount ?? null : 0,
     charge_breakdown: chargeable ? input.chargeBreakdown ?? [] : [],
+    edit_history: editHistory,
   };
 
   const { data, error } = await supabaseAdmin
