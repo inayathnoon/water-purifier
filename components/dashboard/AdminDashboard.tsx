@@ -127,7 +127,7 @@ export default function AdminDashboard() {
             { href: '/admin/enquiries', label: 'Enquiries', newHref: '/admin/enquiries?new=1', newLabel: '+ New Enquiry', newColor: 'bg-blue-600 hover:bg-blue-700 text-white' },
             { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase', newColor: 'bg-green-600 hover:bg-green-700 text-white' },
             { href: '/admin/service-calls', label: 'Services', newHref: '/admin/service-calls?new=1', newLabel: '+ New Service', newColor: 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' },
-            { href: '/admin/spare-parts', label: 'Spare Parts', newHref: '/admin/spare-parts?new=1', newLabel: '+ Sell Spare Part', newColor: 'bg-orange-500 hover:bg-orange-600 text-white' },
+            { href: '/admin/spare-parts', label: 'Spares', newHref: '/admin/spare-parts?new=1', newLabel: '+ Sell Spare Part', newColor: 'bg-orange-500 hover:bg-orange-600 text-white' },
             { href: '/admin/customers', label: 'Customers' },
             { href: '/admin/products', label: 'Products' },
           ].map((item) => (

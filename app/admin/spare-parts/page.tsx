@@ -145,7 +145,7 @@ function SparePartsPageInner() {
     <div className="max-w-3xl mx-auto py-8 px-4">
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
-        <h1 className="text-2xl font-bold">Spare Parts</h1>
+        <h1 className="text-2xl font-bold">Spares</h1>
         <button
           onClick={() => setShowSellForm((s) => !s)}
           className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
