@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 import CustomerFields from '@/components/CustomerFields';
 import { useConfirm } from '@/components/useConfirm';
+import BookingForm from '@/components/BookingForm';
 
 // Label on the left, the field on the right — matches FormRow elsewhere.
 function FormRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -36,12 +37,6 @@ interface StaffMember {
   id: string;
   name: string;
   approvedLeave: { start_date: string; end_date: string }[];
-}
-
-function onApprovedLeave(staff: StaffMember[], staffId: string, date: string): boolean {
-  if (!date) return false;
-  const person = staff.find((s) => s.id === staffId);
-  return (person?.approvedLeave ?? []).some((l) => date >= l.start_date && date <= l.end_date);
 }
 
 interface DueService {
@@ -481,53 +476,7 @@ function ServiceCallsPageInner() {
 
                   {bookingId === c.id && (
                     <form onSubmit={(e) => handleBook(e, c.id)} className="pt-3 border-t space-y-2">
-                      <select
-                        required
-                        className="border rounded px-3 py-2 w-full"
-                        value={bookForm.assignedToId}
-                        onChange={(e) => setBookForm({ ...bookForm, assignedToId: e.target.value })}
-                      >
-                        <option value="">Assign to...</option>
-                        {staff.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          required
-                          className="border rounded px-3 py-2 flex-1"
-                          value={bookForm.bookedDate}
-                          onChange={(e) => setBookForm({ ...bookForm, bookedDate: e.target.value })}
-                        />
-                        <select
-                          className="border rounded px-3 py-2"
-                          value={bookForm.bookedHalfDay}
-                          onChange={(e) => setBookForm({ ...bookForm, bookedHalfDay: e.target.value })}
-                        >
-                          <option value="morning">Morning</option>
-                          <option value="afternoon">Afternoon</option>
-                          <option value="evening">Evening</option>
-                        </select>
-                        <select
-                          className="border rounded px-3 py-2"
-                          value={bookForm.location}
-                          onChange={(e) => setBookForm({ ...bookForm, location: e.target.value })}
-                        >
-                          <option value="home">Home</option>
-                          <option value="office">Office</option>
-                        </select>
-                      </div>
-                      {onApprovedLeave(staff, bookForm.assignedToId, bookForm.bookedDate) && (
-                        <p className="text-xs text-orange-600">
-                          This person is on approved leave that day — you can still book them (§11.5).
-                        </p>
-                      )}
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Confirm booking
-                      </button>
+                      <BookingForm staff={staff} value={bookForm} onChange={setBookForm} submitLabel="Confirm booking" />
                     </form>
                   )}
                 </div>
@@ -551,53 +500,7 @@ function ServiceCallsPageInner() {
                   </div>
                   {bookingId === c.id && (
                     <form onSubmit={(e) => handleBook(e, c.id)} className="pt-3 border-t space-y-2">
-                      <select
-                        required
-                        className="border rounded px-3 py-2 w-full"
-                        value={bookForm.assignedToId}
-                        onChange={(e) => setBookForm({ ...bookForm, assignedToId: e.target.value })}
-                      >
-                        <option value="">Assign to...</option>
-                        {staff.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          required
-                          className="border rounded px-3 py-2 flex-1"
-                          value={bookForm.bookedDate}
-                          onChange={(e) => setBookForm({ ...bookForm, bookedDate: e.target.value })}
-                        />
-                        <select
-                          className="border rounded px-3 py-2"
-                          value={bookForm.bookedHalfDay}
-                          onChange={(e) => setBookForm({ ...bookForm, bookedHalfDay: e.target.value })}
-                        >
-                          <option value="morning">Morning</option>
-                          <option value="afternoon">Afternoon</option>
-                          <option value="evening">Evening</option>
-                        </select>
-                        <select
-                          className="border rounded px-3 py-2"
-                          value={bookForm.location}
-                          onChange={(e) => setBookForm({ ...bookForm, location: e.target.value })}
-                        >
-                          <option value="home">Home</option>
-                          <option value="office">Office</option>
-                        </select>
-                      </div>
-                      {onApprovedLeave(staff, bookForm.assignedToId, bookForm.bookedDate) && (
-                        <p className="text-xs text-orange-600">
-                          This person is on approved leave that day — you can still book them (§11.5).
-                        </p>
-                      )}
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Save changes
-                      </button>
+                      <BookingForm staff={staff} value={bookForm} onChange={setBookForm} submitLabel="Save changes" />
                     </form>
                   )}
                 </div>

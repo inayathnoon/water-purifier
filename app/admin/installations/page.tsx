@@ -6,6 +6,7 @@ import ProductPicker from '@/components/ProductPicker';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
 import { useConfirm } from '@/components/useConfirm';
+import BookingForm from '@/components/BookingForm';
 import { todayIST } from '@/lib/dates';
 
 // Label on the left, the field on the right — placeholder text alone was
@@ -71,13 +72,6 @@ interface StaffMember {
   id: string;
   name: string;
   approvedLeave: { start_date: string; end_date: string }[];
-}
-
-// §11.5: approved leave shows on the booking calendar but never blocks a booking.
-function onApprovedLeave(staff: StaffMember[], staffId: string, date: string): boolean {
-  if (!date) return false;
-  const person = staff.find((s) => s.id === staffId);
-  return (person?.approvedLeave ?? []).some((l) => date >= l.start_date && date <= l.end_date);
 }
 
 export default function InstallationsPage() {
@@ -567,53 +561,26 @@ function InstallationsPageInner() {
 
               {bookingId === inst.id && (
                 <form onSubmit={(e) => handleBook(e, inst.id)} className="mt-4 pt-4 border-t space-y-3">
-                  <select
-                    required
-                    className="border rounded px-3 py-2 w-full"
-                    value={bookForm.assignedToId}
-                    onChange={(e) => setBookForm({ ...bookForm, assignedToId: e.target.value })}
-                  >
-                    <option value="">Assign to...</option>
-                    {staff.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      required
-                      className="border rounded px-3 py-2 flex-1"
-                      value={bookForm.bookedDate}
-                      onChange={(e) => setBookForm({ ...bookForm, bookedDate: e.target.value })}
-                    />
-                    <select
-                      className="border rounded px-3 py-2"
-                      value={bookForm.bookedHalfDay}
-                      onChange={(e) => setBookForm({ ...bookForm, bookedHalfDay: e.target.value })}
-                    >
-                      <option value="morning">Morning</option>
-                      <option value="afternoon">Afternoon</option>
-                      <option value="evening">Evening</option>
-                    </select>
-                  </div>
                   {/* Installations always happen at the customer's home — no
                       office option here (unlike a service visit, where a
                       customer can bring their unit in). bookForm.location
                       stays fixed at 'home'. */}
-                  {bookForm.assignedToId && bookForm.bookedDate && (
-                    <p className="text-xs text-gray-900">
-                      This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
-                      in this half-day.
-                    </p>
-                  )}
-                  {onApprovedLeave(staff, bookForm.assignedToId, bookForm.bookedDate) && (
-                    <p className="text-xs text-orange-600">
-                      This person is on approved leave that day — you can still book them (§11.5).
-                    </p>
-                  )}
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Confirm booking</button>
+                  <BookingForm
+                    staff={staff}
+                    value={bookForm}
+                    onChange={setBookForm}
+                    showLocation={false}
+                    submitLabel="Confirm booking"
+                    extra={
+                      bookForm.assignedToId &&
+                      bookForm.bookedDate && (
+                        <p className="text-xs text-gray-900">
+                          This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
+                          in this half-day.
+                        </p>
+                      )
+                    }
+                  />
                 </form>
               )}
             </div>
