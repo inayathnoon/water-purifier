@@ -1980,6 +1980,35 @@ back correctly in `payment_history`; a real service-visit correction
 expected `edit_history` entry with the pre-edit values preserved and the
 right editor id — cleaned up afterward.
 
+## First Automated Tests: the Five Hard Rules (2026-09-06)
+
+Last item off the review's list that wasn't explicitly deferred. Zero
+test files existed before this — every §13 verification in this
+project's whole history has been a hand-written script, run once, then
+deleted. `tests/hard-rules.test.ts` makes that repeatable: one test per
+hard rule (§13.1–§13.5), using Node's built-in test runner (`node:test`
++ `node:assert/strict` via `tsx --test`) rather than adding a new
+dependency for something this small — `npm test` runs it.
+
+Each rule is checked at every layer that actually enforces it: the
+service-layer guard (a clean, catchable error) *and*, where a DB
+trigger/constraint also exists, a direct table write proving the
+database refuses it independently of the application code (§13.1's
+order-close-while-owed and §13.5's jobs-only-to-service-staff both have
+one; §13.2 and §13.4 are service-layer/RLS-only, so only checked there).
+§13.3 checks both the in-warranty-forces-zero and outside-warranty-
+preserves-the-charge halves of the override.
+
+**Still runs against production** — T19 (a second Supabase project for
+testing) was explicitly deferred — so every test creates its own rows
+and deletes them in a `finally`, including the Sales/Enquiry sheet rows
+a couple of these writes trigger as a side effect, matching the exact
+cleanup discipline every manual verification script in this project has
+used. **Verified live, twice** (`tsx --test` directly, then `npm test`
+as the real documented entry point): 5/5 passing both times, and a
+follow-up check confirmed zero stray customers/tickets/sheet rows left
+behind by either run.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

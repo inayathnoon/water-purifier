@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test --require dotenv/config tests/*.test.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
