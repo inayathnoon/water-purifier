@@ -2009,6 +2009,44 @@ as the real documented entry point): 5/5 passing both times, and a
 follow-up check confirmed zero stray customers/tickets/sheet rows left
 behind by either run.
 
+## Two Findings That Fell Through the Cracks, Now Closed (2026-09-06)
+
+Caught by re-reading the whole session back for anything left dangling:
+two review findings had been silently dropped — never explicitly built,
+never explicitly declined either.
+
+**T17 — a leave request didn't say it needed the owner's decision.**
+`notifyLeaveRequested()`'s Telegram message read like a plain FYI to the
+whole staff group; nothing marked it as something specifically waiting
+on the owner to act (§11.3 — only an owner decides). One-line fix: the
+message now reads "Leave requested — needs owner's decision."
+
+**T5 — office spare-part sales were the only revenue path with no
+sheet row at all.** Every other sale, service charge, and enquiry
+outcome already syncs out to a sheet automatically (§9/§10.5); a
+walk-in spare-part sale at the office never did. New
+`lib/services/sparePartSalesSheet.ts` (`syncSparePartSaleToSheet[Safely]`,
+migration 030 adds the `spare_part_sale_sheet_failed` fail-safe event),
+called from `recordSparePartSale()` after the DB insert commits — one
+sheet row per item, since a single sale can cover several parts at
+once. Unlike Sales/Service/Enquiry (updated in place across a real
+lifecycle), a spare-part sale is a one-time event that's never revisited,
+so it's matched on its own `id` rather than a phone+date composite key —
+simpler, and exact.
+
+The **"Spare Part Sales" tab didn't exist yet** in the real spreadsheet
+— created it directly via the Sheets API (`spreadsheets.batchUpdate`
+`addSheet` + a header row: `id, date, part_name, unit_price, quantity,
+total, customer_name, phone_number, sold_by`), since the service
+account already has Editor access to this spreadsheet from the earlier
+product-price-editing work — no new sharing step needed.
+
+**Verified live end-to-end**: a real 3× test-part sale synced correctly
+to the new tab with the seller's name resolved (`Zainaba`), confirmed no
+`spare_part_sale_sheet_failed` log entry from the run, then cleaned up
+both the DB row and the sheet row (the tab and its header stay, for
+real use going forward).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

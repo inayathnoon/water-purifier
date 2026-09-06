@@ -11,7 +11,8 @@ type EventType =
   | 'service_sheet_failed'
   | 'enquiry_passed_to_owner'
   | 'enquiry_sheet_failed'
-  | 'customer_phone_rekey_failed';
+  | 'customer_phone_rekey_failed'
+  | 'spare_part_sale_sheet_failed';
 
 /**
  * Records something that needs a human's attention even though nobody was
@@ -88,8 +89,11 @@ export async function notifyJobCompleted(input: {
 
 /** §10.3 row 3: who, which dates, and a link for an owner to decide. */
 export async function notifyLeaveRequested(input: { requesterName: string; startDate: string; endDate: string }) {
+  // §11.3: only an owner can decide this — the message previously read
+  // like a plain FYI to the whole group, with nothing marking it as
+  // something specifically waiting on the owner to act.
   const text =
-    `🌴 <b>Leave requested</b>\n` +
+    `🌴 <b>Leave requested — needs owner's decision</b>\n` +
     `${input.requesterName}: ${input.startDate} to ${input.endDate}\n` +
     `${appUrl('/owner/leave')}`;
 

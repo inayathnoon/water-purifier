@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
+import { syncSparePartSaleToSheetSafely } from './sparePartSalesSheet';
 
 export interface SparePartSaleItem {
   partName: string;
@@ -34,6 +35,12 @@ export async function recordSparePartSale(input: {
 
   const { data, error } = await supabaseAdmin.from('spare_part_sales').insert(rows).select('*');
   if (error) throw new ApiError(500, error.message);
+
+  // Registered the moment the sale is made, same reasoning as every
+  // other sheet sync in this app — one row per item, since a single
+  // sale can cover several parts at once.
+  await Promise.all(data.map((row) => syncSparePartSaleToSheetSafely(row.id)));
+
   return data;
 }
 
