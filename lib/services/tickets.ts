@@ -4,6 +4,7 @@ import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } fro
 import { syncOrderToSalesSheetSafely, removeOrderFromSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely } from './serviceSheet';
 import { syncEnquiryToSheetSafely } from './enquirySheet';
+import { syncServiceVisitPartsToSheetSafely } from './sparePartSalesSheet';
 import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
@@ -456,6 +457,10 @@ export async function completeJob(
     endTime: input.actualEndTime,
   });
 
+  if (ticket.kind === 'service_visit') {
+    await syncServiceVisitPartsToSheetSafely(ticketId);
+  }
+
   return data;
 }
 
@@ -527,6 +532,7 @@ export async function editCompletedServiceVisit(
   // first completed/closed — this just updates it in place with the
   // correction, same upsert-by-phone+date it always uses.
   await syncServiceToSheetSafely(ticketId);
+  await syncServiceVisitPartsToSheetSafely(ticketId);
   return data;
 }
 

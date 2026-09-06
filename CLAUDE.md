@@ -2047,6 +2047,54 @@ to the new tab with the seller's name resolved (`Zainaba`), confirmed no
 both the DB row and the sheet row (the tab and its header stay, for
 real use going forward).
 
+## Spare Part Sales Tab: Second Channel Added — Tech-Used Parts (2026-09-06)
+
+Follow-up the same day: a technician's spare parts (`tickets.charge_breakdown`,
+§8.4's Mark Done picker) weren't landing in any sheet at all — checked while
+answering "does data from all 3 sources come here" and found the "Service"
+tab has no parts/charge column whatsoever, only `notes`. Rather than split
+this across two tabs, both channels now write into the same **Spare Part
+Sales** tab, same columns, a new `channel` column (`Office` / `Service
+Visit`) the only thing distinguishing them — new
+`syncServiceVisitPartsToSheet[Safely]()` in `sparePartSalesSheet.ts`,
+called from both `completeJob()` and `editCompletedServiceVisit()` for a
+`service_visit` ticket.
+
+**Real structural difference this needed, not just a new column**: an
+office sale is one fixed row per sale (matched on its own `id`), but a
+service visit's `charge_breakdown` is a whole array that gets *rewritten*
+on every completion or §8.4 correction — a tech dropping a part on a
+correction needs its row gone, not left behind still claiming that part
+was used. New `clearRowsByPrefix()` in the shared `googleSheets.ts`
+plumbing clears every row this ticket has previously written (keyed
+`{ticketId}-{index}`, since a breakdown item has no id of its own)
+before writing the current set fresh, every time.
+
+**Answering "is there any difference in the data filled" directly** —
+`part_name`/`unit_price`/`quantity`/`total`/`sold_by` mean exactly the
+same thing in both channels (sold_by is the seller for an office sale,
+the technician for a service visit). Three real differences, all
+structural, not accidental:
+- **`id` scheme** — a real UUID for an office sale, `{ticketId}-{index}`
+  for a service-visit line (internal keys only, not meant to be read).
+- **`customer_name`/`phone_number` completeness** — always populated for
+  a service visit (a real customer on record); optional and often blank
+  for an office walk-in sale, same as it's always been.
+- **The flat "Service charges" line is excluded from service-visit rows**
+  on purpose, matching how the Mark Done picker itself doesn't offer that
+  row for a no-visit office sale — this tab stays a pure "parts leaving
+  inventory" ledger. That per-visit charge amount is tracked in the
+  `charge_amount` column already on the ticket (and the Service sheet),
+  not itemized here.
+
+**Verified live**: a real completion with 2 real parts + a service charge
+produced exactly 1 sheet row (the charge line correctly excluded);
+correcting it down to zero real parts correctly cleared that row to
+nothing, not a stale leftover; correcting it back up to 2 different real
+parts produced exactly 2 fresh rows. Re-checked the office-sale path
+still writes `channel: 'Office'` correctly against the now-shared header.
+All test rows cleaned from both the DB and the sheet afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
