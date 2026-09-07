@@ -20,20 +20,26 @@ export function daysAgoIST(dateStr: string, now: Date = new Date()): number {
 }
 
 /**
- * §5.6, revised 2026-09-07: a 14+ day old open enquiry is flagged as
- * needing attention — UNLESS it's actually been called in the last 3
- * days (today included), in which case it's earned a 3-day grace period
- * and doesn't need to be flagged again yet. `lastCallAt` is
- * `tickets.last_call_at` (kept in sync with every call_log insert by a
- * DB trigger, §5.2) — null if it's never been called at all, which
- * counts as "not recently contacted" the same as a call from long ago.
- * The 14-day floor still applies first: a fresh enquiry that hasn't been
- * called yet isn't flagged just for being a few days old.
+ * §5.6, revised 2026-09-07: an open enquiry's urgency is based on how
+ * long it's been since the last real activity — a logged call, or its
+ * own creation if it's never been called at all — not fixed to its
+ * creation date. `lastCallAt` is `tickets.last_call_at` (kept in sync
+ * with every call_log insert by a DB trigger, §5.2). 3+ days since that
+ * activity: yellow, needs a call soon. 14+ days: red, actively
+ * neglected. A call resets the clock either way, so a 30-day-old
+ * enquiry called yesterday is back to normal, and an uncalled enquiry
+ * only a few days old can already be yellow.
  */
+export function enquiryUrgency(createdAt: string, lastCallAt: string | null, now: Date = new Date()): 'normal' | 'yellow' | 'red' {
+  const days = daysAgoIST(lastCallAt ?? createdAt, now);
+  if (days >= 14) return 'red';
+  if (days >= 3) return 'yellow';
+  return 'normal';
+}
+
+/** Red-tier only — the threshold behind the dashboard's "over 14 days" badge/count. */
 export function isEnquiryOverdue(createdAt: string, lastCallAt: string | null, now: Date = new Date()): boolean {
-  if (daysAgoIST(createdAt, now) < 14) return false;
-  const daysSinceCall = lastCallAt ? daysAgoIST(lastCallAt, now) : Infinity;
-  return daysSinceCall >= 3;
+  return enquiryUrgency(createdAt, lastCallAt, now) === 'red';
 }
 
 /**

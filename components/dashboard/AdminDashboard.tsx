@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { daysAgoIST, isEnquiryOverdue } from '@/lib/dates';
+import { daysAgoIST, enquiryUrgency } from '@/lib/dates';
 import BookingForm from '@/components/BookingForm';
 import WeekSchedule from '@/components/dashboard/WeekSchedule';
 import { DashboardCard, Row, StaffMember, emptyAssignForm } from './shared';
@@ -163,12 +163,13 @@ export default function AdminDashboard() {
           {data.newEnquiries.slice(0, 5).map((e) => {
             // Still sorted oldest-created-first (unchanged) even once
             // flagged again — only the label/color reflect the call.
-            const flagged = isEnquiryOverdue(e.created_at, e.last_call_at);
+            const urgency = enquiryUrgency(e.created_at, e.last_call_at);
             const tag = e.last_call_at
               ? `Last called ${daysAgo(e.last_call_at)}d ago`
-              : flagged
+              : urgency === 'red'
                 ? `${daysAgo(e.created_at)}d — decide now`
                 : `${daysAgo(e.created_at)}d`;
+            const tagColor = urgency === 'red' ? 'text-red-600' : urgency === 'yellow' ? 'text-yellow-700' : 'text-gray-900';
             return (
               <Row
                 key={e.id}
@@ -176,7 +177,7 @@ export default function AdminDashboard() {
                 primary={e.customers.name}
                 secondary={e.enquiry_product_interest || e.customers.phone_number}
                 tag={tag}
-                tagColor={flagged ? 'text-red-600' : 'text-gray-900'}
+                tagColor={tagColor}
               />
             );
           })}

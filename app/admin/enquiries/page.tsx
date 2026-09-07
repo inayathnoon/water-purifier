@@ -5,7 +5,7 @@ import Link from 'next/link';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
 import { useConfirm } from '@/components/useConfirm';
-import { daysAgoIST, isEnquiryOverdue, todayIST } from '@/lib/dates';
+import { daysAgoIST, enquiryUrgency, todayIST } from '@/lib/dates';
 import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
@@ -288,15 +288,19 @@ function EnquiriesPageInner() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
           {sorted.map((e) => {
             const age = daysOld(e.created_at);
-            // §5.6 revised — a 14+ day old enquiry is only flagged if it
-            // hasn't actually been called in the last 3 days; a recent
-            // call earns a grace period before it reappears as urgent.
-            const flagged = isEnquiryOverdue(e.created_at, e.last_call_at);
+            // §5.6 revised — urgency tracks days since the last real
+            // activity (a call, or creation if never called): 3+ days
+            // yellow, 14+ days red. A call resets the clock either way.
+            const urgency = enquiryUrgency(e.created_at, e.last_call_at);
+            const borderClass =
+              urgency === 'red' ? 'border-l-4 border-red-500' : urgency === 'yellow' ? 'border-l-4 border-yellow-400' : '';
+            const textClass =
+              urgency === 'red' ? 'text-red-600 font-semibold' : urgency === 'yellow' ? 'text-yellow-700 font-medium' : 'text-gray-900';
             return (
               <Link
                 key={e.id}
                 href={`/admin/enquiries/${e.id}`}
-                className={`block p-4 hover:bg-gray-50 ${flagged ? 'border-l-4 border-red-500' : ''}`}
+                className={`block p-4 hover:bg-gray-50 ${borderClass}`}
               >
                 <div className="flex justify-between">
                   <div>
@@ -316,12 +320,12 @@ function EnquiriesPageInner() {
                   </div>
                   <div className="text-right text-sm">
                     {e.last_call_at ? (
-                      <p className={flagged ? 'text-red-600 font-semibold' : 'text-gray-900'}>
+                      <p className={textClass}>
                         Last called {daysOld(e.last_call_at)} day{daysOld(e.last_call_at) === 1 ? '' : 's'} ago
                       </p>
                     ) : (
-                      <p className={flagged ? 'text-red-600 font-semibold' : 'text-gray-900'}>
-                        {age} day{age === 1 ? '' : 's'} old {flagged ? '— decide now' : ''}
+                      <p className={textClass}>
+                        {age} day{age === 1 ? '' : 's'} old {urgency === 'red' ? '— decide now' : ''}
                       </p>
                     )}
                     <p className="text-gray-900">{e.call_count} call(s) made</p>
