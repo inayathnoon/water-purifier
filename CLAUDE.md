@@ -2534,6 +2534,24 @@ tried. Also re-confirmed the trigger itself: a real `logCall()` set
 independently moved it through yellow and into red at the expected
 thresholds. All test data cleaned up afterward.
 
+## "Link to Existing Purchase" Only Shown When There's Actually One (2026-09-07)
+
+The enquiry detail page's "This turned out to already be a purchase —
+link to it instead" text always showed, regardless of whether any such
+purchase actually existed — a prompt with nothing behind it most of the
+time. `/api/admin/enquiries/[id]` now also computes and returns
+`hasRecentMatchingPurchase`: is there an installation-kind ticket, for
+any customer record sharing this enquiry's phone number, created in the
+last 30 days? The link only renders at all when that's true. The picker
+itself (browsing/searching the last 30 installations to link to) is
+unchanged — this only gates whether the entry point shows up in the
+first place.
+
+Verified live: a real enquiry for a customer with a real purchase made
+moments earlier correctly flagged `true`; a second enquiry for a
+customer with no purchase at all correctly flagged `false`. Cleaned up
+afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

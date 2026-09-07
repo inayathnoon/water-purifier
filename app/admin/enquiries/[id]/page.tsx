@@ -69,6 +69,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [hasRecentMatchingPurchase, setHasRecentMatchingPurchase] = useState(false);
   const [showOther, setShowOther] = useState(false);
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchase[]>([]);
   const [linking, setLinking] = useState(false);
@@ -85,6 +86,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
     const data = await res.json();
     setTicket(data.ticket);
     setCalls(data.calls ?? []);
+    setHasRecentMatchingPurchase(!!data.hasRecentMatchingPurchase);
     setLoading(false);
   };
 
@@ -382,12 +384,14 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                 Convert
               </button>
             </div>
-            <button
-              onClick={handleToggleLinkPicker}
-              className="text-xs text-green-700 hover:underline mb-3"
-            >
-              {showLinkPicker ? 'Hide' : 'This turned out to already be a purchase — link to it instead'}
-            </button>
+            {hasRecentMatchingPurchase && (
+              <button
+                onClick={handleToggleLinkPicker}
+                className="text-xs text-green-700 hover:underline mb-3"
+              >
+                {showLinkPicker ? 'Hide' : 'This turned out to already be a purchase — link to it instead'}
+              </button>
+            )}
 
             <div className="border-t pt-3">
               <button

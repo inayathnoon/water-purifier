@@ -23,7 +23,29 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .order('created_at', { ascending: true });
     if (callsError) throw callsError;
 
-    return Response.json({ ticket, calls: calls ?? [] });
+    // Backs the "This turned out to already be a purchase" link — only
+    // worth surfacing at all if there's real evidence: a purchase for
+    // this same phone number made in roughly the last month. Otherwise
+    // it's a prompt with nothing behind it every single time.
+    const phoneNumber = (ticket as { customers?: { phone_number?: string } }).customers?.phone_number;
+    let hasRecentMatchingPurchase = false;
+    if (phoneNumber) {
+      const { data: matchingCustomers } = await supabaseAdmin.from('customers').select('id').eq('phone_number', phoneNumber);
+      const customerIds = (matchingCustomers ?? []).map((c) => c.id);
+      if (customerIds.length > 0) {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: matches } = await supabaseAdmin
+          .from('tickets')
+          .select('id')
+          .eq('kind', 'installation')
+          .in('customer_id', customerIds)
+          .gte('created_at', thirtyDaysAgo)
+          .limit(1);
+        hasRecentMatchingPurchase = (matches?.length ?? 0) > 0;
+      }
+    }
+
+    return Response.json({ ticket, calls: calls ?? [], hasRecentMatchingPurchase });
   } catch (err) {
     return handleApiError(err);
   }
