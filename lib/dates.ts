@@ -20,6 +20,23 @@ export function daysAgoIST(dateStr: string, now: Date = new Date()): number {
 }
 
 /**
+ * §5.6, revised 2026-09-07: a 14+ day old open enquiry is flagged as
+ * needing attention — UNLESS it's actually been called in the last 3
+ * days (today included), in which case it's earned a 3-day grace period
+ * and doesn't need to be flagged again yet. `lastCallAt` is
+ * `tickets.last_call_at` (kept in sync with every call_log insert by a
+ * DB trigger, §5.2) — null if it's never been called at all, which
+ * counts as "not recently contacted" the same as a call from long ago.
+ * The 14-day floor still applies first: a fresh enquiry that hasn't been
+ * called yet isn't flagged just for being a few days old.
+ */
+export function isEnquiryOverdue(createdAt: string, lastCallAt: string | null, now: Date = new Date()): boolean {
+  if (daysAgoIST(createdAt, now) < 14) return false;
+  const daysSinceCall = lastCallAt ? daysAgoIST(lastCallAt, now) : Infinity;
+  return daysSinceCall >= 3;
+}
+
+/**
  * Today's date (YYYY-MM-DD) in IST, not the server runtime's own
  * timezone. Matters for anything compared against a plain DATE column
  * (booked_date, etc.) — a server running in UTC thinks it's still

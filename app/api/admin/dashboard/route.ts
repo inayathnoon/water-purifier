@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { daysAgoIST, todayIST } from '@/lib/dates';
+import { daysAgoIST, isEnquiryOverdue, todayIST } from '@/lib/dates';
 import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
 // installation_date is a plain DATE (no time/timezone component) — doing
@@ -36,7 +36,7 @@ export async function GET() {
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
-        .select('id, created_at, enquiry_product_interest, customers(name, phone_number)')
+        .select('id, created_at, last_call_at, enquiry_product_interest, customers(name, phone_number)')
         .eq('kind', 'enquiry')
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
@@ -98,7 +98,7 @@ export async function GET() {
     // getYearlyServiceDueThisMonth() for the "due this calendar month" rule.
     const serviceCallsDue = await getYearlyServiceDueThisMonth();
 
-    const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => daysAgoIST(e.created_at) >= 14).length;
+    const oldEnquiryCount = (newEnquiries.data ?? []).filter((e) => isEnquiryOverdue(e.created_at, e.last_call_at)).length;
 
     // A job still waiting to be assigned after 3 days is worth flagging the
     // same way an overdue payment call or enquiry is elsewhere on this page.

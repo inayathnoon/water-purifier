@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { daysAgoIST } from '@/lib/dates';
+import { daysAgoIST, isEnquiryOverdue } from '@/lib/dates';
 import BookingForm from '@/components/BookingForm';
 import WeekSchedule from '@/components/dashboard/WeekSchedule';
 import { DashboardCard, Row, StaffMember, emptyAssignForm } from './shared';
@@ -10,7 +10,7 @@ import { DashboardCard, Row, StaffMember, emptyAssignForm } from './shared';
 const daysAgo = daysAgoIST;
 
 interface AdminDashboardData {
-  newEnquiries: { id: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
+  newEnquiries: { id: string; created_at: string; last_call_at: string | null; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   oldEnquiryCount: number;
   jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   overdueDispatchCount: number;
@@ -160,16 +160,26 @@ export default function AdminDashboard() {
           shownCount={Math.min(5, data.newEnquiries.length)}
           totalCount={data.newEnquiries.length}
         >
-          {data.newEnquiries.slice(0, 5).map((e) => (
-            <Row
-              key={e.id}
-              href={`/admin/enquiries/${e.id}`}
-              primary={e.customers.name}
-              secondary={e.enquiry_product_interest || e.customers.phone_number}
-              tag={daysAgo(e.created_at) >= 14 ? `${daysAgo(e.created_at)}d — decide now` : `${daysAgo(e.created_at)}d`}
-              tagColor={daysAgo(e.created_at) >= 14 ? 'text-red-600' : 'text-gray-900'}
-            />
-          ))}
+          {data.newEnquiries.slice(0, 5).map((e) => {
+            // Still sorted oldest-created-first (unchanged) even once
+            // flagged again — only the label/color reflect the call.
+            const flagged = isEnquiryOverdue(e.created_at, e.last_call_at);
+            const tag = e.last_call_at
+              ? `Last called ${daysAgo(e.last_call_at)}d ago`
+              : flagged
+                ? `${daysAgo(e.created_at)}d — decide now`
+                : `${daysAgo(e.created_at)}d`;
+            return (
+              <Row
+                key={e.id}
+                href={`/admin/enquiries/${e.id}`}
+                primary={e.customers.name}
+                secondary={e.enquiry_product_interest || e.customers.phone_number}
+                tag={tag}
+                tagColor={flagged ? 'text-red-600' : 'text-gray-900'}
+              />
+            );
+          })}
         </DashboardCard>
 
         <DashboardCard

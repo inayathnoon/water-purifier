@@ -5,7 +5,7 @@ import Link from 'next/link';
 import CustomerFields from '@/components/CustomerFields';
 import HomeLink from '@/components/HomeLink';
 import { useConfirm } from '@/components/useConfirm';
-import { daysAgoIST, todayIST } from '@/lib/dates';
+import { daysAgoIST, isEnquiryOverdue, todayIST } from '@/lib/dates';
 import { useSearchParams } from 'next/navigation';
 
 interface Enquiry {
@@ -14,6 +14,7 @@ interface Enquiry {
   enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other' | null;
   call_count: number;
   created_at: string;
+  last_call_at: string | null;
   customers: { name: string; phone_number: string; area: string };
 }
 
@@ -287,11 +288,15 @@ function EnquiriesPageInner() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
           {sorted.map((e) => {
             const age = daysOld(e.created_at);
+            // §5.6 revised — a 14+ day old enquiry is only flagged if it
+            // hasn't actually been called in the last 3 days; a recent
+            // call earns a grace period before it reappears as urgent.
+            const flagged = isEnquiryOverdue(e.created_at, e.last_call_at);
             return (
               <Link
                 key={e.id}
                 href={`/admin/enquiries/${e.id}`}
-                className={`block p-4 hover:bg-gray-50 ${age >= 14 ? 'border-l-4 border-red-500' : ''}`}
+                className={`block p-4 hover:bg-gray-50 ${flagged ? 'border-l-4 border-red-500' : ''}`}
               >
                 <div className="flex justify-between">
                   <div>
@@ -310,9 +315,15 @@ function EnquiriesPageInner() {
                     </p>
                   </div>
                   <div className="text-right text-sm">
-                    <p className={age >= 14 ? 'text-red-600 font-semibold' : 'text-gray-900'}>
-                      {age} day{age === 1 ? '' : 's'} old {age >= 14 ? '— decide now' : ''}
-                    </p>
+                    {e.last_call_at ? (
+                      <p className={flagged ? 'text-red-600 font-semibold' : 'text-gray-900'}>
+                        Last called {daysOld(e.last_call_at)} day{daysOld(e.last_call_at) === 1 ? '' : 's'} ago
+                      </p>
+                    ) : (
+                      <p className={flagged ? 'text-red-600 font-semibold' : 'text-gray-900'}>
+                        {age} day{age === 1 ? '' : 's'} old {flagged ? '— decide now' : ''}
+                      </p>
+                    )}
                     <p className="text-gray-900">{e.call_count} call(s) made</p>
                     <button
                       onClick={(ev) => handleDelete(ev, e)}

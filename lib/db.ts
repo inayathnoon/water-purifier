@@ -87,6 +87,7 @@ export type Database = {
           referrer_phone: string | null;
           source_other_note: string | null;
           call_count: number;
+          last_call_at: string | null;
           callback_date: string | null;
           closure_reason: string | null;
           closure_explanation: string | null;

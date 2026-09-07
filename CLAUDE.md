@@ -2489,6 +2489,46 @@ both into one list. The two owner cards with no click-through ("Who's
 busy today", "Discount given this month") get neither prop, so they show
 nothing new.
 
+## Enquiry Flagging Now Considers Whether It's Been Called (2026-09-07)
+
+§5.6's "14+ days old floats to the top, red-flagged" only ever looked at
+`created_at` — an enquiry someone had already called yesterday still
+showed exactly as urgent as one nobody had touched in three weeks.
+Revised: a 14+ day old open enquiry is flagged **unless it's been called
+in the last 3 days (today included)** — a recent call earns a 3-day
+grace period, then the flag reappears if nothing happens in that window.
+The 14-day floor is unchanged and still applies first — a fresh enquiry
+isn't flagged just for being uncalled a couple of days.
+
+- Migration 033 adds `tickets.last_call_at`, kept in sync by extending
+  the *existing* `bump_ticket_call_count()` trigger (fires on every
+  `call_log` insert) rather than setting it from the service layer —
+  same reasoning as every other hard-rule trigger in this app: it can't
+  drift out of sync regardless of which code path logs the call. This
+  table is shared with order payment calls (§7.3); `last_call_at` is
+  simply unused on those tickets, which already track their own
+  `last_payment_call_at`.
+- New `isEnquiryOverdue(createdAt, lastCallAt)` in `lib/dates.ts` — the
+  one place this rule is expressed, used by `/admin/enquiries` (list
+  border + label), `/api/admin/dashboard` (`oldEnquiryCount`), and
+  `AdminDashboard`'s New Enquiries card (row color/label).
+- **Label changes with it**: once an enquiry has ever been called, both
+  the list page and the dashboard card show "Last called Nd ago" instead
+  of "Nd old" / "Nd — decide now" — more useful once contact has actually
+  been made. Turns red again once that gap reaches 3 days. Sort order is
+  untouched everywhere — the dashboard card still orders by original
+  `created_at` (oldest first) even once a flag reappears; only the
+  label/color reflect the call history, never the position.
+
+**Verified live**: a 20-day-old never-called enquiry flagged correctly;
+logging a real call against it (through `logCall()`, not a direct write)
+correctly set `last_call_at` via the trigger and un-flagged it; backdating
+that same field to 3 days ago correctly re-flagged it; a fresh 2-day-old
+uncalled enquiry correctly stayed unflagged (14-day floor holds). All
+test data cleaned up afterward.
+
+## V1 Status: all 7 stages built
+
 Every hard rule (§13) is enforced in code, most of them in two independent
 places (a Postgres constraint/trigger *and* the service layer) so no future
 screen can route around them. Every §15 acceptance check has a concrete
