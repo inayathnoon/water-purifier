@@ -2616,6 +2616,42 @@ exactly one `payment_history` entry dated at its bill date; a real
 zero-paid purchase got an empty array, not a stray zero-amount entry.
 Both cleaned up afterward.
 
+## Purchase Edit No Longer Blocked by an Existing Payment (2026-09-07)
+
+Reported live: "there is no edit option to edit existing purchases" —
+correct, effectively. `updatePurchase()`'s edit window was gated
+identically to Void (`paid_amount === 0 && no visit yet`), but almost
+every real purchase already has *some* payment against it well before
+the tech ever visits (the vast majority of orders, per the backfill
+above) — so in practice the Edit button never showed for anything real.
+
+- `/admin/orders`: **Edit** now shows any time before a visit has been
+  recorded (`!actual_date`), regardless of payment status — a product or
+  price typo doesn't stop being worth fixing just because a partial
+  payment already came in. **Void** stays exactly as gated as before
+  (`paid_amount === 0 && !actual_date`) — voiding is for a genuine
+  data-entry mistake with no real money against it yet, not something to
+  loosen.
+- `updatePurchase()` drops the "no payment yet" guard but adds a real
+  one in its place: `soldPrice` can never be edited below what's already
+  been paid (would imply a negative balance owed).
+
+Verified live: editing a real purchase's product/price after a real
+partial payment was recorded now succeeds; dropping the sold price below
+the paid amount is correctly refused with the specific amount named.
+Cleaned up afterward.
+
+## "+ Sell Spares" Restored to the Admin Dashboard Nav Grid (2026-09-07)
+
+Removed 2026-09-06 on the reasoning that Spares isn't something the
+business "creates" the way a Purchase/Enquiry/Service is — reconsidered
+and brought back at explicit request. The nav grid's Spares column
+regains a create button (`+ Sell Spares`, orange, linking to
+`/admin/spare-parts?new=1`) on top of its existing browse link, matching
+the same create-on-top/browse-below shape as Purchases/Enquiries/
+Services. No backend change — `?new=1` already opens the sell form
+directly on `/admin/spare-parts`.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

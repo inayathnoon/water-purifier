@@ -523,29 +523,34 @@ export default function OrdersPage() {
                                   Close purchase
                                 </button>
                               )}
+                              {/* Editable any time before a tech has actually visited — a
+                                  price/product typo doesn't stop being worth fixing just
+                                  because a partial payment has already come in. Void stays
+                                  gated to unpaid+unvisited only (a genuine data-entry
+                                  mistake, not a real sale with real money against it). */}
+                              {!o.tickets.actual_date && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    editingPurchaseId === o.ticket_id ? setEditingPurchaseId(null) : startEditingPurchase(o);
+                                  }}
+                                  className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                                >
+                                  {editingPurchaseId === o.ticket_id ? 'Cancel edit' : 'Edit'}
+                                </button>
+                              )}
                               {o.paid_amount === 0 && !o.tickets.actual_date && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      editingPurchaseId === o.ticket_id ? setEditingPurchaseId(null) : startEditingPurchase(o);
-                                    }}
-                                    className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
-                                  >
-                                    {editingPurchaseId === o.ticket_id ? 'Cancel edit' : 'Edit'}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setVoidingId(voidingId === o.ticket_id ? null : o.ticket_id);
-                                      setVoidReason('');
-                                      setError('');
-                                    }}
-                                    className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
-                                  >
-                                    Void — wrong entry
-                                  </button>
-                                </>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setVoidingId(voidingId === o.ticket_id ? null : o.ticket_id);
+                                    setVoidReason('');
+                                    setError('');
+                                  }}
+                                  className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                                >
+                                  Void — wrong entry
+                                </button>
                               )}
                             </div>
                           )}

@@ -774,14 +774,19 @@ export async function cancelJob(ticketId: string, reason: string) {
 }
 
 /**
- * Correcting a purchase's product or price — same window as voiding one
- * (cancelJob above): no visit recorded yet, nothing paid yet. Once either
- * of those is true, a correction needs a human decision (a refund, or
- * redoing the confirmed work), not a plain edit — and the customer itself
- * isn't editable here at all; a wrong-customer purchase goes through
- * Void instead, since re-pointing customer_id has bigger implications
- * (duplicate warnings, the Sales sheet's phone-based match key) than a
- * product/price typo does.
+ * Correcting a purchase's product or price — available any time before a
+ * visit has been recorded, whether or not a partial payment has already
+ * come in (revised 2026-09-07 — almost every real purchase has *some*
+ * payment against it well before installation, so gating this the same
+ * as Void made it effectively unusable). A payment already in hand only
+ * puts a floor under sold_price — it can never drop below what's already
+ * been paid. Once a visit is recorded, a correction needs a human
+ * decision (a refund, or redoing the confirmed work), not a plain edit.
+ * The customer itself still isn't editable here at all; a wrong-customer
+ * purchase goes through Void instead (still gated to unpaid+unvisited —
+ * a genuine data-entry mistake, not a real sale), since re-pointing
+ * customer_id has bigger implications (duplicate warnings, the Sales
+ * sheet's phone-based match key) than a product/price typo does.
  */
 export async function updatePurchase(
   ticketId: string,
@@ -795,11 +800,15 @@ export async function updatePurchase(
 
   const { data: order, error: orderError } = await supabaseAdmin.from('orders').select('*').eq('ticket_id', ticketId).single();
   if (orderError || !order) throw new ApiError(404, 'Order not found for this purchase');
-  if (Number(order.paid_amount) > 0) {
-    throw new ApiError(400, 'A payment has already been recorded against this purchase — it cannot be edited here');
-  }
   if (updates.listPrice !== undefined && updates.listPrice < 0) throw new ApiError(400, 'List price must be zero or more');
   if (updates.soldPrice !== undefined && updates.soldPrice < 0) throw new ApiError(400, 'Sold price must be zero or more');
+  // A payment already in hand no longer blocks editing (a product/price
+  // typo doesn't stop being worth fixing just because a partial payment
+  // came in) — but the sold price can never drop below what's already
+  // been paid, since that would imply a negative balance owed.
+  if (updates.soldPrice !== undefined && updates.soldPrice < Number(order.paid_amount)) {
+    throw new ApiError(400, `Sold price cannot be less than the ₹${order.paid_amount} already paid`);
+  }
   if (updates.billDate && updates.billDate > todayIST()) throw new ApiError(400, 'Bill date cannot be in the future');
 
   // sold_price *and* bill_date are both part of the Sales sheet's match
