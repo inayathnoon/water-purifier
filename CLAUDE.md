@@ -2292,6 +2292,37 @@ refused; the Sales sheet was re-checked afterward and showed the
 correct final paid/balance for the closed order. All test data cleaned
 up afterward.
 
+## Area Suggestions Moved to a Sheet — "Pandakkal" and Anything Else, Anytime (2026-09-07)
+
+Asked directly: does every area dropdown across the app share the same
+list? Checked and confirmed **yes** — `AreaSelect` is one component,
+used by `CustomerFields` (New Purchase/Enquiry/Service all go through
+it) and the Customer Directory's edit form; there was never a second
+copy to drift out of sync. The list itself, though, was hardcoded in
+`AreaSelect.tsx` (curated from Wikipedia's "Political divisions of
+Kannur district") — missing real places the business actually
+encounters, "Pandakkal" among them, the same class of gap already found
+once before with PONNIYAM/TEMPLE GATE/MUZHIPPILANGAD.
+
+Moved it to a new **Areas** tab in the same spreadsheet as Product
+List/Spare Parts — a plain one-column list, pre-populated with the
+original 158 curated suggestions (nothing lost) plus Pandakkal. New
+`lib/services/areas.ts` (`getAreas()`/`syncAreas()`) mirrors
+`spareParts.ts` exactly — in-memory cache, 24h safety-net TTL, real
+refresh via the Developer panel's new **"Sync areas"** button (added to
+the same card as Product/Spare Parts, now "Product / Spare Parts /
+Areas Sheet"). `AreaSelect.tsx` now fetches `/api/admin/areas` on mount
+instead of importing a constant — still a plain `<input>` +
+`<datalist>`, so a known customer's stored area (whatever it is, sheet
+suggestion or not) still always displays correctly, same reasoning as
+the original `<select>`-to-`<input>` fix.
+
+From here on, adding a new area the business runs into needs a row in
+the sheet and a click of "Sync areas" — no code change, no deploy.
+
+Verified live: `getAreas()` returns all 158 entries including
+Pandakkal; a forced `syncAreas()` re-read matches.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

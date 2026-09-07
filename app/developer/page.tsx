@@ -33,6 +33,10 @@ const PRODUCT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1xRbDhklv0v10T
 // Same spreadsheet, the "Spare Parts" tab specifically (gid points straight at it).
 const SPARE_PARTS_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/1xRbDhklv0v10Tpl2BgdI9QnU2H8KQJ0NCHD21JKUBO4/edit?gid=1620923747#gid=1620923747';
+// Same spreadsheet, the "Areas" tab — the area suggestions every
+// AreaSelect autocomplete across the app reads from a shared list.
+const AREAS_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/1xRbDhklv0v10Tpl2BgdI9QnU2H8KQJ0NCHD21JKUBO4/edit?gid=1002871651#gid=1002871651';
 
 const emptyNewStaff = { name: '', phone: '', role: 'service_staff' as UserRole };
 
@@ -49,6 +53,8 @@ export default function DeveloperPage() {
   const [syncMessage, setSyncMessage] = useState('');
   const [sparePartsSyncing, setSparePartsSyncing] = useState(false);
   const [sparePartsSyncMessage, setSparePartsSyncMessage] = useState('');
+  const [areasSyncing, setAreasSyncing] = useState(false);
+  const [areasSyncMessage, setAreasSyncMessage] = useState('');
   const [migrations, setMigrations] = useState<MigrationRow[]>([]);
   const [migrationsLoading, setMigrationsLoading] = useState(true);
   const [runningMigrations, setRunningMigrations] = useState(false);
@@ -149,6 +155,18 @@ export default function DeveloperPage() {
     setSparePartsSyncMessage(res.ok ? `Synced: ${data.parts?.length ?? 0} spare parts loaded.` : data.error ?? 'Sync failed');
   };
 
+  // Same cached-in-memory pattern as spare parts — the area suggestions
+  // barely change, so this forces an immediate refresh instead of
+  // waiting on the cache's long safety-net TTL.
+  const handleSyncAreas = async () => {
+    setAreasSyncMessage('');
+    setAreasSyncing(true);
+    const res = await fetch('/api/developer/areas/sync', { method: 'POST' });
+    const data = await res.json();
+    setAreasSyncing(false);
+    setAreasSyncMessage(res.ok ? `Synced: ${data.areas?.length ?? 0} areas loaded.` : data.error ?? 'Sync failed');
+  };
+
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center gap-2 mb-6">
@@ -222,7 +240,7 @@ export default function DeveloperPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <h2 className="font-semibold mb-1">Product / Spare Parts Sheet</h2>
+        <h2 className="font-semibold mb-1">Product / Spare Parts / Areas Sheet</h2>
         <p className="text-sm text-gray-500 mb-3">
           The sheet is the source of truth (§9) — add or edit rows there directly, then sync.
         </p>
@@ -269,6 +287,28 @@ export default function DeveloperPage() {
                 {sparePartsSyncing ? 'Syncing...' : 'Sync spare parts'}
               </button>
               {sparePartsSyncMessage && <span className="text-sm text-gray-500">{sparePartsSyncMessage}</span>}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs font-medium text-gray-900 uppercase tracking-wide mb-2">Areas</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={AREAS_SHEET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+              >
+                Open Areas Sheet →
+              </a>
+              <button
+                onClick={handleSyncAreas}
+                disabled={areasSyncing}
+                className="px-3 py-1.5 bg-white border rounded-md text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                {areasSyncing ? 'Syncing...' : 'Sync areas'}
+              </button>
+              {areasSyncMessage && <span className="text-sm text-gray-500">{areasSyncMessage}</span>}
             </div>
           </div>
         </div>
