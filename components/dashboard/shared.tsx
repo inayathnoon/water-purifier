@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { todayIST, halfDayNowIST } from '@/lib/dates';
 
 // Small building blocks shared by both AdminDashboard and OwnerDashboard.
 
@@ -9,7 +10,13 @@ export interface StaffMember {
   name: string;
 }
 
-export const emptyAssignForm = { assignedToId: '', bookedDate: '', bookedHalfDay: 'morning', location: 'home' };
+// Defaults to today and whatever half-day slot it actually is right now
+// (same "book it now" convention New Service's immediate assignment
+// already uses) — a bare '' date/'morning' regardless of the actual time
+// made the admin fix both fields by hand on almost every assignment.
+export function emptyAssignForm(): { assignedToId: string; bookedDate: string; bookedHalfDay: string; location: string } {
+  return { assignedToId: '', bookedDate: todayIST(), bookedHalfDay: halfDayNowIST(), location: 'home' };
+}
 
 export function DashboardCard({
   title,

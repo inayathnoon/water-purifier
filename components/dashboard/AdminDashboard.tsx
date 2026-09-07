@@ -12,7 +12,7 @@ const daysAgo = daysAgoIST;
 interface AdminDashboardData {
   newEnquiries: { id: string; created_at: string; last_call_at: string | null; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
   oldEnquiryCount: number;
-  jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
+  jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string; area: string } }[];
   overdueDispatchCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: {
@@ -24,7 +24,7 @@ interface AdminDashboardData {
     monthsSinceInstall: number;
     productLabel: string | null;
   }[];
-  paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number }[];
+  paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number; oldestInstallationDate: string | null }[];
   overdueCallCount: number;
   overdueConfirmationCount: number;
   satisfactionCallsDue: { orderId: string; installationDate: string; customers: { name: string; phone_number: string } }[];
@@ -47,9 +47,18 @@ export default function AdminDashboard() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
-  const [assignForm, setAssignForm] = useState(emptyAssignForm);
+  const [assignForm, setAssignForm] = useState(emptyAssignForm());
   const [assignError, setAssignError] = useState('');
   const [assigning, setAssigning] = useState(false);
+  // "Finished Installation/Service" card — confirming right from the
+  // dashboard instead of navigating to Purchases/Services first.
+  const [showAllConfirm, setShowAllConfirm] = useState(false);
+  const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
+  const [confirmJobError, setConfirmJobError] = useState('');
+  const [satisfactionNoteFor, setSatisfactionNoteFor] = useState<string | null>(null);
+  const [satisfactionNote, setSatisfactionNote] = useState('');
+  const [satisfactionError, setSatisfactionError] = useState('');
+  const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
 
   const loadDashboard = () => {
     fetch('/api/admin/dashboard')
@@ -74,7 +83,7 @@ export default function AdminDashboard() {
     setAssignError('');
     setEditingJobId(null);
     setAssigningId(id);
-    setAssignForm(emptyAssignForm);
+    setAssignForm(emptyAssignForm());
   };
 
   // §5: reassign/reschedule a job that's already booked, straight from
@@ -113,6 +122,50 @@ export default function AdminDashboard() {
     }
     setAssigningId(null);
     setEditingJobId(null);
+    loadDashboard();
+  };
+
+  // The tech has already marked the job done — this is the admin's
+  // confirmation call, right from the dashboard instead of navigating to
+  // Purchases/Services first. Same endpoint both those pages already use.
+  const handleConfirmJob = async (ticketId: string) => {
+    setConfirmJobError('');
+    setConfirmingJobId(ticketId);
+    const res = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+    setConfirmingJobId(null);
+    if (!res.ok) {
+      setConfirmJobError((await res.json()).error ?? 'Failed to confirm');
+      return;
+    }
+    loadDashboard();
+  };
+
+  const startSatisfaction = (orderId: string) => {
+    setSatisfactionError('');
+    setSatisfactionNoteFor(orderId);
+    setSatisfactionNote('');
+  };
+
+  // A separate follow-up satisfaction call, needing its own short note
+  // (mirrors §5.4/§5.5's word-count rule) — same endpoint /admin/orders
+  // already uses for "Log follow-up call".
+  const handleConfirmSatisfaction = async (e: React.FormEvent, orderId: string) => {
+    e.preventDefault();
+    if (confirmingSatisfaction) return;
+    setSatisfactionError('');
+    setConfirmingSatisfaction(true);
+    const res = await fetch(`/api/admin/orders/${orderId}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: satisfactionNote }),
+    });
+    setConfirmingSatisfaction(false);
+    if (!res.ok) {
+      setSatisfactionError((await res.json()).error ?? 'Failed to confirm');
+      return;
+    }
+    setSatisfactionNoteFor(null);
+    setSatisfactionNote('');
     loadDashboard();
   };
 
@@ -189,7 +242,7 @@ export default function AdminDashboard() {
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing waiting on a technician."
           viewAllLinks={[
-            { label: 'Installations', href: '/admin/installations' },
+            { label: 'New Installation', href: '/admin/installations' },
             { label: 'Services', href: '/admin/service-calls' },
           ]}
           shownCount={Math.min(5, data.jobsToDispatch.length)}
@@ -202,7 +255,10 @@ export default function AdminDashboard() {
                 <div className="flex justify-between items-center gap-2">
                   <div>
                     <p className="text-sm font-medium">{t.customers.name}</p>
-                    <p className="text-xs text-gray-500">{t.enquiry_product_interest || t.customers.phone_number}</p>
+                    <p className="text-xs text-gray-500">
+                      {t.enquiry_product_interest || t.customers.phone_number}
+                      {t.customers.area ? ` · ${t.customers.area}` : ''}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-xs ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
@@ -241,41 +297,91 @@ export default function AdminDashboard() {
         </DashboardCard>
 
         <DashboardCard
-          title="Confirm finished work"
+          title="Finished Installation/Service"
           badge={data.overdueConfirmationCount > 0 ? `${data.overdueConfirmationCount} over 7 days` : undefined}
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing waiting on a confirmation call."
-          viewAllHref="/admin/orders"
-          shownCount={Math.min(5, data.awaitingConfirmation.length) + Math.min(5, data.satisfactionCallsDue.length)}
-          totalCount={data.awaitingConfirmation.length + data.satisfactionCallsDue.length}
         >
-          {[
-            ...data.awaitingConfirmation.slice(0, 5).map((t) => {
-              const age = daysAgo(t.actual_date);
-              return (
-                <Row
-                  key={`job-${t.id}`}
-                  href={t.kind === 'installation' ? '/admin/installations' : `/admin/service-calls?highlightTicket=${t.id}`}
-                  primary={t.customers.name}
-                  secondary={t.customers.phone_number}
-                  tag={`${t.kind === 'installation' ? 'Installation' : 'Service visit'} · ${age}d${age >= 7 ? ' — overdue' : ''}`}
-                  tagColor={age >= 7 ? 'text-red-600' : undefined}
-                />
-              );
-            }),
-            // Separate from the above — installed within the last 30 days,
-            // still needing the follow-up satisfaction call (not the
-            // original "was it done right" confirmation).
-            ...data.satisfactionCallsDue.slice(0, 5).map((s) => (
-              <Row
-                key={`satisfaction-${s.orderId}`}
-                href="/admin/orders"
-                primary={s.customers.name}
-                secondary={s.customers.phone_number}
-                tag={`Follow-up call · installed ${daysAgo(s.installationDate)}d ago`}
-              />
-            )),
-          ]}
+          {(() => {
+            const combined = [
+              ...data.awaitingConfirmation.map((t) => ({ type: 'job' as const, t })),
+              ...data.satisfactionCallsDue.map((s) => ({ type: 'satisfaction' as const, s })),
+            ];
+            const CONFIRM_LIMIT = 5;
+            const visible = showAllConfirm ? combined : combined.slice(0, CONFIRM_LIMIT);
+            return (
+              <>
+                {confirmJobError && <p className="text-red-600 text-xs mb-1">{confirmJobError}</p>}
+                {visible.map((item) =>
+                  item.type === 'job' ? (
+                    <div key={`job-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{item.t.customers.name}</p>
+                        <p className="text-xs text-gray-500">{item.t.customers.phone_number}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs ${daysAgo(item.t.actual_date) >= 7 ? 'text-red-600' : 'text-gray-900'}`}>
+                          {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.actual_date)}d
+                          {daysAgo(item.t.actual_date) >= 7 ? ' — overdue' : ''}
+                        </span>
+                        <button
+                          onClick={() => handleConfirmJob(item.t.id)}
+                          disabled={confirmingJobId === item.t.id}
+                          className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {confirmingJobId === item.t.id ? 'Confirming...' : 'Confirm'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={`satisfaction-${item.s.orderId}`} className="py-2 border-b last:border-0">
+                      <div className="flex justify-between items-center gap-2">
+                        <div>
+                          <p className="text-sm font-medium">{item.s.customers.name}</p>
+                          <p className="text-xs text-gray-500">{item.s.customers.phone_number}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-gray-900">
+                            Follow-up · installed {daysAgo(item.s.installationDate)}d ago
+                          </span>
+                          <button
+                            onClick={() => (satisfactionNoteFor === item.s.orderId ? setSatisfactionNoteFor(null) : startSatisfaction(item.s.orderId))}
+                            className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap"
+                          >
+                            {satisfactionNoteFor === item.s.orderId ? 'Cancel' : 'Confirm'}
+                          </button>
+                        </div>
+                      </div>
+                      {satisfactionNoteFor === item.s.orderId && (
+                        <form onSubmit={(e) => handleConfirmSatisfaction(e, item.s.orderId)} className="mt-2 pt-2 border-t flex gap-2">
+                          {satisfactionError && <p className="w-full text-red-600 text-xs">{satisfactionError}</p>}
+                          <input
+                            required
+                            placeholder="What did they say? (3+ words)"
+                            className="border rounded px-2 py-1.5 text-xs flex-1"
+                            value={satisfactionNote}
+                            onChange={(e) => setSatisfactionNote(e.target.value)}
+                          />
+                          <button
+                            type="submit"
+                            disabled={confirmingSatisfaction}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {confirmingSatisfaction ? 'Saving...' : 'Save'}
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  )
+                )}
+                {combined.length > CONFIRM_LIMIT && (
+                  <button onClick={() => setShowAllConfirm((s) => !s)} className="block text-sm text-blue-600 hover:underline mt-2">
+                    {showAllConfirm ? 'Show less ▲' : `View all (${combined.length}) →`}
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </DashboardCard>
 
         <DashboardCard
@@ -293,7 +399,7 @@ export default function AdminDashboard() {
               href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
               primary={o.name}
               secondary={o.orderCount > 1 ? `${o.orderCount} purchases` : o.phoneNumber}
-              tag={`₹${o.totalBalance} owed`}
+              tag={`₹${o.totalBalance} owed${o.oldestInstallationDate ? ` · ${daysAgo(o.oldestInstallationDate)}d` : ''}`}
               tagColor="text-red-600"
             />
           ))}

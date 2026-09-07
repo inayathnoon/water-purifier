@@ -42,7 +42,7 @@ export default function OwnerDashboard() {
   const [data, setData] = useState<OwnerDashboardData | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [assigningId, setAssigningId] = useState<string | null>(null);
-  const [assignForm, setAssignForm] = useState(emptyAssignForm);
+  const [assignForm, setAssignForm] = useState(emptyAssignForm());
   const [assignError, setAssignError] = useState('');
   const [assigning, setAssigning] = useState(false);
 
@@ -67,7 +67,7 @@ export default function OwnerDashboard() {
   const startAssigning = (id: string) => {
     setAssignError('');
     setAssigningId(id);
-    setAssignForm(emptyAssignForm);
+    setAssignForm(emptyAssignForm());
   };
 
   const handleAssign = async (e: React.FormEvent, job: { id: string; kind: string }) => {
@@ -254,7 +254,7 @@ export default function OwnerDashboard() {
           title="Jobs to Dispatch"
           emptyText="Nothing waiting on a technician."
           viewAllLinks={[
-            { label: 'Installations', href: '/admin/installations' },
+            { label: 'New Installation', href: '/admin/installations' },
             { label: 'Services', href: '/admin/service-calls' },
           ]}
           shownCount={Math.min(5, data.jobsToDispatch.length)}

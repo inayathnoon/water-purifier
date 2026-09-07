@@ -5,6 +5,7 @@ import { syncOrderToSalesSheetSafely, removeOrderFromSalesSheetSafely } from './
 import { syncServiceToSheetSafely, removeServiceFromSheetSafely } from './serviceSheet';
 import { syncEnquiryToSheetSafely, removeEnquiryFromSheetSafely } from './enquirySheet';
 import { syncServiceVisitPartsToSheetSafely } from './sparePartSalesSheet';
+import { logTicketPaymentToSheetSafely } from './paymentsSheet';
 import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
@@ -471,6 +472,14 @@ export async function createDirectPurchase(input: {
     // happens to close — "closed" is just orders.status flipping once
     // balance_owed hits 0, not a separate business event.
     await syncOrderToSalesSheetSafely(order.id);
+    if (item.paidAmount > 0) {
+      await logTicketPaymentToSheetSafely({
+        ticketId: ticket.id,
+        channel: 'Purchase',
+        amount: item.paidAmount,
+        date: billCreatedAt ?? new Date().toISOString(),
+      });
+    }
 
     results.push({ ticket, order });
   }
@@ -618,6 +627,14 @@ export async function completeJob(
 
   if (ticket.kind === 'service_visit') {
     await syncServiceVisitPartsToSheetSafely(ticketId);
+    if (data.charge_amount) {
+      await logTicketPaymentToSheetSafely({
+        ticketId,
+        channel: 'Service',
+        amount: Number(data.charge_amount),
+        date: `${input.actualDate}T12:00:00Z`,
+      });
+    }
   }
 
   return data;

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { syncOrderToSalesSheetSafely } from './salesSheet';
+import { logTicketPaymentToSheetSafely } from './paymentsSheet';
 
 async function getOrderOrThrow(orderId: string) {
   const { data, error } = await supabaseAdmin.from('orders').select('*').eq('id', orderId).single();
@@ -61,6 +62,10 @@ export async function recordPayment(
   // Keep the Sales sheet's paid/balance in sync the moment a payment is
   // recorded, not just when the order eventually closes.
   await syncOrderToSalesSheetSafely(orderId);
+  // "Balance Collected" — a payment against a balance already outstanding
+  // (the initial paid-at-sale amount is logged separately, as its own
+  // "Purchase" row, by createDirectPurchase()).
+  await logTicketPaymentToSheetSafely({ ticketId: order.ticket_id, channel: 'Balance Collected', amount, date: paymentInstant });
 
   if (newPaid >= Number(order.sold_price)) {
     return closeOrder(orderId);

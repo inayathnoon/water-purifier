@@ -12,7 +12,8 @@ type EventType =
   | 'enquiry_passed_to_owner'
   | 'enquiry_sheet_failed'
   | 'customer_phone_rekey_failed'
-  | 'spare_part_sale_sheet_failed';
+  | 'spare_part_sale_sheet_failed'
+  | 'payments_sheet_failed';
 
 /**
  * Records something that needs a human's attention even though nobody was

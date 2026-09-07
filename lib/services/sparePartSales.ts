@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { syncSparePartSaleToSheetSafely } from './sparePartSalesSheet';
+import { logSparePartSalePaymentToSheetSafely } from './paymentsSheet';
 import { todayIST } from '../dates';
 
 export interface SparePartSaleItem {
@@ -41,6 +42,16 @@ export async function recordSparePartSale(input: {
   // other sheet sync in this app — one row per item, since a single
   // sale can cover several parts at once.
   await Promise.all(data.map((row) => syncSparePartSaleToSheetSafely(row.id)));
+
+  // Payments ledger — one row for the whole sale's total, not per item
+  // (this is a money log, not an inventory one).
+  const total = data.reduce((sum, row) => sum + Number(row.total), 0);
+  await logSparePartSalePaymentToSheetSafely({
+    phoneNumber: input.phoneNumber?.trim() || null,
+    name: input.customerName?.trim() || null,
+    amount: total,
+    date: new Date().toISOString(),
+  });
 
   return data;
 }

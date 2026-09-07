@@ -2652,6 +2652,101 @@ the same create-on-top/browse-below shape as Purchases/Enquiries/
 Services. No backend change — `?new=1` already opens the sell form
 directly on `/admin/spare-parts`.
 
+## New "Payments" Sheet — a Pure Money Ledger Across Every Channel (2026-09-07)
+
+Every existing sheet (Sales, Service, Enquiry) tracks a *thing* (a sale,
+a visit, an enquiry) and upserts one row per thing as it changes over
+time. Nothing tracked *payments themselves* as a log — asked for
+directly: a new **Payments** tab, one row per real payment event, never
+edited once written (append-only — matched on a fresh id every time, the
+same trick Spare Part Sales already uses to guarantee that).
+
+Columns: `id, date, phone_number, name, channel, amount, reference`.
+Four channels, each meaning a specific kind of money event:
+- **Purchase** — the amount paid *at the moment of sale* (New Purchase's
+  Paid field), logged by `createDirectPurchase()`.
+- **Balance Collected** — any payment made *after* the sale, collecting
+  on what was still owed — logged by `recordPayment()`. Named this
+  (not "Outstanding") after the first name read ambiguously as a status
+  rather than a payment.
+- **Service** — an out-of-warranty service visit's charge, logged by
+  `completeJob()` when `charge_amount > 0` (in-warranty visits are ₹0 by
+  §13.3 and never logged here).
+- **Spare-office** — an office walk-in spare-part sale's total, logged
+  by `recordSparePartSale()`.
+
+New `lib/services/paymentsSheet.ts` (`logTicketPaymentToSheetSafely()`
+for the three ticket-backed channels — looks up the customer and a
+product/issue reference from the ticket itself so callers don't have to
+carry that data around; `logSparePartSalePaymentToSheetSafely()` for the
+no-ticket office-sale case). Migration 034 adds the `payments_sheet_failed`
+fail-safe event, same pattern as every other sheet sync.
+
+**One-time backfill only** (a throwaway script, run once against
+production, deleted): for every existing order, sorted its
+`payment_history` by date and logged the **first** entry as `Purchase`
+and every entry **after** it as `Balance Collected` — "the payments that
+have been done individually after the sale has happened" get their own
+row each, never edited. Produced 100 rows from 99 orders (96 Purchase,
+4 Balance Collected), summing to exactly ₹2,400,200 — matched against
+the sum of every order's `payment_history` in the DB, verified equal.
+ANEES's own order (the one that surfaced the missing-₹10,000 bug two
+sections up) came back exactly right: the backfilled ₹10,000 first,
+dated 2026-01-01, ahead of the four real payments from April–September.
+No historical backfill for Service/Spare-office — not asked for, and
+those channels start clean from here since neither had any prior
+payment log to reconcile against.
+
+Verified live going forward, one full round through all four channels:
+a real purchase with an upfront paid amount logged a `Purchase` row; a
+real subsequent payment on it logged a `Balance Collected` row; a real
+office spare-part sale logged a `Spare-office` row (total across items,
+not per item — this is a money log, not an inventory one). All three
+test rows read back correctly from the sheet, then cleaned from both the
+DB and the sheet.
+
+## Admin Dashboard: Confirm-in-Place, Dispatch Shows Area, Smarter Assign Defaults (2026-09-07)
+
+Several small dashboard fixes from live use, all in one pass:
+
+- **"Confirm finished work" → "Finished Installation/Service", now
+  confirms in place.** Clicking "View all" used to navigate to
+  `/admin/orders`, losing the point of a dashboard card; now it expands
+  the card itself to show every item needing confirmation (still
+  defaulting to the top 5, matching every other card's convention). Each
+  row gets an inline **Confirm** button — a completed job posts straight
+  to the existing `/api/admin/tickets/[id]/close` (the same endpoint
+  Purchases/Services already used, just reachable here too); a follow-up
+  satisfaction call expands its own small note input (still needs 3+
+  words, §5.4/§5.5's rule) posting to the existing
+  `/api/admin/orders/[id]/confirm`. No new backend logic at all — this
+  is the same two actions, just callable without leaving the dashboard.
+- **Jobs to Dispatch now shows the customer's area** on each row (`·
+  AREA` next to the product), so the admin can factor in "who's already
+  headed that way" when picking a technician — API route's `jobsToDispatch`
+  query now selects `customers(..., area)`.
+- **"Installations" → "New Installation"** on the Jobs to Dispatch card's
+  view-all links (admin and owner both), matching the nav grid's own
+  "+ New Purchase"-era naming rather than the older "Installations" label.
+- **Payments outstanding now shows days since installation** (`· 30d`,
+  no label — just the number) next to the amount owed, using whichever
+  of a customer's outstanding orders was installed longest ago (the
+  most urgent one to chase) — `paymentsOutstanding`'s per-customer
+  aggregation in the API route now tracks `oldestInstallationDate`
+  alongside the running balance total.
+- **Assigning a job now defaults to today + the current half-day slot**
+  instead of a bare empty date and a hardcoded "morning" regardless of
+  the actual time — `emptyAssignForm()` (shared by both dashboards'
+  inline Assign forms) is now a function computing `todayIST()` /
+  `halfDayNowIST()` fresh each time it's opened, the same "book it now"
+  convention New Service's immediate-assignment field already uses.
+
+Verified live: the jobsToDispatch and paymentsOutstanding queries (area,
+installation_date) return the expected shape against real production
+rows; `tsc`/`next build` both clean. The confirm/satisfaction buttons
+reuse endpoints already covered by this project's existing verification
+(§6.7/§7.4), so no new backend behavior needed a fresh live check.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

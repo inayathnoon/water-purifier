@@ -50,7 +50,7 @@ export async function GET() {
       // needs dispatching first.
       supabaseAdmin
         .from('tickets')
-        .select('id, kind, created_at, enquiry_product_interest, customers(name, phone_number)')
+        .select('id, kind, created_at, enquiry_product_interest, customers(name, phone_number, area)')
         .in('kind', ['installation', 'service_visit'])
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
@@ -64,9 +64,12 @@ export async function GET() {
         .order('actual_date', { ascending: true }),
 
       // §7.3/§7.6/§15.6: every order still owed, with discount visible.
+      // installation_date lets the card show how long ago the unit was
+      // actually fitted, alongside the balance — a much older unpaid
+      // installation reads as more urgent than a fresh one.
       supabaseAdmin
         .from('orders')
-        .select('id, sold_price, discount, balance_owed, last_payment_call_at, tickets(customers(name, phone_number))')
+        .select('id, sold_price, discount, balance_owed, last_payment_call_at, tickets(installation_date, customers(name, phone_number))')
         .eq('status', 'open')
         .order('balance_owed', { ascending: false }),
 
@@ -113,16 +116,31 @@ export async function GET() {
     // more than one order outstanding, and "who owes what" is a
     // per-person question, not a per-order one (matches the owner
     // dashboard's overdue-by-person list).
-    const owedByCustomer = new Map<string, { name: string; phoneNumber: string; totalBalance: number; orderCount: number }>();
+    const owedByCustomer = new Map<
+      string,
+      { name: string; phoneNumber: string; totalBalance: number; orderCount: number; oldestInstallationDate: string | null }
+    >();
     for (const o of paymentsOutstanding.data ?? []) {
-      const customer = (o.tickets as unknown as { customers: { name: string; phone_number: string } }).customers;
+      const ticket = o.tickets as unknown as { installation_date: string | null; customers: { name: string; phone_number: string } };
+      const customer = ticket.customers;
       const key = customer.phone_number;
       const existing = owedByCustomer.get(key);
       if (existing) {
         existing.totalBalance += Number(o.balance_owed);
         existing.orderCount += 1;
+        // Oldest (not most recent) — the longest-installed still-unpaid
+        // unit is the one that's been outstanding longest.
+        if (ticket.installation_date && (!existing.oldestInstallationDate || ticket.installation_date < existing.oldestInstallationDate)) {
+          existing.oldestInstallationDate = ticket.installation_date;
+        }
       } else {
-        owedByCustomer.set(key, { name: customer.name, phoneNumber: key, totalBalance: Number(o.balance_owed), orderCount: 1 });
+        owedByCustomer.set(key, {
+          name: customer.name,
+          phoneNumber: key,
+          totalBalance: Number(o.balance_owed),
+          orderCount: 1,
+          oldestInstallationDate: ticket.installation_date,
+        });
       }
     }
     const paymentsOutstandingByPerson = [...owedByCustomer.values()].sort((a, b) => b.totalBalance - a.totalBalance);
