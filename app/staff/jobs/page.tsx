@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, signOut, type User } from '@/lib/auth';
+import { todayIST } from '@/lib/dates';
 
 interface Job {
   id: string;
@@ -83,10 +84,6 @@ const HALF_DAY_LABEL: Record<string, string> = {
   evening: 'Evening',
 };
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 // Exact start/end times aren't worth asking a tech to type on their
 // phone — the booked half-day already says roughly when, so completing a
 // job just uses a fixed window for whichever half-day it was booked into.
@@ -107,7 +104,7 @@ export default function StaffJobsPage() {
   // already-completed/closed visit (§8.4's mistake-fix window).
   const [formMode, setFormMode] = useState<'complete' | 'edit'>('complete');
   const [form, setForm] = useState({
-    actualDate: todayISO(),
+    actualDate: todayIST(),
     actualStartTime: '',
     actualEndTime: '',
     notes: '',
@@ -177,7 +174,7 @@ export default function StaffJobsPage() {
     setCustomPart({ name: '', price: '' });
     const times = HALF_DAY_TIMES[job.booked_half_day] ?? { start: '', end: '' };
     setForm({
-      actualDate: todayISO(),
+      actualDate: todayIST(),
       actualStartTime: times.start,
       actualEndTime: times.end,
       notes: '',
@@ -196,7 +193,7 @@ export default function StaffJobsPage() {
     setPartQuantities(defaultPartQuantities());
     setCustomPart({ name: '', price: '' });
     setForm({
-      actualDate: job.actual_date ?? todayISO(),
+      actualDate: job.actual_date ?? todayIST(),
       actualStartTime: '',
       actualEndTime: '',
       notes: job.actual_notes ?? '',
@@ -270,7 +267,7 @@ export default function StaffJobsPage() {
     reload();
   };
 
-  const today = todayISO();
+  const today = todayIST();
   const visibleJobs = showAll ? jobs : jobs.filter((j) => j.booked_date === today);
   const upcomingCount = jobs.filter((j) => j.booked_date !== today).length;
 

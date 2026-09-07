@@ -2222,6 +2222,38 @@ landed on exactly that date, both in the DB and (matching, in
 `Sep 4, 2026` display format) the Enquiry sheet; a future date was
 correctly refused. All test data cleaned up afterward.
 
+## Bug: "Today" Wasn't Actually Today for a ~5.5-Hour Window Every Night (2026-09-07)
+
+Reported live: the New Enquiry date field (just added above) didn't
+default to today. Root cause was in the helper, not the new field —
+`todayISO()` used `new Date().toISOString().slice(0, 10)`, which is
+always the **UTC** calendar date, despite a comment claiming it was
+"plain local time." Kannur is IST (UTC+5:30), so between midnight and
+5:30 AM local, the UTC date is still *yesterday* — for that whole
+window every night, any form using this helper defaulted to the wrong
+day.
+
+Same copy-pasted function, same wrong comment, existed in three places:
+`/admin/enquiries` (the just-added date field), `/admin/service-calls`
+(New Service's auto-filled booking date), and — the most consequential
+one — **`/staff/jobs`**, where it drove both `actualDate` (the date a
+completion gets recorded and stamped as the warranty start / checked
+against §13.3's warranty override) and, separately, which jobs count as
+"today" for the tech's default view. During that same nightly window,
+a technician's app would have silently shown yesterday's job list
+instead of today's, and a job marked done would have been dated a day
+early.
+
+Fixed by deleting all three copies and switching to the existing
+`lib/dates.ts` `todayIST()` — the same shared helper `/admin/installations`
+already used correctly, doing real UTC+5:30 arithmetic rather than
+trusting a runtime's own timezone. Verified the fix directly: at the
+time of this fix (04:43 UTC, i.e. after 5:30 AM IST) the old and new
+helpers happened to agree, confirming the bug is real but narrow —
+exists only in that pre-5:30-AM-IST window, not found by testing at
+most other times of day, which is exactly why it shipped unnoticed
+across three separate forms before someone hit it live.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

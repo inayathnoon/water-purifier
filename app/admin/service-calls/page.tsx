@@ -6,6 +6,7 @@ import HomeLink from '@/components/HomeLink';
 import CustomerFields from '@/components/CustomerFields';
 import { useConfirm } from '@/components/useConfirm';
 import BookingForm from '@/components/BookingForm';
+import { todayIST } from '@/lib/dates';
 
 // Label on the left, the field on the right — matches FormRow elsewhere.
 function FormRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
@@ -67,10 +68,6 @@ const emptyNewService = {
   bookedHalfDay: 'morning',
   location: 'home',
 };
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // Plain local time — this page is only ever used by staff physically in
 // the business's own timezone, unlike the server-side IST helpers built
@@ -345,7 +342,7 @@ function ServiceCallsPageInner() {
                 setNewService((prev) => ({
                   ...prev,
                   staffAttendedId,
-                  bookedDate: staffAttendedId && !prev.bookedDate ? todayISO() : prev.bookedDate,
+                  bookedDate: staffAttendedId && !prev.bookedDate ? todayIST() : prev.bookedDate,
                   bookedHalfDay: staffAttendedId && !prev.bookedDate ? currentHalfDay() : prev.bookedHalfDay,
                 }));
               }}
