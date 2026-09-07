@@ -11,7 +11,7 @@ import { useSearchParams } from 'next/navigation';
 interface Enquiry {
   id: string;
   enquiry_product_interest: string;
-  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | null;
+  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other' | null;
   call_count: number;
   created_at: string;
   customers: { name: string; phone_number: string; area: string };
@@ -22,6 +22,7 @@ const SOURCE_LABEL: Record<string, string> = {
   water_test: 'Brought water for testing',
   ready_to_buy: 'Ready to buy',
   referral: 'Referral',
+  other: 'Other',
 };
 
 const SOURCE_BADGE: Record<string, string> = {
@@ -29,6 +30,7 @@ const SOURCE_BADGE: Record<string, string> = {
   water_test: 'bg-yellow-100 text-yellow-800',
   ready_to_buy: 'bg-green-100 text-green-800',
   referral: 'bg-blue-100 text-blue-800',
+  other: 'bg-purple-100 text-purple-800',
 };
 
 // Label on the left, the field on the right — placeholder text alone was
@@ -65,9 +67,10 @@ function EnquiriesPageInner() {
     customerId: null as string | null,
     forceNewAddress: false,
     productInterest: '',
-    source: 'general' as 'general' | 'water_test' | 'ready_to_buy' | 'referral',
+    source: 'general' as 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other',
     referrerPhone: '',
     referrerName: '',
+    sourceOtherNote: '',
     enquiryDate: todayIST(),
   });
   const [error, setError] = useState('');
@@ -131,6 +134,7 @@ function EnquiriesPageInner() {
       source: 'general',
       referrerPhone: '',
       referrerName: '',
+      sourceOtherNote: '',
       enquiryDate: todayIST(),
     });
     setShowForm(false);
@@ -221,6 +225,7 @@ function EnquiriesPageInner() {
               <option value="water_test">Brought water for testing</option>
               <option value="ready_to_buy">Ready to buy</option>
               <option value="referral">Referral</option>
+              <option value="other">Other</option>
             </select>
           </FormRow>
           {form.source === 'referral' && (
@@ -245,6 +250,17 @@ function EnquiriesPageInner() {
                 A referrer's phone number that's referred before fills in their name automatically.
               </p>
             </>
+          )}
+          {form.source === 'other' && (
+            <FormRow label="Please specify">
+              <input
+                required
+                placeholder="How did this enquiry come in?"
+                className="w-full border rounded px-3 py-2 text-gray-900"
+                value={form.sourceOtherNote}
+                onChange={(e) => setForm({ ...form, sourceOtherNote: e.target.value })}
+              />
+            </FormRow>
           )}
           <p className="text-xs text-gray-500">
             Typing a phone number that already exists attaches this to that customer automatically.

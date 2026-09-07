@@ -82,9 +82,10 @@ export type Database = {
           // Set only when ProductPicker resolved to a real products.code —
           // historical imports and free-text "Other" purchases leave it null.
           product_code: string | null;
-          enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | null;
+          enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other' | null;
           referrer_name: string | null;
           referrer_phone: string | null;
+          source_other_note: string | null;
           call_count: number;
           callback_date: string | null;
           closure_reason: string | null;

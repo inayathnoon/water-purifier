@@ -32,15 +32,22 @@ export async function createEnquiry(input: {
   customerId: string;
   productInterest: string;
   createdBy: string;
-  source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
+  source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other';
   referrerName?: string;
   referrerPhone?: string;
+  // Only meaningful (and required) when source is 'other' — what "other"
+  // actually was, since that value doesn't speak for itself the way the
+  // rest of the list does.
+  sourceOtherNote?: string;
   // Defaults to now (today) if not given — for entering an enquiry a day
   // or two after it actually happened, not for scheduling a future one.
   enquiryDate?: string;
 }) {
   if (input.source === 'referral' && !input.referrerPhone?.trim()) {
     throw new ApiError(400, 'A referrer phone number is required for a referral');
+  }
+  if (input.source === 'other' && !input.sourceOtherNote?.trim()) {
+    throw new ApiError(400, 'Please specify how this enquiry came in');
   }
   if (input.enquiryDate && input.enquiryDate > todayIST()) {
     throw new ApiError(400, 'Enquiry date cannot be in the future');
@@ -63,6 +70,7 @@ export async function createEnquiry(input: {
       enquiry_source: input.source ?? 'general',
       referrer_name: input.source === 'referral' ? input.referrerName ?? null : null,
       referrer_phone: input.source === 'referral' ? input.referrerPhone ?? null : null,
+      source_other_note: input.source === 'other' ? input.sourceOtherNote ?? null : null,
       ...(enquiryCreatedAt ? { created_at: enquiryCreatedAt } : {}),
     })
     .select('*')
@@ -88,9 +96,10 @@ export async function updateEnquiry(
   ticketId: string,
   updates: {
     productInterest?: string;
-    source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
+    source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other';
     referrerName?: string;
     referrerPhone?: string;
+    sourceOtherNote?: string;
     enquiryDate?: string;
   }
 ) {
@@ -101,6 +110,9 @@ export async function updateEnquiry(
   const source = updates.source ?? ticket.enquiry_source;
   if (source === 'referral' && !(updates.referrerPhone ?? ticket.referrer_phone)?.trim()) {
     throw new ApiError(400, 'A referrer phone number is required for a referral');
+  }
+  if (source === 'other' && !(updates.sourceOtherNote ?? ticket.source_other_note)?.trim()) {
+    throw new ApiError(400, 'Please specify how this enquiry came in');
   }
   if (updates.enquiryDate && updates.enquiryDate > todayIST()) {
     throw new ApiError(400, 'Enquiry date cannot be in the future');
@@ -119,6 +131,12 @@ export async function updateEnquiry(
     // Switched away from referral — the old referrer detail no longer applies.
     patch.referrer_name = null;
     patch.referrer_phone = null;
+  }
+  if (source === 'other') {
+    if (updates.sourceOtherNote !== undefined) patch.source_other_note = updates.sourceOtherNote || null;
+  } else if (updates.source !== undefined) {
+    // Switched away from 'other' — the old note no longer applies.
+    patch.source_other_note = null;
   }
 
   // date is part of the Enquiry sheet's match key (phone_number + date)

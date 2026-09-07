@@ -2394,6 +2394,47 @@ result for a second test customer's Enquiry sheet row through the
 Service-request edit path. Both test customers and their sheet rows
 cleaned up afterward.
 
+## New Enquiry: "Other" Source + Free-Text Remark (2026-09-07)
+
+"How did this come in?" only had General/Water Test/Ready To Buy/Referral
+— nowhere to record a real way an enquiry showed up that didn't fit any
+of those. Added a fifth option, **Other**, with a required free-text
+field ("Please specify") that appears right below the dropdown the
+moment it's picked — same conditional-field pattern Referral already
+uses for its phone/name inputs, not a separate always-visible remarks
+box, since the note only means anything once "Other" is actually chosen.
+
+- Migration 031 adds `'other'` to the `enquiry_source` enum (its own
+  file, split from the column addition — same reason 005/006 were split:
+  a new enum value can't safely be used in the same transaction it's
+  added in). Migration 032 adds `tickets.source_other_note` (nullable
+  text), mirroring `referrer_name`/`referrer_phone`'s shape for
+  'referral'.
+- `createEnquiry()`/`updateEnquiry()` require the note whenever the
+  source is (or is being changed to) 'other', and clear it automatically
+  if the source is later changed away from 'other' — exactly the same
+  require/clear behavior these two functions already had for Referral's
+  fields.
+- Both New Enquiry (`/admin/enquiries`) and its edit form
+  (`/admin/enquiries/[id]`) got the new dropdown option and conditional
+  field; the detail page's summary line shows the note in parentheses,
+  same as Referral shows the referrer's name.
+- The Enquiry sheet gained a real **notes** column (added directly via
+  the Sheets API, same as how the Spare Part Sales and Areas tabs were
+  created earlier this session) so the "Other" remark is actually visible
+  there, not just in the DB — `via` reads `OTHER` and `notes` carries the
+  free text. Every other source still writes `notes: ''`, so nothing
+  already in that column position elsewhere gets clobbered.
+
+**Verified live, both migrations run through the Developer panel's own
+`runPendingMigrations()`** (031 and 032, in order, no manual SQL). Then a
+full lifecycle against production: creating an 'other' enquiry with no
+note was correctly refused; creating one with a note produced the exact
+sheet row expected (`via: OTHER`, `notes: <the text>`); switching it to
+Referral correctly cleared `source_other_note` to null; switching it
+back to 'other' with no note was correctly refused again; providing one
+saved correctly. All test rows cleaned from both the DB and the sheet.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

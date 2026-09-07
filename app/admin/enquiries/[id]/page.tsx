@@ -18,9 +18,10 @@ interface Ticket {
   call_count: number;
   created_at: string;
   enquiry_product_interest: string;
-  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
+  enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral' | 'other';
   referrer_name: string | null;
   referrer_phone: string | null;
+  source_other_note: string | null;
   customers: { name: string; phone_number: string; address: string; area: string };
 }
 
@@ -29,6 +30,7 @@ const SOURCE_LABEL: Record<string, string> = {
   water_test: 'Water test',
   ready_to_buy: 'Ready to buy',
   referral: 'Referral',
+  other: 'Other',
 };
 
 interface RecentPurchase {
@@ -72,7 +74,9 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [linking, setLinking] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const [editingTicket, setEditingTicket] = useState(false);
-  const [editForm, setEditForm] = useState({ productInterest: '', source: 'general', referrerName: '', referrerPhone: '', enquiryDate: '' });
+  const [editForm, setEditForm] = useState({
+    productInterest: '', source: 'general', referrerName: '', referrerPhone: '', sourceOtherNote: '', enquiryDate: '',
+  });
   const [editError, setEditError] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -115,6 +119,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       source: ticket.enquiry_source ?? 'general',
       referrerName: ticket.referrer_name ?? '',
       referrerPhone: ticket.referrer_phone ?? '',
+      sourceOtherNote: ticket.source_other_note ?? '',
       enquiryDate: ticket.created_at.slice(0, 10),
     });
     setEditingTicket(true);
@@ -247,6 +252,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
           <p className="text-sm text-gray-500 mt-1">
             Interested in: {ticket.enquiry_product_interest || '—'} · {SOURCE_LABEL[ticket.enquiry_source] ?? ticket.enquiry_source}
             {ticket.enquiry_source === 'referral' && ticket.referrer_name && ` (via ${ticket.referrer_name})`}
+            {ticket.enquiry_source === 'other' && ticket.source_other_note && ` (${ticket.source_other_note})`}
           </p>
           <p className="text-sm text-gray-500">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
         </div>
@@ -294,6 +300,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
             <option value="water_test">Water test</option>
             <option value="ready_to_buy">Ready to buy</option>
             <option value="referral">Referral</option>
+            <option value="other">Other</option>
           </select>
           {editForm.source === 'referral' && (
             <div className="grid grid-cols-2 gap-2">
@@ -311,6 +318,15 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => setEditForm({ ...editForm, referrerPhone: e.target.value })}
               />
             </div>
+          )}
+          {editForm.source === 'other' && (
+            <input
+              required
+              placeholder="How did this enquiry come in?"
+              className="w-full border rounded px-3 py-2"
+              value={editForm.sourceOtherNote}
+              onChange={(e) => setEditForm({ ...editForm, sourceOtherNote: e.target.value })}
+            />
           )}
           <button
             type="submit"

@@ -18,6 +18,7 @@ const VIA_LABEL: Record<string, string> = {
   water_test: 'WATER TEST',
   ready_to_buy: 'READY TO BUY',
   referral: 'REFERRAL',
+  other: 'OTHER',
 };
 
 /**
@@ -30,7 +31,7 @@ const VIA_LABEL: Record<string, string> = {
 export async function syncEnquiryToSheet(ticketId: string): Promise<void> {
   const { data: ticket, error } = await supabaseAdmin
     .from('tickets')
-    .select('created_at, updated_at, status, enquiry_product_interest, enquiry_source, customers(name, phone_number, address, area)')
+    .select('created_at, updated_at, status, enquiry_product_interest, enquiry_source, source_other_note, customers(name, phone_number, address, area)')
     .eq('id', ticketId)
     .single();
   if (error || !ticket) throw new ApiError(500, error?.message ?? `Enquiry ${ticketId} not found for sheet export`);
@@ -47,6 +48,9 @@ export async function syncEnquiryToSheet(ticketId: string): Promise<void> {
     stage: STAGE_LABEL[ticket.status] ?? ticket.status.toUpperCase(),
     via: ticket.enquiry_source ? (VIA_LABEL[ticket.enquiry_source] ?? ticket.enquiry_source.toUpperCase()) : '',
     closed_date: ticket.status === 'open' ? '' : (ticket.updated_at ?? ticket.created_at).slice(0, 10),
+    // Only meaningful when via is OTHER — silently ignored by
+    // upsertRowByHeader if the sheet doesn't have a "notes" column.
+    notes: ticket.source_other_note ?? '',
   };
 
   await upsertRowByHeader(ENQUIRY_TAB, valuesByColumn, ['phone_number', 'date']);

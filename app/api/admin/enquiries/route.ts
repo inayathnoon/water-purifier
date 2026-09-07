@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       source: body.source,
       referrerName: body.referrerName,
       referrerPhone: body.referrerPhone,
+      sourceOtherNote: body.sourceOtherNote,
       enquiryDate: body.enquiryDate,
     });
 
