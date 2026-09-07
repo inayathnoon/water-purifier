@@ -15,12 +15,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .single();
     if (ticketError) throw ticketError;
 
-    // Oldest first — reads as a chronological conversation, not a feed.
+    // Newest first — reverted 2026-09-07 at the business's explicit
+    // request; the most recent call is what matters when checking in on
+    // an enquiry, not scrolling to the bottom of a history.
     const { data: calls, error: callsError } = await supabaseAdmin
       .from('call_log')
       .select('*')
       .eq('ticket_id', id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
     if (callsError) throw callsError;
 
     // Backs the "This turned out to already be a purchase" link — only

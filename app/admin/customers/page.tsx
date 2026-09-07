@@ -25,6 +25,12 @@ interface Order {
   payment_history: { amount: number; date: string }[];
 }
 
+interface CallLogEntry {
+  id: string;
+  note: string;
+  created_at: string;
+}
+
 interface Ticket {
   id: string;
   kind: 'enquiry' | 'installation' | 'service_visit';
@@ -37,6 +43,7 @@ interface Ticket {
   agreed_price: number | null;
   charge_amount: number | null;
   orders: Order | Order[] | null;
+  call_log: CallLogEntry[];
 }
 
 function firstOrder(orders: Ticket['orders']): Order | null {
@@ -90,6 +97,12 @@ function CustomerDirectoryPageInner() {
   const [paymentForm, setPaymentForm] = useState({ amount: '', date: todayIST() });
   const [paymentError, setPaymentError] = useState('');
   const [payingSubmitting, setPayingSubmitting] = useState(false);
+  // Logging a payment-reminder call (§7.3) right from here too — same
+  // endpoint /admin/orders' own "Log call" already uses.
+  const [callingOrderId, setCallingOrderId] = useState<string | null>(null);
+  const [callNote, setCallNote] = useState('');
+  const [callError, setCallError] = useState('');
+  const [callSubmitting, setCallSubmitting] = useState(false);
 
   const runSearch = async (e?: React.FormEvent, overrideQuery?: string) => {
     e?.preventDefault();
@@ -150,6 +163,33 @@ function CustomerDirectoryPageInner() {
     setPayingOrderId(null);
     // Refresh this customer's history so the new balance/payment shows
     // immediately, same data this whole panel is already built from.
+    const historyRes = await fetch(`/api/admin/customers/${customerId}`);
+    const data = await historyRes.json();
+    if (historyRes.ok) setHistory((h) => ({ ...h, [customerId]: data.tickets ?? [] }));
+  };
+
+  const startCall = (orderId: string) => {
+    setCallError('');
+    setCallingOrderId(orderId);
+    setCallNote('');
+  };
+
+  const handleLogCall = async (e: React.FormEvent, orderId: string, customerId: string) => {
+    e.preventDefault();
+    if (callSubmitting) return;
+    setCallSubmitting(true);
+    setCallError('');
+    const res = await fetch(`/api/admin/orders/${orderId}/payment-call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: callNote }),
+    });
+    setCallSubmitting(false);
+    if (!res.ok) {
+      setCallError((await res.json()).error ?? 'Failed to log call');
+      return;
+    }
+    setCallingOrderId(null);
     const historyRes = await fetch(`/api/admin/customers/${customerId}`);
     const data = await historyRes.json();
     if (historyRes.ok) setHistory((h) => ({ ...h, [customerId]: data.tickets ?? [] }));
@@ -338,12 +378,20 @@ function CustomerDirectoryPageInner() {
                                       Balance ₹{order.balance_owed}
                                     </span>
                                     {order.balance_owed > 0 && (
-                                      <button
-                                        onClick={() => (payingOrderId === order.id ? setPayingOrderId(null) : startPayment(order.id))}
-                                        className="ml-2 text-blue-600 hover:underline"
-                                      >
-                                        {payingOrderId === order.id ? 'Cancel' : 'Record payment'}
-                                      </button>
+                                      <>
+                                        <button
+                                          onClick={() => (payingOrderId === order.id ? setPayingOrderId(null) : startPayment(order.id))}
+                                          className="ml-2 text-blue-600 hover:underline"
+                                        >
+                                          {payingOrderId === order.id ? 'Cancel' : 'Record payment'}
+                                        </button>
+                                        <button
+                                          onClick={() => (callingOrderId === order.id ? setCallingOrderId(null) : startCall(order.id))}
+                                          className="ml-2 text-blue-600 hover:underline"
+                                        >
+                                          {callingOrderId === order.id ? 'Cancel' : 'Log call'}
+                                        </button>
+                                      </>
                                     )}
                                   </p>
                                   {order.payment_history?.length > 0 && (
@@ -353,6 +401,40 @@ function CustomerDirectoryPageInner() {
                                         .map((p) => `₹${p.amount} on ${p.date.slice(0, 10)}`)
                                         .join(', ')}
                                     </div>
+                                  )}
+                                  {t.call_log?.length > 0 && (
+                                    <div className="mt-1 text-xs text-gray-600">
+                                      Calls (newest first):
+                                      <ul className="mt-0.5 space-y-0.5">
+                                        {t.call_log.map((call) => (
+                                          <li key={call.id}>
+                                            {new Date(call.created_at).toLocaleDateString()} — {call.note}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {callingOrderId === order.id && (
+                                    <form
+                                      onSubmit={(e) => handleLogCall(e, order.id, c.id)}
+                                      className="mt-2 pt-2 border-t flex flex-wrap gap-2 items-start"
+                                    >
+                                      {callError && <p className="w-full text-red-600 text-xs">{callError}</p>}
+                                      <input
+                                        required
+                                        placeholder="What did they say?"
+                                        className="border rounded px-2 py-1.5 text-sm flex-1 min-w-[10rem]"
+                                        value={callNote}
+                                        onChange={(e) => setCallNote(e.target.value)}
+                                      />
+                                      <button
+                                        type="submit"
+                                        disabled={callSubmitting}
+                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                                      >
+                                        {callSubmitting ? 'Saving...' : 'Save'}
+                                      </button>
+                                    </form>
                                   )}
                                   {payingOrderId === order.id && (
                                     <form

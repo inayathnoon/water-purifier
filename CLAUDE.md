@@ -2552,6 +2552,33 @@ moments earlier correctly flagged `true`; a second enquiry for a
 customer with no purchase at all correctly flagged `false`. Cleaned up
 afterward.
 
+## Enquiry Call Log Reverted to Newest-First; Payment-Call History Added to Customer Directory (2026-09-07)
+
+Two corrections in the same breath. First: the enquiry call-log ordering
+changed earlier today (chronological, oldest-first) was wrong — reverted
+`/api/admin/enquiries/[id]` back to newest-first, at explicit request:
+the most recent call is what matters when checking in on an enquiry, not
+scrolling to the bottom of a history.
+
+Second, new: the Customer Directory's Purchase card had a way to
+**record** a payment but no way to **log a call** or see past ones —
+`/admin/orders` already had both (via `logPaymentCall()` and its own
+`last_payment_call_at`), just not surfaced here. `getCustomerWithHistory()`
+now embeds each ticket's `call_log` (newest first, via `.order(...,
+{ referencedTable: 'call_log' })` — no second round trip), and the
+Purchase card gained a **"Log call"** button right next to "Record
+payment" (same `balance_owed > 0` gate), a note input posting to the
+existing `/api/admin/orders/[id]/payment-call` endpoint, and a "Calls
+(newest first)" list showing each logged call's date and note.
+
+No backend changes to the call-logging itself — this reuses
+`logPaymentCall()`/`last_payment_call_at` exactly as `/admin/orders`
+already does, just reachable and visible from a second place.
+
+Verified live: two real payment calls logged against a real order came
+back through `getCustomerWithHistory()` in newest-first order, matching
+what the Purchase card now renders. Cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

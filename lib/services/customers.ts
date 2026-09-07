@@ -184,11 +184,14 @@ export async function getCustomerWithHistory(customerId: string) {
   // §4.3: full ticket history visible on one page — orders joined in too
   // (payment_history column included for free), so "what they bought"
   // and "when did each payment come in" both show without a second trip.
+  // call_log embedded too (§7.3's payment-call notes), newest first — so
+  // a payment-call history shows here without yet another round trip.
   const { data: tickets, error: ticketsError } = await supabaseAdmin
     .from('tickets')
-    .select('*, orders(*)')
+    .select('*, orders(*), call_log(id, note, created_at)')
     .eq('customer_id', customerId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false, referencedTable: 'call_log' });
 
   if (ticketsError) throw new ApiError(500, ticketsError.message);
 
