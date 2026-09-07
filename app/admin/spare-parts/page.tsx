@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
+import { todayIST } from '@/lib/dates';
 
 interface SparePart {
   name: string;
@@ -51,7 +52,7 @@ function SparePartsPageInner() {
   const [submittingSell, setSubmittingSell] = useState(false);
   const [recentSales, setRecentSales] = useState<SparePartSale[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ partName: '', unitPrice: '', quantity: '', customerName: '', phoneNumber: '' });
+  const [editForm, setEditForm] = useState({ partName: '', unitPrice: '', quantity: '', customerName: '', phoneNumber: '', saleDate: '' });
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -114,6 +115,7 @@ function SparePartsPageInner() {
       quantity: String(s.quantity),
       customerName: s.customer_name ?? '',
       phoneNumber: s.phone_number ?? '',
+      saleDate: s.created_at.slice(0, 10),
     });
   };
 
@@ -131,6 +133,7 @@ function SparePartsPageInner() {
         quantity: Number(editForm.quantity),
         customerName: editForm.customerName,
         phoneNumber: editForm.phoneNumber,
+        saleDate: editForm.saleDate,
       }),
     });
     setSaving(false);
@@ -253,6 +256,14 @@ function SparePartsPageInner() {
                 <form onSubmit={(e) => handleSaveEdit(e, s.id)} className="mt-3 pt-3 border-t space-y-2">
                   {editError && <p className="text-red-600 text-xs">{editError}</p>}
                   <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      required
+                      max={todayIST()}
+                      className="border rounded px-2 py-1.5"
+                      value={editForm.saleDate}
+                      onChange={(e) => setEditForm({ ...editForm, saleDate: e.target.value })}
+                    />
                     <input
                       required
                       placeholder="Part name"

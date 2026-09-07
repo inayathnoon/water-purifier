@@ -2,8 +2,8 @@ import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } from './notifications';
 import { syncOrderToSalesSheetSafely, removeOrderFromSalesSheetSafely } from './salesSheet';
-import { syncServiceToSheetSafely } from './serviceSheet';
-import { syncEnquiryToSheetSafely } from './enquirySheet';
+import { syncServiceToSheetSafely, removeServiceFromSheetSafely } from './serviceSheet';
+import { syncEnquiryToSheetSafely, removeEnquiryFromSheetSafely } from './enquirySheet';
 import { syncServiceVisitPartsToSheetSafely } from './sparePartSalesSheet';
 import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
@@ -91,6 +91,7 @@ export async function updateEnquiry(
     source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
     referrerName?: string;
     referrerPhone?: string;
+    enquiryDate?: string;
   }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
@@ -100,6 +101,9 @@ export async function updateEnquiry(
   const source = updates.source ?? ticket.enquiry_source;
   if (source === 'referral' && !(updates.referrerPhone ?? ticket.referrer_phone)?.trim()) {
     throw new ApiError(400, 'A referrer phone number is required for a referral');
+  }
+  if (updates.enquiryDate && updates.enquiryDate > todayIST()) {
+    throw new ApiError(400, 'Enquiry date cannot be in the future');
   }
 
   const patch: Record<string, unknown> = {};
@@ -115,6 +119,17 @@ export async function updateEnquiry(
     // Switched away from referral — the old referrer detail no longer applies.
     patch.referrer_name = null;
     patch.referrer_phone = null;
+  }
+
+  // date is part of the Enquiry sheet's match key (phone_number + date)
+  // — un-find the row under the old date first, while it's still the
+  // ticket's current value, so the fresh sync below doesn't leave a
+  // stale duplicate sitting next to the corrected row.
+  const oldDate = ticket.created_at.slice(0, 10);
+  if (updates.enquiryDate && updates.enquiryDate !== oldDate) {
+    const { data: customer } = await supabaseAdmin.from('customers').select('phone_number').eq('id', ticket.customer_id).single();
+    if (customer) await removeEnquiryFromSheetSafely(customer.phone_number, oldDate);
+    patch.created_at = `${updates.enquiryDate}T12:00:00Z`;
   }
 
   const { data, error } = await supabaseAdmin.from('tickets').update(patch).eq('id', ticketId).select('*').single();
@@ -202,7 +217,7 @@ export async function createAdHocServiceRequest(input: {
  */
 export async function updateAdHocServiceRequest(
   ticketId: string,
-  updates: { productInterest?: string; issueNote?: string; location?: 'home' | 'office' }
+  updates: { productInterest?: string; issueNote?: string; location?: 'home' | 'office'; requestDate?: string }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.kind !== 'service_visit') throw new ApiError(400, 'Not a service visit');
@@ -212,6 +227,9 @@ export async function updateAdHocServiceRequest(
   }
   if (updates.issueNote !== undefined && !updates.issueNote.trim()) {
     throw new ApiError(400, 'A note on the reported problem is required');
+  }
+  if (updates.requestDate && updates.requestDate > todayIST()) {
+    throw new ApiError(400, 'Request date cannot be in the future');
   }
 
   const productInterest = updates.productInterest !== undefined ? updates.productInterest : ticket.product_interest ?? '';
@@ -223,6 +241,16 @@ export async function updateAdHocServiceRequest(
     issue_note: issueNote,
   };
   if (updates.location !== undefined) patch.location = updates.location;
+
+  // date is part of the Service sheet's match key (phone_number + date)
+  // — un-find the row under the old date first, same reasoning as the
+  // Enquiry/Sales sheet re-key fixes.
+  const oldDate = ticket.created_at.slice(0, 10);
+  if (updates.requestDate && updates.requestDate !== oldDate) {
+    const { data: customer } = await supabaseAdmin.from('customers').select('phone_number').eq('id', ticket.customer_id).single();
+    if (customer) await removeServiceFromSheetSafely(customer.phone_number, oldDate);
+    patch.created_at = `${updates.requestDate}T12:00:00Z`;
+  }
 
   const { data, error } = await supabaseAdmin.from('tickets').update(patch).eq('id', ticketId).select('*').single();
   if (error) throw new ApiError(500, error.message);
@@ -730,7 +758,7 @@ export async function cancelJob(ticketId: string, reason: string) {
  */
 export async function updatePurchase(
   ticketId: string,
-  updates: { productCode?: string | null; productDetails?: string; listPrice?: number; soldPrice?: number }
+  updates: { productCode?: string | null; productDetails?: string; listPrice?: number; soldPrice?: number; billDate?: string }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.kind !== 'installation') throw new ApiError(400, 'Not a purchase');
@@ -745,13 +773,18 @@ export async function updatePurchase(
   }
   if (updates.listPrice !== undefined && updates.listPrice < 0) throw new ApiError(400, 'List price must be zero or more');
   if (updates.soldPrice !== undefined && updates.soldPrice < 0) throw new ApiError(400, 'Sold price must be zero or more');
+  if (updates.billDate && updates.billDate > todayIST()) throw new ApiError(400, 'Bill date cannot be in the future');
 
-  // sold_price is part of the Sales sheet's match key (phone_number +
-  // bill_date + sold_price) — clear the old row first, while it's still
-  // findable under the price about to change, so the fresh sync below
-  // doesn't leave a stale duplicate sitting next to the corrected row.
-  const soldPriceChanging = updates.soldPrice !== undefined && updates.soldPrice !== Number(order.sold_price);
-  if (soldPriceChanging) {
+  // sold_price *and* bill_date are both part of the Sales sheet's match
+  // key (phone_number + bill_date + sold_price) — clear the old row
+  // first, while it's still findable under the values about to change,
+  // so the fresh sync below doesn't leave a stale duplicate sitting next
+  // to the corrected row.
+  const billDate = updates.billDate ? `${updates.billDate}T12:00:00Z` : undefined;
+  const keyChanging =
+    (updates.soldPrice !== undefined && updates.soldPrice !== Number(order.sold_price)) ||
+    (billDate !== undefined && billDate.slice(0, 10) !== order.created_at.slice(0, 10));
+  if (keyChanging) {
     await removeOrderFromSalesSheetSafely(order.id);
   }
 
@@ -770,6 +803,7 @@ export async function updatePurchase(
   const orderPatch: Record<string, unknown> = {};
   if (updates.listPrice !== undefined) orderPatch.list_price = updates.listPrice;
   if (updates.soldPrice !== undefined) orderPatch.sold_price = updates.soldPrice;
+  if (billDate !== undefined) orderPatch.created_at = billDate;
 
   let updatedOrder = order;
   if (Object.keys(orderPatch).length > 0) {

@@ -15,6 +15,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       productDetails: body.productDetails,
       listPrice: body.listPrice != null ? Number(body.listPrice) : undefined,
       soldPrice: body.soldPrice != null ? Number(body.soldPrice) : undefined,
+      billDate: body.billDate,
     });
 
     return Response.json({ order });

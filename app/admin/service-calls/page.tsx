@@ -24,6 +24,7 @@ function FormRow({ label, required, children }: { label: string; required?: bool
 interface ServiceCall {
   id: string;
   status: 'open' | 'booked' | 'completed';
+  created_at: string;
   booked_date: string | null;
   booked_half_day: string | null;
   location: string | null;
@@ -116,7 +117,7 @@ function ServiceCallsPageInner() {
   const [confirm, confirmDialog] = useConfirm();
   // Correcting an ad-hoc request's own details — only while unvisited.
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
-  const [requestEditForm, setRequestEditForm] = useState({ productInterest: '', issueNote: '', location: 'home' });
+  const [requestEditForm, setRequestEditForm] = useState({ productInterest: '', issueNote: '', location: 'home', requestDate: '' });
   const [requestEditError, setRequestEditError] = useState('');
   const [savingRequestEdit, setSavingRequestEdit] = useState(false);
 
@@ -245,6 +246,7 @@ function ServiceCallsPageInner() {
       productInterest: c.product_interest ?? '',
       issueNote: c.issue_note ?? '',
       location: c.location ?? 'home',
+      requestDate: c.created_at.slice(0, 10),
     });
   };
 
@@ -475,6 +477,14 @@ function ServiceCallsPageInner() {
               {editingRequestId === c.id && (
                 <div className="mt-2 pt-2 border-t space-y-2">
                   {requestEditError && <p className="text-red-600 text-xs">{requestEditError}</p>}
+                  <input
+                    type="date"
+                    required
+                    max={todayIST()}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    value={requestEditForm.requestDate}
+                    onChange={(e) => setRequestEditForm({ ...requestEditForm, requestDate: e.target.value })}
+                  />
                   <select
                     className="w-full border rounded px-3 py-2 text-sm"
                     value={requestEditForm.productInterest}

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { upsertRowByHeader } from './googleSheets';
+import { upsertRowByHeader, clearMatchingRowByHeader } from './googleSheets';
 import { logNotification } from './notifications';
 
 // Same spreadsheet as Sales/Product List, a different tab.
@@ -51,6 +51,25 @@ export async function syncServiceToSheet(ticketId: string): Promise<void> {
 export async function syncServiceToSheetSafely(ticketId: string): Promise<void> {
   try {
     await syncServiceToSheet(ticketId);
+  } catch (e) {
+    await logNotification('service_sheet_failed', 'failed', (e as Error).message);
+  }
+}
+
+/**
+ * Un-finds a service request's sheet row by its old key — for when the
+ * request date itself is being corrected and `date` is part of the
+ * match key, so the very next sync under the new date would otherwise
+ * fail to find this row and insert a duplicate next to it.
+ */
+export async function removeServiceFromSheet(phoneNumber: string, date: string): Promise<void> {
+  await clearMatchingRowByHeader(SERVICE_TAB, { phone_number: phoneNumber, date }, ['phone_number', 'date']);
+}
+
+/** Same as removeServiceFromSheet(), but never throws — see §10.5/§9.6. */
+export async function removeServiceFromSheetSafely(phoneNumber: string, date: string): Promise<void> {
+  try {
+    await removeServiceFromSheet(phoneNumber, date);
   } catch (e) {
     await logNotification('service_sheet_failed', 'failed', (e as Error).message);
   }

@@ -2323,6 +2323,39 @@ the sheet and a click of "Sync areas" — no code change, no deploy.
 Verified live: `getAreas()` returns all 158 entries including
 Pandakkal; a forced `syncAreas()` re-read matches.
 
+## Every "Edit" Now Supports Correcting the Date Too (2026-09-07)
+
+Flagged directly: none of the four Edit flows built earlier let you
+correct the date — the one field every one of them was missing. Added
+it to all four, each following whichever pattern that entity's sheet
+sync actually needs:
+
+- **Purchases** (`updatePurchase`) — Bill Date, alongside product/price.
+  `bill_date` is *also* part of the Sales sheet's match key (with
+  `sold_price`), so a date edit gets the same "clear the old row first"
+  treatment already built for a sold-price edit — both can now change
+  in the same call without ever risking a duplicate.
+- **Enquiries** (`updateEnquiry`) and **ad-hoc Service requests**
+  (`updateAdHocServiceRequest`) — same class of fix, new
+  `removeEnquiryFromSheet[Safely]()` / `removeServiceFromSheet[Safely]()`
+  in their respective sheet services (mirroring `removeOrderFromSalesSheet`),
+  since `date` is the second half of *their* sheets' match keys
+  (`phone_number + date`) too.
+- **Spare Part Sales** (`updateSparePartSale`) — needed no rekey logic
+  at all: that sheet is matched on the sale's own `id`, so a date change
+  can never make an existing row un-findable.
+
+All four reject a future date, same as every other date field in this
+app (Bill Date, Enquiry Date, Payment Date already worked this way).
+
+**Verified live, all four, focusing on exactly the failure mode this
+was built to prevent**: a Purchase's Bill Date, an Enquiry's date, and
+a Service request's date were each backdated by one day, and the
+corresponding sheet (Sales/Enquiry/Service) was re-checked afterward to
+confirm **exactly one row** for that customer — not two. A Spare Part
+Sale's date was also corrected and confirmed. All four correctly
+refused a future date. All test data cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

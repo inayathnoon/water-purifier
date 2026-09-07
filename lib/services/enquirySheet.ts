@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { upsertRowByHeader } from './googleSheets';
+import { upsertRowByHeader, clearMatchingRowByHeader } from './googleSheets';
 import { logNotification } from './notifications';
 
 // Same spreadsheet as Sales/Service/Product List, a different tab.
@@ -56,6 +56,27 @@ export async function syncEnquiryToSheet(ticketId: string): Promise<void> {
 export async function syncEnquiryToSheetSafely(ticketId: string): Promise<void> {
   try {
     await syncEnquiryToSheet(ticketId);
+  } catch (e) {
+    await logNotification('enquiry_sheet_failed', 'failed', (e as Error).message);
+  }
+}
+
+/**
+ * Un-finds an enquiry's sheet row by its old key — for when the date
+ * itself is being corrected (updateEnquiry()) and `date` is part of the
+ * match key, so the very next sync under the new date would otherwise
+ * fail to find this row and insert a duplicate next to it. Takes the
+ * phone/date explicitly rather than a ticket id, since by the time this
+ * needs to run the ticket's own created_at may already be the new value.
+ */
+export async function removeEnquiryFromSheet(phoneNumber: string, date: string): Promise<void> {
+  await clearMatchingRowByHeader(ENQUIRY_TAB, { phone_number: phoneNumber, date }, ['phone_number', 'date']);
+}
+
+/** Same as removeEnquiryFromSheet(), but never throws — see §10.5/§9.6. */
+export async function removeEnquiryFromSheetSafely(phoneNumber: string, date: string): Promise<void> {
+  try {
+    await removeEnquiryFromSheet(phoneNumber, date);
   } catch (e) {
     await logNotification('enquiry_sheet_failed', 'failed', (e as Error).message);
   }

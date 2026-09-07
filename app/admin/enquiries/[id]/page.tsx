@@ -4,6 +4,7 @@ import { useEffect, useState, use as usePromise } from 'react';
 import { useRouter } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 import { useConfirm } from '@/components/useConfirm';
+import { todayIST } from '@/lib/dates';
 
 interface Call {
   id: string;
@@ -15,6 +16,7 @@ interface Ticket {
   id: string;
   status: string;
   call_count: number;
+  created_at: string;
   enquiry_product_interest: string;
   enquiry_source: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
   referrer_name: string | null;
@@ -70,7 +72,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [linking, setLinking] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const [editingTicket, setEditingTicket] = useState(false);
-  const [editForm, setEditForm] = useState({ productInterest: '', source: 'general', referrerName: '', referrerPhone: '' });
+  const [editForm, setEditForm] = useState({ productInterest: '', source: 'general', referrerName: '', referrerPhone: '', enquiryDate: '' });
   const [editError, setEditError] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -113,6 +115,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       source: ticket.enquiry_source ?? 'general',
       referrerName: ticket.referrer_name ?? '',
       referrerPhone: ticket.referrer_phone ?? '',
+      enquiryDate: ticket.created_at.slice(0, 10),
     });
     setEditingTicket(true);
   };
@@ -268,6 +271,14 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       {editingTicket && (
         <form onSubmit={handleSaveTicketEdit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
           {editError && <p className="text-red-600 text-sm">{editError}</p>}
+          <input
+            type="date"
+            required
+            max={todayIST()}
+            className="w-full border rounded px-3 py-2"
+            value={editForm.enquiryDate}
+            onChange={(e) => setEditForm({ ...editForm, enquiryDate: e.target.value })}
+          />
           <input
             placeholder="Product interest"
             className="w-full border rounded px-3 py-2"

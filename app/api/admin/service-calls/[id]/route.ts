@@ -13,6 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       productInterest: body.productInterest,
       issueNote: body.issueNote,
       location: body.location,
+      requestDate: body.requestDate,
     });
 
     return Response.json({ ticket });

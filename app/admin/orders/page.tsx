@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import HomeLink from '@/components/HomeLink';
-import { daysAgoIST } from '@/lib/dates';
+import { daysAgoIST, todayIST } from '@/lib/dates';
 import { toStartCase } from '@/lib/format';
 import { getCurrentUser, type User } from '@/lib/auth';
 
@@ -87,7 +87,7 @@ export default function OrdersPage() {
   // Correcting a purchase's product/price — same unpaid/unvisited window
   // as voiding one, see updatePurchase().
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
-  const [purchaseEditForm, setPurchaseEditForm] = useState({ productDetails: '', listPrice: '', soldPrice: '' });
+  const [purchaseEditForm, setPurchaseEditForm] = useState({ productDetails: '', listPrice: '', soldPrice: '', billDate: '' });
   const [purchaseEditError, setPurchaseEditError] = useState('');
   const [savingPurchaseEdit, setSavingPurchaseEdit] = useState(false);
   // Find a purchase by customer — phone number or name, filtered
@@ -180,6 +180,7 @@ export default function OrdersPage() {
       productDetails: productFields(o).name,
       listPrice: String(o.list_price),
       soldPrice: String(o.sold_price),
+      billDate: billDate(o),
     });
   };
 
@@ -194,6 +195,7 @@ export default function OrdersPage() {
         productDetails: purchaseEditForm.productDetails,
         listPrice: Number(purchaseEditForm.listPrice),
         soldPrice: Number(purchaseEditForm.soldPrice),
+        billDate: purchaseEditForm.billDate,
       }),
     });
     setSavingPurchaseEdit(false);
@@ -527,6 +529,14 @@ export default function OrdersPage() {
                                 onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, productDetails: e.target.value })}
                               />
                               <div className="flex gap-2">
+                                <input
+                                  type="date"
+                                  required
+                                  max={todayIST()}
+                                  className="border rounded px-3 py-2 bg-white"
+                                  value={purchaseEditForm.billDate}
+                                  onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, billDate: e.target.value })}
+                                />
                                 <input
                                   type="number"
                                   step="0.01"

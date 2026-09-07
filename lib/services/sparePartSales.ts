@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
 import { syncSparePartSaleToSheetSafely } from './sparePartSalesSheet';
+import { todayIST } from '../dates';
 
 export interface SparePartSaleItem {
   partName: string;
@@ -64,7 +65,7 @@ export async function listRecentSparePartSales(limit = 20) {
  */
 export async function updateSparePartSale(
   saleId: string,
-  updates: { partName?: string; unitPrice?: number; quantity?: number; customerName?: string; phoneNumber?: string }
+  updates: { partName?: string; unitPrice?: number; quantity?: number; customerName?: string; phoneNumber?: string; saleDate?: string }
 ) {
   const { data: existing, error: findError } = await supabaseAdmin.from('spare_part_sales').select('*').eq('id', saleId).single();
   if (findError || !existing) throw new ApiError(404, 'Spare part sale not found');
@@ -75,8 +76,9 @@ export async function updateSparePartSale(
   if (!partName.trim()) throw new ApiError(400, 'Part name is required');
   if (unitPrice < 0) throw new ApiError(400, 'Unit price must be zero or more');
   if (quantity <= 0) throw new ApiError(400, 'Quantity must be at least 1');
+  if (updates.saleDate && updates.saleDate > todayIST()) throw new ApiError(400, 'Sale date cannot be in the future');
 
-  const patch = {
+  const patch: Record<string, unknown> = {
     part_name: partName,
     unit_price: unitPrice,
     quantity,
@@ -84,6 +86,10 @@ export async function updateSparePartSale(
     customer_name: updates.customerName !== undefined ? updates.customerName.trim() || null : existing.customer_name,
     phone_number: updates.phoneNumber !== undefined ? updates.phoneNumber.trim() || null : existing.phone_number,
   };
+  // No sheet-rekey needed here (unlike Sales/Enquiry/Service) — this
+  // sheet is matched on the sale's own id, not date, so changing the
+  // date can never make an existing row un-findable.
+  if (updates.saleDate) patch.created_at = `${updates.saleDate}T12:00:00Z`;
 
   const { data, error } = await supabaseAdmin.from('spare_part_sales').update(patch).eq('id', saleId).select('*, users:sold_by(name)').single();
   if (error) throw new ApiError(500, error.message);

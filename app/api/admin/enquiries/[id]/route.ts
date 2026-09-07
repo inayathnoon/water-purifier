@@ -40,6 +40,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       source: body.source,
       referrerName: body.referrerName,
       referrerPhone: body.referrerPhone,
+      enquiryDate: body.enquiryDate,
     });
 
     return Response.json({ ticket });
