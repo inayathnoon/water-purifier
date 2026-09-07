@@ -2254,6 +2254,44 @@ exists only in that pre-5:30-AM-IST window, not found by testing at
 most other times of day, which is exactly why it shipped unnoticed
 across three separate forms before someone hit it live.
 
+## Record Payment From the Customer Directory, Editable Date, Auto-Close (2026-09-07)
+
+Explicit ask, from clicking a "money owed" row on either dashboard
+straight through to `/admin/customers`: the customer's Purchase entry
+showed the balance owed but had no way to actually record a payment
+against it — that only existed on `/admin/orders`. Added the same
+action here, right on the Purchase card, plus two real improvements
+that apply everywhere `recordPayment()` is called from (not just this
+new spot):
+
+- **`recordPayment()` now takes an optional `paymentDate`** — same
+  "typed up a day or two late" gap as Bill Date and Enquiry Date, and
+  the same noon-UTC fix for the same timezone-shift bug (a plain
+  midnight value lands on the wrong day depending on the server's own
+  timezone). Rejects a future date.
+- **A payment that finishes the sale off now closes the order in the
+  same call.** `closeOrder()` was always a separate, manually-clicked
+  step even once balance hit exactly 0 — but "closed" was never a
+  distinct business event in this app to begin with, just
+  `orders.status` reading off `balance_owed = 0` (the same principle
+  behind the Sales-sheet sync and the confirmation-status split). If
+  `recordPayment()`'s own update brings the balance to 0, it now calls
+  `closeOrder()` itself rather than leaving that for a second click.
+
+New inline form on the Customer Directory's Purchase card — date
+(defaults to today, editable to a past date) and amount — appearing via
+a "Record payment" link next to the balance, only when something's
+actually owed. On save, that customer's history re-fetches so the new
+balance/payment shows immediately, no page reload.
+
+**Verified live**: a real purchase's partial payment, backdated 2 days,
+landed with exactly that date in `payment_history` and the order stayed
+`open`; the remaining balance paid off in a second call correctly
+flipped the order to `closed` automatically; a future payment date was
+refused; the Sales sheet was re-checked afterward and showed the
+correct final paid/balance for the closed order. All test data cleaned
+up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

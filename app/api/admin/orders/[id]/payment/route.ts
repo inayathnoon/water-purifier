@@ -7,7 +7,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const body = await request.json();
 
-    const order = await recordPayment(id, Number(body.amount), user.id);
+    const order = await recordPayment(id, Number(body.amount), user.id, body.paymentDate);
     return Response.json({ order });
   } catch (err) {
     return handleApiError(err);

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 import AreaSelect from '@/components/AreaSelect';
+import { todayIST } from '@/lib/dates';
 
 interface Customer {
   id: string;
@@ -82,6 +83,13 @@ function CustomerDirectoryPageInner() {
   const [editForm, setEditForm] = useState({ phoneNumber: '', name: '', address: '', area: '' });
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
+  // Recording a payment right from a customer's history — same action
+  // as Purchases' own "Record payment", just reachable from wherever
+  // "money owed" actually gets clicked through from.
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: '', date: todayIST() });
+  const [paymentError, setPaymentError] = useState('');
+  const [payingSubmitting, setPayingSubmitting] = useState(false);
 
   const runSearch = async (e?: React.FormEvent, overrideQuery?: string) => {
     e?.preventDefault();
@@ -116,6 +124,35 @@ function CustomerDirectoryPageInner() {
       }
       setLoadingHistory(null);
     }
+  };
+
+  const startPayment = (orderId: string) => {
+    setPaymentError('');
+    setPayingOrderId(orderId);
+    setPaymentForm({ amount: '', date: todayIST() });
+  };
+
+  const handleRecordPayment = async (e: React.FormEvent, orderId: string, customerId: string) => {
+    e.preventDefault();
+    if (payingSubmitting) return;
+    setPayingSubmitting(true);
+    setPaymentError('');
+    const res = await fetch(`/api/admin/orders/${orderId}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: Number(paymentForm.amount), paymentDate: paymentForm.date }),
+    });
+    setPayingSubmitting(false);
+    if (!res.ok) {
+      setPaymentError((await res.json()).error ?? 'Failed to record payment');
+      return;
+    }
+    setPayingOrderId(null);
+    // Refresh this customer's history so the new balance/payment shows
+    // immediately, same data this whole panel is already built from.
+    const historyRes = await fetch(`/api/admin/customers/${customerId}`);
+    const data = await historyRes.json();
+    if (historyRes.ok) setHistory((h) => ({ ...h, [customerId]: data.tickets ?? [] }));
   };
 
   const startEditing = (c: Customer) => {
@@ -300,6 +337,14 @@ function CustomerDirectoryPageInner() {
                                     <span className={order.balance_owed > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
                                       Balance ₹{order.balance_owed}
                                     </span>
+                                    {order.balance_owed > 0 && (
+                                      <button
+                                        onClick={() => (payingOrderId === order.id ? setPayingOrderId(null) : startPayment(order.id))}
+                                        className="ml-2 text-blue-600 hover:underline"
+                                      >
+                                        {payingOrderId === order.id ? 'Cancel' : 'Record payment'}
+                                      </button>
+                                    )}
                                   </p>
                                   {order.payment_history?.length > 0 && (
                                     <div className="mt-1 text-xs text-gray-600">
@@ -308,6 +353,40 @@ function CustomerDirectoryPageInner() {
                                         .map((p) => `₹${p.amount} on ${p.date.slice(0, 10)}`)
                                         .join(', ')}
                                     </div>
+                                  )}
+                                  {payingOrderId === order.id && (
+                                    <form
+                                      onSubmit={(e) => handleRecordPayment(e, order.id, c.id)}
+                                      className="mt-2 pt-2 border-t flex flex-wrap gap-2 items-start"
+                                    >
+                                      {paymentError && <p className="w-full text-red-600 text-xs">{paymentError}</p>}
+                                      <input
+                                        type="date"
+                                        required
+                                        max={todayIST()}
+                                        className="border rounded px-2 py-1.5 text-sm"
+                                        value={paymentForm.date}
+                                        onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })}
+                                      />
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0.01"
+                                        max={order.balance_owed}
+                                        required
+                                        placeholder="Amount"
+                                        className="border rounded px-2 py-1.5 text-sm w-28"
+                                        value={paymentForm.amount}
+                                        onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                                      />
+                                      <button
+                                        type="submit"
+                                        disabled={payingSubmitting}
+                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                                      >
+                                        {payingSubmitting ? 'Saving...' : 'Save'}
+                                      </button>
+                                    </form>
                                   )}
                                 </>
                               )}
