@@ -21,9 +21,31 @@ import 'dotenv/config';
 
 import { createDirectPurchase, bookJob, completeJob, createEnquiry, closeEnquiry } from '../lib/services/tickets';
 import { closeOrder } from '../lib/services/orders';
-import { clearMatchingRowByHeader } from '../lib/services/googleSheets';
+import { clearMatchingRowByHeader, writeSheetsClient, quotedTab } from '../lib/services/googleSheets';
 import { SALES_TAB } from '../lib/services/salesSheet';
 import { ENQUIRY_TAB } from '../lib/services/enquirySheet';
+import { PAYMENTS_TAB } from '../lib/services/paymentsSheet';
+
+// Payments rows are matched on their own generated id (append-only, never
+// upserted in place — see CLAUDE.md), so there's no business key to hand
+// clearMatchingRowByHeader() the way Sales/Enquiry have; find and delete
+// by phone number directly instead.
+async function deletePaymentsRowsForPhone(phone: string): Promise<void> {
+  const { sheets, sheetId } = writeSheetsClient();
+  const qtab = quotedTab(PAYMENTS_TAB);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!A:G` });
+  const rows = res.data.values ?? [];
+  const idxs = rows.map((r, i) => (i > 0 && r[2] === phone ? i : -1)).filter((i) => i >= 0).sort((a, b) => b - a);
+  if (idxs.length === 0) return;
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const tabSheetId = meta.data.sheets?.find((s) => s.properties?.title === PAYMENTS_TAB)?.properties?.sheetId;
+  for (const idx of idxs) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { requests: [{ deleteDimension: { range: { sheetId: tabSheetId, dimension: 'ROWS', startIndex: idx, endIndex: idx + 1 } } }] },
+    });
+  }
+}
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -80,11 +102,18 @@ test('§13.1: order cannot close while money is owed', async () => {
     const { error } = await supabase.from('orders').update({ status: 'closed' }).eq('id', order.id);
     assert.ok(error, 'expected the DB trigger to refuse closing an order with a balance owed');
 
+    // Sheet syncs run fire-and-forget now (2026-09-08, see CLAUDE.md's
+    // speed-fix note) — createDirectPurchase()'s own sync may not have
+    // landed yet, so this cleanup has to wait for it rather than racing
+    // it, or the row it's meant to clear won't exist yet to be cleared.
+    await new Promise((r) => setTimeout(r, 3000));
     await clearMatchingRowByHeader(
       SALES_TAB,
       { phone_number: cust.phone_number, bill_date: order.created_at.slice(0, 10), sold_price: '1000' },
       ['phone_number', 'bill_date', 'sold_price']
     );
+    // The ₹400 paid up front also logs a "Purchase" row to the Payments sheet.
+    await deletePaymentsRowsForPhone(cust.phone_number);
   } finally {
     await cleanupCustomer(cust.id);
   }
@@ -108,6 +137,8 @@ test('§13.2: enquiry closure requires a real explanation and a prior call', asy
       /never been called/i
     );
 
+    // See the §13.1 test above — same fire-and-forget-sync wait.
+    await new Promise((r) => setTimeout(r, 3000));
     await clearMatchingRowByHeader(
       ENQUIRY_TAB,
       { phone_number: cust.phone_number, date: enquiry.created_at.slice(0, 10) },
@@ -177,6 +208,11 @@ test('§13.3: warranty override forces an in-warranty charge to zero', async () 
       chargeAmount: 600,
     });
     assert.equal(completedOutside.charge_amount, 600, 'a charge entered outside warranty must be preserved');
+
+    // The out-of-warranty completion above also logs a "Service" row to
+    // the Payments sheet (fire-and-forget) — wait for it, then clear it.
+    await new Promise((r) => setTimeout(r, 3000));
+    await deletePaymentsRowsForPhone(cust.phone_number);
   } finally {
     await cleanupCustomer(cust.id);
   }

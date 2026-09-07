@@ -130,7 +130,7 @@ export async function createServiceRequest(installationTicketId: string) {
     .select('*')
     .single();
   if (error) throw new ApiError(500, error.message);
-  await syncServiceToSheetSafely(data.id);
+  syncServiceToSheetSafely(data.id).catch(() => {});
   return data;
 }
 
@@ -158,6 +158,6 @@ export async function declineYearlyService(ticketId: string, note: string) {
     .single();
 
   if (error) throw new ApiError(500, error.message);
-  await syncServiceToSheetSafely(ticketId);
+  syncServiceToSheetSafely(ticketId).catch(() => {});
   return data;
 }

@@ -126,8 +126,11 @@ export async function updateCustomer(
     .single();
   if (updateError) throw new ApiError(500, updateError.message);
 
+  // Fire-and-forget — safe here since oldPhone/newPhone are both already
+  // captured as plain values (not re-read from the DB), so there's no
+  // race with the update above to worry about.
   if (patch.phone_number) {
-    await rekeyCustomerPhoneInSheetsSafely(existing.phone_number, patch.phone_number);
+    rekeyCustomerPhoneInSheetsSafely(existing.phone_number, patch.phone_number).catch(() => {});
   }
 
   return updated;

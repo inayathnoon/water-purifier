@@ -16,11 +16,12 @@ export async function requestLeave(requesterId: string, startDate: string, endDa
   if (error) throw new ApiError(500, error.message);
 
   // §11.2: posted to the group so an owner sees it, then waits.
-  await notifyLeaveRequested({
+  // Fire-and-forget — a Telegram send shouldn't hold up the response.
+  notifyLeaveRequested({
     requesterName: data.users?.name ?? 'Unknown',
     startDate,
     endDate,
-  });
+  }).catch(() => {});
 
   return data;
 }
@@ -65,14 +66,14 @@ export async function decideLeave(
 
   // §10.5: fired only after the status change above has committed — the
   // one notification the requester actually cares about, previously the
-  // only silent step in the whole leave flow.
-  await notifyLeaveDecided({
+  // only silent step in the whole leave flow. Fire-and-forget.
+  notifyLeaveDecided({
     requesterName: data.users?.name ?? 'Unknown',
     decision,
     startDate: data.start_date,
     endDate: data.end_date,
     reason: data.decision_reason,
-  });
+  }).catch(() => {});
 
   return data;
 }

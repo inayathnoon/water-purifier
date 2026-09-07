@@ -2747,6 +2747,92 @@ rows; `tsc`/`next build` both clean. The confirm/satisfaction buttons
 reuse endpoints already covered by this project's existing verification
 (§6.7/§7.4), so no new backend behavior needed a fresh live check.
 
+## Performance: Google Sheets Was Blocking Every Write for 2-4 Seconds (2026-09-08)
+
+Reported live: the app had gotten slow. Measured it directly rather than
+guessing — a single "New Purchase" with an upfront payment took
+**4.27 seconds**, almost all of it waiting on Google:
+
+- `writeSheetsClient()`/`readSheetsClient()` built a brand-new `GoogleAuth`
+  (a fresh JWT/token exchange) on **every single call** — 500-800ms of
+  pure overhead per Sheets operation, with zero reuse across calls.
+- One full sheet upsert (read header → read existing rows to find a
+  match → write) cost **~1.5-1.7s** on its own.
+- A single purchase-with-payment does two of these sequentially (Sales
+  sheet + the new Payments sheet) — hence 4.27s, all before the browser
+  got a response. Every write path that syncs to a sheet paid the same
+  tax, and this session's own additions (the Payments sheet chief among
+  them) had been quietly doubling it on the hottest paths.
+
+Two fixes, no feature removed:
+
+1. **Cache the Google auth client** — `readSheetsClient()`/
+   `writeSheetsClient()` now build their `GoogleAuth` once per process
+   (module-level singleton) instead of per call. Safe because Railway
+   runs this as a persistent `next start` process, not serverless — a
+   singleton actually survives between requests, and reusing one
+   `GoogleAuth` instance across calls is exactly how the `googleapis`
+   library expects to be used in a long-lived server (it already caches
+   and refreshes the access token internally).
+2. **Stop awaiting sheet syncs (and Telegram notifies) in the request
+   path.** Every `*Safely()` sync/notify call was already designed to
+   never throw — a failure gets logged to `notifications_log`, not
+   propagated — so the only reason they were still `await`ed was habit,
+   not correctness. Converted every request-path call site across
+   `tickets.ts`, `orders.ts`, `sparePartSales.ts`, `warranty.ts`,
+   `customers.ts`, and `leave.ts` to fire-and-forget
+   (`someSync(...).catch(() => {})` — the `.catch` is a pure backstop,
+   since `logNotification()` itself could theoretically still throw and
+   Node treats an unhandled rejection as fatal).
+
+**The one real subtlety**: a few call sites clear an old sheet row
+*before* writing the new one (a phone/date/price change that's part of a
+sheet's match key — see the historical Farhan-duplicate-row bug).
+Firing the remove and the sync as two *independent* fire-and-forget
+calls would race them against each other and risk exactly that
+duplicate-row bug reappearing. Fixed by chaining the remove-then-sync
+sequence inside **one** background `(async () => { ... })().catch(() =>
+{})` per call site (`updateEnquiry()`, `updateAdHocServiceRequest()`),
+preserving the ordering while still not blocking the response.
+`updatePurchase()`'s and `cancelJob()`'s own remove-before-mutate calls
+were left fully awaited (not backgrounded at all) for the same reason,
+in the other direction: they need to read the order's *current* values
+before the very next line changes them, and both are rare, deliberate
+admin actions (editing or voiding a purchase), not part of the
+high-frequency hot path this fix is actually for — correctness mattered
+more than shaving a second off an action nobody does twice a day.
+
+**Real regression caught and fixed in the same pass**: `npm test`'s
+`tests/hard-rules.test.ts` explicitly clears its own Sales/Enquiry sheet
+rows as part of its cleanup — which used to work because the sync it
+was racing against was still synchronous. Once fire-and-forget landed,
+the test's cleanup could run (and find nothing to clear) *before* the
+background sync even fired, leaving an orphaned row with nothing left to
+clean it. Caught live: 9 stray rows leaked across Sales/Enquiry/Payments/
+Spare Part Sales in one afternoon, including from this very test suite
+despite its own explicit cleanup code. Fixed by adding a 3-second wait
+before each sheet-cleanup call in the test file (and adding a Payments-
+sheet cleanup step the test never needed before the Payments sheet
+existed) — documented in memory (`test-scripts-pollute-sheets`) as a
+durable gotcha for any future script that creates data, syncs to a
+sheet, and cleans up "immediately after."
+
+**Verified live, twice.** First, a direct timing comparison:
+`createDirectPurchase()` with an upfront payment went from **4268ms to
+438ms** (a real request-path measurement, not a synthetic benchmark) —
+a ~9.7x improvement — with both the Sales and Payments sheet rows
+confirmed to still land correctly a few seconds later. Second, the
+riskiest change (the chained remove-then-sync background task) was
+specifically stress-tested: an enquiry's date was changed through
+`updateEnquiry()`, and the Enquiry sheet was re-checked afterward to
+confirm **exactly one row** for that phone number — not two — proving
+the ordering fix actually prevents the race it was built to prevent, not
+just the response time. `tsc`/`next build` clean, and all 5 of `npm
+test`'s hard-rule tests still pass. Every stray row from this session's
+own testing (9 total) was found and removed from all four affected
+sheets; a full re-audit afterward came back at 0 stray rows across
+every sheet.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

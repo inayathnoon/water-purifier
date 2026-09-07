@@ -40,18 +40,20 @@ export async function recordSparePartSale(input: {
 
   // Registered the moment the sale is made, same reasoning as every
   // other sheet sync in this app — one row per item, since a single
-  // sale can cover several parts at once.
-  await Promise.all(data.map((row) => syncSparePartSaleToSheetSafely(row.id)));
+  // sale can cover several parts at once. Fire-and-forget (not awaited)
+  // — each of these is a Sheets round trip, and the DB insert above has
+  // already committed.
+  Promise.all(data.map((row) => syncSparePartSaleToSheetSafely(row.id))).catch(() => {});
 
   // Payments ledger — one row for the whole sale's total, not per item
   // (this is a money log, not an inventory one).
   const total = data.reduce((sum, row) => sum + Number(row.total), 0);
-  await logSparePartSalePaymentToSheetSafely({
+  logSparePartSalePaymentToSheetSafely({
     phoneNumber: input.phoneNumber?.trim() || null,
     name: input.customerName?.trim() || null,
     amount: total,
     date: new Date().toISOString(),
-  });
+  }).catch(() => {});
 
   return data;
 }
@@ -105,6 +107,6 @@ export async function updateSparePartSale(
   const { data, error } = await supabaseAdmin.from('spare_part_sales').update(patch).eq('id', saleId).select('*, users:sold_by(name)').single();
   if (error) throw new ApiError(500, error.message);
 
-  await syncSparePartSaleToSheetSafely(saleId);
+  syncSparePartSaleToSheetSafely(saleId).catch(() => {});
   return data;
 }

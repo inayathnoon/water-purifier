@@ -78,14 +78,29 @@ export function permissionAwareError(e: unknown, action: string): ApiError {
 // for the column it matches rows on.
 const PHONE_HEADER = 'phone_number';
 
+// Building a fresh GoogleAuth (and the JWT/token exchange that goes with
+// it) on every single call was measured at 500-800ms of pure overhead
+// per Sheets operation, on top of the actual API calls — found 2026-09-07
+// while tracking down why the app had gotten slow. Cached once per
+// process (Railway runs this as a persistent `next start`, not
+// serverless, so a module-level singleton actually survives between
+// requests) — the googleapis client itself already caches and refreshes
+// the underlying access token internally, so reusing one instance across
+// calls is exactly how this library is meant to be used in a long-lived
+// server, not a per-request cost.
+let cachedReadClient: { sheets: ReturnType<typeof google.sheets>; sheetId: string } | null = null;
+let cachedWriteClient: { sheets: ReturnType<typeof google.sheets>; sheetId: string } | null = null;
+
 /** Read-only client — for pulling data in (product sync, reading a header row before a write). */
 export function readSheetsClient() {
+  if (cachedReadClient) return cachedReadClient;
   const { sheetId, credentials } = sheetCredentials();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
-  return { sheets: google.sheets({ version: 'v4', auth }), sheetId };
+  cachedReadClient = { sheets: google.sheets({ version: 'v4', auth }), sheetId };
+  return cachedReadClient;
 }
 
 /**
@@ -95,9 +110,11 @@ export function readSheetsClient() {
  * Google refuses the write.
  */
 export function writeSheetsClient() {
+  if (cachedWriteClient) return cachedWriteClient;
   const { sheetId, credentials } = sheetCredentials();
   const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
-  return { sheets: google.sheets({ version: 'v4', auth }), sheetId };
+  cachedWriteClient = { sheets: google.sheets({ version: 'v4', auth }), sheetId };
+  return cachedWriteClient;
 }
 
 /**

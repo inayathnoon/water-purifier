@@ -60,12 +60,16 @@ export async function recordPayment(
   if (error) throw new ApiError(500, error.message);
 
   // Keep the Sales sheet's paid/balance in sync the moment a payment is
-  // recorded, not just when the order eventually closes.
-  await syncOrderToSalesSheetSafely(orderId);
+  // recorded, not just when the order eventually closes. Fire-and-forget
+  // (not awaited) — this is a Sheets API round trip (1-2s), and the
+  // write above has already committed; the response shouldn't wait on
+  // it. Safe on Railway's persistent process; .catch(() => {}) is a
+  // final backstop even though *Safely() already never rejects.
+  syncOrderToSalesSheetSafely(orderId).catch(() => {});
   // "Balance Collected" — a payment against a balance already outstanding
   // (the initial paid-at-sale amount is logged separately, as its own
   // "Purchase" row, by createDirectPurchase()).
-  await logTicketPaymentToSheetSafely({ ticketId: order.ticket_id, channel: 'Balance Collected', amount, date: paymentInstant });
+  logTicketPaymentToSheetSafely({ ticketId: order.ticket_id, channel: 'Balance Collected', amount, date: paymentInstant }).catch(() => {});
 
   if (newPaid >= Number(order.sold_price)) {
     return closeOrder(orderId);
@@ -120,7 +124,8 @@ export async function closeOrder(orderId: string) {
   // Redundant with the sync already done in recordPayment() (balance is
   // already 0 by now) — kept as a final safety net, since "closed" is
   // just orders.status flipping, not a separate business event.
-  await syncOrderToSalesSheetSafely(orderId);
+  // Fire-and-forget — see recordPayment() above for why.
+  syncOrderToSalesSheetSafely(orderId).catch(() => {});
 
   return data;
 }

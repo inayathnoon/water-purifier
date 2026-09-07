@@ -80,7 +80,9 @@ export async function createEnquiry(input: {
   if (error) throw new ApiError(500, error.message);
 
   // Registered the moment it's created, same reasoning as Sales/Service.
-  await syncEnquiryToSheetSafely(data.id);
+  // Fire-and-forget — see recordPayment() in orders.ts for why every
+  // sheet sync in this file follows this same pattern from here on.
+  syncEnquiryToSheetSafely(data.id).catch(() => {});
   return data;
 }
 
@@ -140,21 +142,32 @@ export async function updateEnquiry(
     patch.source_other_note = null;
   }
 
-  // date is part of the Enquiry sheet's match key (phone_number + date)
-  // — un-find the row under the old date first, while it's still the
-  // ticket's current value, so the fresh sync below doesn't leave a
-  // stale duplicate sitting next to the corrected row.
+  // date is part of the Enquiry sheet's match key (phone_number + date) —
+  // the old row has to be un-found under the old date, then the new one
+  // synced, in that order, or a stale duplicate sits next to the
+  // corrected row.
   const oldDate = ticket.created_at.slice(0, 10);
-  if (updates.enquiryDate && updates.enquiryDate !== oldDate) {
-    const { data: customer } = await supabaseAdmin.from('customers').select('phone_number').eq('id', ticket.customer_id).single();
-    if (customer) await removeEnquiryFromSheetSafely(customer.phone_number, oldDate);
+  const dateChanging = !!(updates.enquiryDate && updates.enquiryDate !== oldDate);
+  if (dateChanging) {
     patch.created_at = `${updates.enquiryDate}T12:00:00Z`;
   }
 
   const { data, error } = await supabaseAdmin.from('tickets').update(patch).eq('id', ticketId).select('*').single();
   if (error) throw new ApiError(500, error.message);
 
-  await syncEnquiryToSheetSafely(ticketId);
+  // Fire-and-forget — the write above has already committed. The
+  // remove-then-sync sequence stays chained in one background task
+  // (rather than two independent fire-and-forget calls) since both hit
+  // the same sheet and running them out of order or concurrently could
+  // race into exactly the duplicate-row bug this ordering prevents.
+  (async () => {
+    if (dateChanging) {
+      const { data: customer } = await supabaseAdmin.from('customers').select('phone_number').eq('id', ticket.customer_id).single();
+      if (customer) await removeEnquiryFromSheetSafely(customer.phone_number, oldDate);
+    }
+    await syncEnquiryToSheetSafely(ticketId);
+  })().catch(() => {});
+
   return data;
 }
 
@@ -208,8 +221,9 @@ export async function createAdHocServiceRequest(input: {
   if (error) throw new ApiError(500, error.message);
 
   // Registered the moment it's requested, same reasoning as sales —
-  // "closed" is just a status flip later, not a separate event to wait for.
-  await syncServiceToSheetSafely(data.id);
+  // "closed" is just a status flip later, not a separate event to wait
+  // for. Fire-and-forget.
+  syncServiceToSheetSafely(data.id).catch(() => {});
 
   if (input.staffAttendedId) {
     return bookJob(data.id, {
@@ -265,16 +279,24 @@ export async function updateAdHocServiceRequest(
   // — un-find the row under the old date first, same reasoning as the
   // Enquiry/Sales sheet re-key fixes.
   const oldDate = ticket.created_at.slice(0, 10);
-  if (updates.requestDate && updates.requestDate !== oldDate) {
-    const { data: customer } = await supabaseAdmin.from('customers').select('phone_number').eq('id', ticket.customer_id).single();
-    if (customer) await removeServiceFromSheetSafely(customer.phone_number, oldDate);
+  const dateChanging = !!(updates.requestDate && updates.requestDate !== oldDate);
+  if (dateChanging) {
     patch.created_at = `${updates.requestDate}T12:00:00Z`;
   }
 
   const { data, error } = await supabaseAdmin.from('tickets').update(patch).eq('id', ticketId).select('*').single();
   if (error) throw new ApiError(500, error.message);
 
-  await syncServiceToSheetSafely(ticketId);
+  // Fire-and-forget, remove-then-sync kept in one chained background
+  // task — see updateEnquiry() above for why.
+  (async () => {
+    if (dateChanging) {
+      const { data: customer } = await supabaseAdmin.from('customers').select('phone_number').eq('id', ticket.customer_id).single();
+      if (customer) await removeServiceFromSheetSafely(customer.phone_number, oldDate);
+    }
+    await syncServiceToSheetSafely(ticketId);
+  })().catch(() => {});
+
   return data;
 }
 
@@ -340,11 +362,15 @@ export async function closeEnquiry(
     if (error) throw new ApiError(500, error.message);
 
     // §2.1/§10.5: fire only after the status change above has committed.
+    // Fire-and-forget — a Telegram send and a Sheets sync, neither
+    // needs to block the response.
     if (action === 'pass_to_owner') {
-      const { data: customer } = await supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single();
-      await notifyEnquiryPassedToOwner({ ticketId, customerName: customer?.name ?? 'Unknown', explanation });
+      (async () => {
+        const { data: customer } = await supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single();
+        await notifyEnquiryPassedToOwner({ ticketId, customerName: customer?.name ?? 'Unknown', explanation });
+      })().catch(() => {});
     }
-    await syncEnquiryToSheetSafely(ticketId);
+    syncEnquiryToSheetSafely(ticketId).catch(() => {});
 
     return data;
   }
@@ -371,7 +397,7 @@ export async function closeEnquiry(
       .select('*')
       .single();
     if (closeError) throw new ApiError(500, closeError.message);
-    await syncEnquiryToSheetSafely(ticketId);
+    syncEnquiryToSheetSafely(ticketId).catch(() => {});
 
     return closedEnquiry;
   }
@@ -470,15 +496,15 @@ export async function createDirectPurchase(input: {
 
     // The sale is registered the moment it's made, not when it later
     // happens to close — "closed" is just orders.status flipping once
-    // balance_owed hits 0, not a separate business event.
-    await syncOrderToSalesSheetSafely(order.id);
+    // balance_owed hits 0, not a separate business event. Fire-and-forget.
+    syncOrderToSalesSheetSafely(order.id).catch(() => {});
     if (item.paidAmount > 0) {
-      await logTicketPaymentToSheetSafely({
+      logTicketPaymentToSheetSafely({
         ticketId: ticket.id,
         channel: 'Purchase',
         amount: item.paidAmount,
         date: billCreatedAt ?? new Date().toISOString(),
-      });
+      }).catch(() => {});
     }
 
     results.push({ ticket, order });
@@ -535,17 +561,20 @@ export async function bookJob(
 
   // §10.5: fire only after the booking above has already committed —
   // a Telegram failure here can never undo or block the assignment.
-  const { data: technician } = await supabaseAdmin.from('users').select('name').eq('id', input.assignedToId).single();
-  await notifyJobAssigned({
-    ticketId,
-    productOrKind: data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation',
-    bookedDate: input.bookedDate,
-    bookedHalfDay: input.bookedHalfDay,
-    location: input.location,
-    customerName: data.customers.name,
-    customerAddress: data.customers.address,
-    technicianName: technician?.name ?? 'Unknown',
-  });
+  // Fire-and-forget — a Telegram send shouldn't hold up the response.
+  (async () => {
+    const { data: technician } = await supabaseAdmin.from('users').select('name').eq('id', input.assignedToId).single();
+    await notifyJobAssigned({
+      ticketId,
+      productOrKind: data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation',
+      bookedDate: input.bookedDate,
+      bookedHalfDay: input.bookedHalfDay,
+      location: input.location,
+      customerName: data.customers.name,
+      customerAddress: data.customers.address,
+      technicianName: technician?.name ?? 'Unknown',
+    });
+  })().catch(() => {});
 
   return data;
 }
@@ -612,28 +641,32 @@ export async function completeJob(
 
   // §10.5: after the write above has committed. §10.6: no prices in this
   // message even though charge_amount was just set on the row above.
-  const [{ data: customer }, { data: technician }] = await Promise.all([
-    supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single(),
-    supabaseAdmin.from('users').select('name').eq('id', callerId).single(),
-  ]);
-  await notifyJobCompleted({
-    ticketId,
-    technicianName: technician?.name ?? 'Unknown',
-    productOrKind: ticket.kind === 'service_visit' ? 'a service visit' : 'an installation',
-    customerName: customer?.name ?? 'Unknown',
-    startTime: input.actualStartTime,
-    endTime: input.actualEndTime,
-  });
+  // Fire-and-forget — a Telegram send and two Sheets round trips, none
+  // of which need to hold up the response.
+  (async () => {
+    const [{ data: customer }, { data: technician }] = await Promise.all([
+      supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single(),
+      supabaseAdmin.from('users').select('name').eq('id', callerId).single(),
+    ]);
+    await notifyJobCompleted({
+      ticketId,
+      technicianName: technician?.name ?? 'Unknown',
+      productOrKind: ticket.kind === 'service_visit' ? 'a service visit' : 'an installation',
+      customerName: customer?.name ?? 'Unknown',
+      startTime: input.actualStartTime,
+      endTime: input.actualEndTime,
+    });
+  })().catch(() => {});
 
   if (ticket.kind === 'service_visit') {
-    await syncServiceVisitPartsToSheetSafely(ticketId);
+    syncServiceVisitPartsToSheetSafely(ticketId).catch(() => {});
     if (data.charge_amount) {
-      await logTicketPaymentToSheetSafely({
+      logTicketPaymentToSheetSafely({
         ticketId,
         channel: 'Service',
         amount: Number(data.charge_amount),
         date: `${input.actualDate}T12:00:00Z`,
-      });
+      }).catch(() => {});
     }
   }
 
@@ -706,9 +739,9 @@ export async function editCompletedServiceVisit(
 
   // The Service sheet already has this visit's row from when it was
   // first completed/closed — this just updates it in place with the
-  // correction, same upsert-by-phone+date it always uses.
-  await syncServiceToSheetSafely(ticketId);
-  await syncServiceVisitPartsToSheetSafely(ticketId);
+  // correction, same upsert-by-phone+date it always uses. Fire-and-forget.
+  syncServiceToSheetSafely(ticketId).catch(() => {});
+  syncServiceVisitPartsToSheetSafely(ticketId).catch(() => {});
   return data;
 }
 
@@ -865,7 +898,14 @@ export async function updatePurchase(
     updatedOrder = data;
   }
 
-  await syncOrderToSalesSheetSafely(order.id);
+  // Fire-and-forget — safe here since the order row above has already
+  // been fully patched, so this sync reads already-correct values.
+  // Unlike this, removeOrderFromSalesSheetSafely() above stays awaited:
+  // it depends on reading the order's *old* (about to change) values
+  // before this patch overwrites them — backgrounding it could race
+  // against the patch and read the new values instead, reintroducing
+  // the exact duplicate-row bug this whole mechanism exists to prevent.
+  syncOrderToSalesSheetSafely(order.id).catch(() => {});
   return updatedOrder;
 }
 
@@ -915,8 +955,8 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
     if (existingOrder) {
       // installation_date/warranty_expires_at were just stamped above —
       // the sale's sheet row already exists (from createDirectPurchase),
-      // this just updates those two columns on it.
-      await syncOrderToSalesSheetSafely(existingOrder.id);
+      // this just updates those two columns on it. Fire-and-forget.
+      syncOrderToSalesSheetSafely(existingOrder.id).catch(() => {});
       return { ticket: closed, order: existingOrder };
     }
 
@@ -933,12 +973,12 @@ export async function closeTicketAfterConfirmation(ticketId: string) {
       .select('*')
       .single();
     if (orderError) throw new ApiError(500, orderError.message);
-    await syncOrderToSalesSheetSafely(order.id);
+    syncOrderToSalesSheetSafely(order.id).catch(() => {});
     return { ticket: closed, order };
   }
 
   if (ticket.kind === 'service_visit') {
-    await syncServiceToSheetSafely(ticketId);
+    syncServiceToSheetSafely(ticketId).catch(() => {});
   }
 
   return { ticket: closed, order: null };
