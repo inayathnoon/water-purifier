@@ -35,10 +35,22 @@ export async function createEnquiry(input: {
   source?: 'general' | 'water_test' | 'ready_to_buy' | 'referral';
   referrerName?: string;
   referrerPhone?: string;
+  // Defaults to now (today) if not given — for entering an enquiry a day
+  // or two after it actually happened, not for scheduling a future one.
+  enquiryDate?: string;
 }) {
   if (input.source === 'referral' && !input.referrerPhone?.trim()) {
     throw new ApiError(400, 'A referrer phone number is required for a referral');
   }
+  if (input.enquiryDate && input.enquiryDate > todayIST()) {
+    throw new ApiError(400, 'Enquiry date cannot be in the future');
+  }
+
+  // Noon UTC, not midnight — a plain date-only value parsed at midnight
+  // shifts a day in either direction depending on server timezone (the
+  // exact bug documented in CLAUDE.md's historical-import note, and
+  // already worked around the same way for a purchase's Bill Date).
+  const enquiryCreatedAt = input.enquiryDate ? `${input.enquiryDate}T12:00:00Z` : undefined;
 
   const { data, error } = await supabaseAdmin
     .from('tickets')
@@ -51,6 +63,7 @@ export async function createEnquiry(input: {
       enquiry_source: input.source ?? 'general',
       referrer_name: input.source === 'referral' ? input.referrerName ?? null : null,
       referrer_phone: input.source === 'referral' ? input.referrerPhone ?? null : null,
+      ...(enquiryCreatedAt ? { created_at: enquiryCreatedAt } : {}),
     })
     .select('*')
     .single();

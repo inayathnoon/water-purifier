@@ -8,6 +8,13 @@ import { useConfirm } from '@/components/useConfirm';
 import { daysAgoIST } from '@/lib/dates';
 import { useSearchParams } from 'next/navigation';
 
+// Plain local time — this page is only ever used by staff physically in
+// the business's own timezone, unlike the server-side IST helpers built
+// for a Railway container that doesn't share that timezone.
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 interface Enquiry {
   id: string;
   enquiry_product_interest: string;
@@ -68,6 +75,7 @@ function EnquiriesPageInner() {
     source: 'general' as 'general' | 'water_test' | 'ready_to_buy' | 'referral',
     referrerPhone: '',
     referrerName: '',
+    enquiryDate: todayISO(),
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -130,6 +138,7 @@ function EnquiriesPageInner() {
       source: 'general',
       referrerPhone: '',
       referrerName: '',
+      enquiryDate: todayISO(),
     });
     setShowForm(false);
     load();
@@ -187,6 +196,16 @@ function EnquiriesPageInner() {
             }}
             onChange={(v) => setForm({ ...form, ...v })}
           />
+          <FormRow label="Date">
+            <input
+              required
+              type="date"
+              max={todayISO()}
+              className="w-full border rounded px-3 py-2 text-gray-900"
+              value={form.enquiryDate}
+              onChange={(e) => setForm({ ...form, enquiryDate: e.target.value })}
+            />
+          </FormRow>
           <FormRow label="Interested in">
             <select
               className="w-full border rounded px-3 py-2 text-gray-900"

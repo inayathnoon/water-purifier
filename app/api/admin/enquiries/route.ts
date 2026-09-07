@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       source: body.source,
       referrerName: body.referrerName,
       referrerPhone: body.referrerPhone,
+      enquiryDate: body.enquiryDate,
     });
 
     return Response.json({ customer, ticket }, { status: 201 });

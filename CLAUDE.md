@@ -2199,6 +2199,29 @@ shorter "+ New X" convention used everywhere else. The `?new=1` deep
 link still works for anything that wants to jump straight to the form —
 nothing else changed.
 
+## New Enquiry: Editable Date, Defaults to Today (2026-09-07)
+
+Same "typing it up a day or two late" gap the Bill Date field already
+covers on New Purchase — `createEnquiry()` now takes an optional
+`enquiryDate`, defaulting to now if not given, applied as the ticket's
+`created_at` at **noon UTC** rather than midnight (the same timezone-
+shift fix already used for Bill Date, and the exact bug documented in
+the historical-import note: a plain midnight value lands on the wrong
+day depending on the server's own timezone). Rejects a future date —
+this is for entering something that already happened, not scheduling
+one. The date input's own `max` attribute blocks picking a future date
+in the browser too, not just server-side.
+
+Since `enquiry_date` reuses `created_at`, this needed no new column and
+nothing new to sync — the Enquiry sheet already reads its `date` column
+straight off `created_at`, so a backdated enquiry lands on the sheet
+under the correct date automatically.
+
+Verified live: a default enquiry landed on today; a 3-days-back enquiry
+landed on exactly that date, both in the DB and (matching, in
+`Sep 4, 2026` display format) the Enquiry sheet; a future date was
+correctly refused. All test data cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
