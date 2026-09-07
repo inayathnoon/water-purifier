@@ -2356,6 +2356,44 @@ confirm **exactly one row** for that customer — not two. A Spare Part
 Sale's date was also corrected and confirmed. All four correctly
 refused a future date. All test data cleaned up afterward.
 
+## Purchase & Service-Request Edits Can Now Correct the Customer Too (2026-09-07)
+
+Asked directly: nothing was blocking this. `updateCustomer()` (built for
+the Customer Directory) already does everything a phone/name/address/area
+correction needs — including re-keying that customer's Sales/Service/
+Enquiry sheet rows to a new phone number, and safely skipping the rekey
+(logged, not silent) if another customer record still shares the old
+number. The only reason Purchase's and Service-request's own Edit forms
+didn't expose it yet is that nobody had wired it up there — those two
+forms only edited the ticket's own fields (product/price/date), never
+the customer sitting behind it.
+
+Both edit forms (`/admin/orders`, `/admin/service-calls`) gained a
+"Customer details" block — phone, name, address, `AreaSelect` for area —
+using the exact same fields and same phone-rekey warning text as the
+Customer Directory's own edit form. Saving fires two requests: `PATCH
+/api/admin/customers/[id]` first (customer's own record + sheet rekey),
+then the existing ticket PATCH (`updateAdHocServiceRequest`/
+`updatePurchase`) for the ticket-level fields — if the customer save
+fails, the ticket fields are left untouched rather than saving half an
+edit. No changes to `updateCustomer()`, `updateAdHocServiceRequest()`, or
+`updatePurchase()` themselves — this is purely two existing, already-
+tested write paths called from one Save button instead of one.
+
+Deliberately still not exposed on **Enquiry**'s edit form — enquiries
+already have a separate `customer_id` link but no `customers(*)` select
+wired into that page yet, and it wasn't asked for; a same-shape follow-up
+if it's ever needed.
+
+**Verified live, both paths, focusing on the actual risk (a phone-number
+rekey landing correctly, not a duplicate)**: a test customer with a real
+Service sheet row had their phone/name/address/area corrected through the
+exact `updateCustomer()` call the Purchase edit form makes — the old
+phone number's row count dropped to 0, the new number's to 1, not 2. Same
+result for a second test customer's Enquiry sheet row through the
+Service-request edit path. Both test customers and their sheet rows
+cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

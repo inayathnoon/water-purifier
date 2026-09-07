@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import HomeLink from '@/components/HomeLink';
+import AreaSelect from '@/components/AreaSelect';
 import { daysAgoIST, todayIST } from '@/lib/dates';
 import { toStartCase } from '@/lib/format';
 import { getCurrentUser, type User } from '@/lib/auth';
@@ -22,6 +23,7 @@ interface Order {
   created_at: string;
   tickets: {
     status: string;
+    customer_id: string;
     planned_installation_date: string | null;
     actual_date: string | null;
     installation_date: string | null;
@@ -87,7 +89,11 @@ export default function OrdersPage() {
   // Correcting a purchase's product/price — same unpaid/unvisited window
   // as voiding one, see updatePurchase().
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
-  const [purchaseEditForm, setPurchaseEditForm] = useState({ productDetails: '', listPrice: '', soldPrice: '', billDate: '' });
+  const [purchaseEditForm, setPurchaseEditForm] = useState({
+    productDetails: '', listPrice: '', soldPrice: '', billDate: '',
+    customerId: '', customerPhone: '', customerName: '', customerAddress: '', customerArea: '',
+    originalCustomerPhone: '',
+  });
   const [purchaseEditError, setPurchaseEditError] = useState('');
   const [savingPurchaseEdit, setSavingPurchaseEdit] = useState(false);
   // Find a purchase by customer — phone number or name, filtered
@@ -181,13 +187,38 @@ export default function OrdersPage() {
       listPrice: String(o.list_price),
       soldPrice: String(o.sold_price),
       billDate: billDate(o),
+      customerId: o.tickets.customer_id,
+      customerPhone: o.tickets.customers.phone_number,
+      customerName: o.tickets.customers.name,
+      customerAddress: o.tickets.customers.address,
+      customerArea: o.tickets.customers.area,
+      originalCustomerPhone: o.tickets.customers.phone_number,
     });
   };
 
+  // Correcting the customer's own details (a typo'd phone/name/address,
+  // not a wrong-customer mixup — that still goes through Void) reuses the
+  // same updateCustomer() this customer already gets edited through on
+  // the Customer Directory, including its phone-number sheet re-key.
   const handleSavePurchaseEdit = async (ticketId: string) => {
     if (savingPurchaseEdit) return;
     setSavingPurchaseEdit(true);
     setPurchaseEditError('');
+    const customerRes = await fetch(`/api/admin/customers/${purchaseEditForm.customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phoneNumber: purchaseEditForm.customerPhone,
+        name: purchaseEditForm.customerName,
+        address: purchaseEditForm.customerAddress,
+        area: purchaseEditForm.customerArea,
+      }),
+    });
+    if (!customerRes.ok) {
+      setSavingPurchaseEdit(false);
+      setPurchaseEditError((await customerRes.json()).error ?? 'Failed to save customer details');
+      return;
+    }
     const res = await fetch(`/api/admin/installations/${ticketId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -520,7 +551,7 @@ export default function OrdersPage() {
                           )}
 
                           {editingPurchaseId === o.ticket_id && (
-                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-2">
+                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-3">
                               {purchaseEditError && <p className="text-red-600 text-xs">{purchaseEditError}</p>}
                               <input
                                 placeholder="Product details"
@@ -553,14 +584,51 @@ export default function OrdersPage() {
                                   value={purchaseEditForm.soldPrice}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, soldPrice: e.target.value })}
                                 />
-                                <button
-                                  onClick={() => handleSavePurchaseEdit(o.ticket_id)}
-                                  disabled={savingPurchaseEdit}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50"
-                                >
-                                  {savingPurchaseEdit ? 'Saving...' : 'Save'}
-                                </button>
                               </div>
+
+                              <p className="text-xs text-gray-600 pt-1">Customer details</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input
+                                  required
+                                  placeholder="Phone number"
+                                  className="border rounded px-3 py-2 bg-white"
+                                  value={purchaseEditForm.customerPhone}
+                                  onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, customerPhone: e.target.value })}
+                                />
+                                <input
+                                  required
+                                  placeholder="Name"
+                                  className="border rounded px-3 py-2 bg-white"
+                                  value={purchaseEditForm.customerName}
+                                  onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, customerName: e.target.value.toUpperCase() })}
+                                />
+                                <input
+                                  required
+                                  placeholder="Address"
+                                  className="border rounded px-3 py-2 bg-white"
+                                  value={purchaseEditForm.customerAddress}
+                                  onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, customerAddress: e.target.value })}
+                                />
+                                <AreaSelect
+                                  required
+                                  value={purchaseEditForm.customerArea}
+                                  onChange={(area) => setPurchaseEditForm({ ...purchaseEditForm, customerArea: area })}
+                                />
+                              </div>
+                              {purchaseEditForm.customerPhone.trim() !== purchaseEditForm.originalCustomerPhone && (
+                                <p className="text-xs text-orange-700">
+                                  Changing the phone number also renames this customer&apos;s existing Sales/Service/Enquiry
+                                  sheet rows to match, so future syncs keep finding them.
+                                </p>
+                              )}
+
+                              <button
+                                onClick={() => handleSavePurchaseEdit(o.ticket_id)}
+                                disabled={savingPurchaseEdit}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50"
+                              >
+                                {savingPurchaseEdit ? 'Saving...' : 'Save'}
+                              </button>
                             </div>
                           )}
 

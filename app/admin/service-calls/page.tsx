@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 import CustomerFields from '@/components/CustomerFields';
+import AreaSelect from '@/components/AreaSelect';
 import { useConfirm } from '@/components/useConfirm';
 import BookingForm from '@/components/BookingForm';
 import { todayIST } from '@/lib/dates';
@@ -35,7 +36,7 @@ interface ServiceCall {
   parent_installation_id: string | null;
   product_interest: string | null;
   issue_note: string | null;
-  customers: { name: string; phone_number: string; address: string; area: string };
+  customers: { id: string; name: string; phone_number: string; address: string; area: string };
   users: { name: string } | null;
 }
 
@@ -117,7 +118,11 @@ function ServiceCallsPageInner() {
   const [confirm, confirmDialog] = useConfirm();
   // Correcting an ad-hoc request's own details — only while unvisited.
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
-  const [requestEditForm, setRequestEditForm] = useState({ productInterest: '', issueNote: '', location: 'home', requestDate: '' });
+  const [requestEditForm, setRequestEditForm] = useState({
+    productInterest: '', issueNote: '', location: 'home', requestDate: '',
+    customerId: '', customerPhone: '', customerName: '', customerAddress: '', customerArea: '',
+    originalCustomerPhone: '',
+  });
   const [requestEditError, setRequestEditError] = useState('');
   const [savingRequestEdit, setSavingRequestEdit] = useState(false);
 
@@ -247,17 +252,46 @@ function ServiceCallsPageInner() {
       issueNote: c.issue_note ?? '',
       location: c.location ?? 'home',
       requestDate: c.created_at.slice(0, 10),
+      customerId: c.customers.id,
+      customerPhone: c.customers.phone_number,
+      customerName: c.customers.name,
+      customerAddress: c.customers.address,
+      customerArea: c.customers.area,
+      originalCustomerPhone: c.customers.phone_number,
     });
   };
 
+  // Same customer-correction path as Purchases: reuses updateCustomer()
+  // (and its own phone-number sheet re-key), separately from the
+  // request's own product/issue/location/date fields.
   const handleSaveRequestEdit = async (id: string) => {
     if (savingRequestEdit) return;
     setSavingRequestEdit(true);
     setRequestEditError('');
+    const customerRes = await fetch(`/api/admin/customers/${requestEditForm.customerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phoneNumber: requestEditForm.customerPhone,
+        name: requestEditForm.customerName,
+        address: requestEditForm.customerAddress,
+        area: requestEditForm.customerArea,
+      }),
+    });
+    if (!customerRes.ok) {
+      setSavingRequestEdit(false);
+      setRequestEditError((await customerRes.json()).error ?? 'Failed to save customer details');
+      return;
+    }
     const res = await fetch(`/api/admin/service-calls/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestEditForm),
+      body: JSON.stringify({
+        productInterest: requestEditForm.productInterest,
+        issueNote: requestEditForm.issueNote,
+        location: requestEditForm.location,
+        requestDate: requestEditForm.requestDate,
+      }),
     });
     setSavingRequestEdit(false);
     if (!res.ok) {
@@ -502,23 +536,58 @@ function ServiceCallsPageInner() {
                     value={requestEditForm.issueNote}
                     onChange={(e) => setRequestEditForm({ ...requestEditForm, issueNote: e.target.value })}
                   />
-                  <div className="flex gap-2">
-                    <select
-                      className="border rounded px-3 py-2 text-sm flex-1"
-                      value={requestEditForm.location}
-                      onChange={(e) => setRequestEditForm({ ...requestEditForm, location: e.target.value })}
-                    >
-                      <option value="home">Home</option>
-                      <option value="office">Office</option>
-                    </select>
-                    <button
-                      onClick={() => handleSaveRequestEdit(c.id)}
-                      disabled={savingRequestEdit}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {savingRequestEdit ? 'Saving...' : 'Save changes'}
-                    </button>
+                  <select
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    value={requestEditForm.location}
+                    onChange={(e) => setRequestEditForm({ ...requestEditForm, location: e.target.value })}
+                  >
+                    <option value="home">Home</option>
+                    <option value="office">Office</option>
+                  </select>
+
+                  <p className="text-xs text-gray-600 pt-1">Customer details</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      required
+                      placeholder="Phone number"
+                      className="border rounded px-3 py-2 text-sm"
+                      value={requestEditForm.customerPhone}
+                      onChange={(e) => setRequestEditForm({ ...requestEditForm, customerPhone: e.target.value })}
+                    />
+                    <input
+                      required
+                      placeholder="Name"
+                      className="border rounded px-3 py-2 text-sm"
+                      value={requestEditForm.customerName}
+                      onChange={(e) => setRequestEditForm({ ...requestEditForm, customerName: e.target.value.toUpperCase() })}
+                    />
+                    <input
+                      required
+                      placeholder="Address"
+                      className="border rounded px-3 py-2 text-sm"
+                      value={requestEditForm.customerAddress}
+                      onChange={(e) => setRequestEditForm({ ...requestEditForm, customerAddress: e.target.value })}
+                    />
+                    <AreaSelect
+                      required
+                      value={requestEditForm.customerArea}
+                      onChange={(area) => setRequestEditForm({ ...requestEditForm, customerArea: area })}
+                    />
                   </div>
+                  {requestEditForm.customerPhone.trim() !== requestEditForm.originalCustomerPhone && (
+                    <p className="text-xs text-orange-700">
+                      Changing the phone number also renames this customer&apos;s existing Sales/Service/Enquiry
+                      sheet rows to match, so future syncs keep finding them.
+                    </p>
+                  )}
+
+                  <button
+                    onClick={() => handleSaveRequestEdit(c.id)}
+                    disabled={savingRequestEdit}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {savingRequestEdit ? 'Saving...' : 'Save changes'}
+                  </button>
                 </div>
               )}
 
