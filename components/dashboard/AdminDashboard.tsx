@@ -157,6 +157,8 @@ export default function AdminDashboard() {
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing open."
           viewAllHref="/admin/enquiries"
+          shownCount={Math.min(5, data.newEnquiries.length)}
+          totalCount={data.newEnquiries.length}
         >
           {data.newEnquiries.slice(0, 5).map((e) => (
             <Row
@@ -179,6 +181,8 @@ export default function AdminDashboard() {
             { label: 'Installations', href: '/admin/installations' },
             { label: 'Services', href: '/admin/service-calls' },
           ]}
+          shownCount={Math.min(5, data.jobsToDispatch.length)}
+          totalCount={data.jobsToDispatch.length}
         >
           {data.jobsToDispatch.slice(0, 5).map((t) => {
             const age = daysAgo(t.created_at);
@@ -231,6 +235,8 @@ export default function AdminDashboard() {
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing waiting on a confirmation call."
           viewAllHref="/admin/orders"
+          shownCount={Math.min(5, data.awaitingConfirmation.length) + Math.min(5, data.satisfactionCallsDue.length)}
+          totalCount={data.awaitingConfirmation.length + data.satisfactionCallsDue.length}
         >
           {[
             ...data.awaitingConfirmation.slice(0, 5).map((t) => {
@@ -267,6 +273,8 @@ export default function AdminDashboard() {
           badgeColor="bg-orange-100 text-orange-800"
           emptyText="Nothing owed. Nice."
           viewAllHref="/admin/orders"
+          shownCount={Math.min(5, data.paymentsOutstanding.length)}
+          totalCount={data.paymentsOutstanding.length}
         >
           {data.paymentsOutstanding.slice(0, 5).map((o) => (
             <Row
@@ -286,6 +294,8 @@ export default function AdminDashboard() {
           badgeColor="bg-blue-100 text-blue-800"
           emptyText="None due this month."
           viewAllHref="/admin/service-calls"
+          shownCount={Math.min(5, data.serviceCallsDue.length)}
+          totalCount={data.serviceCallsDue.length}
         >
           {data.serviceCallsDue.slice(0, 5).map((s) => (
             <Row

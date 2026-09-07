@@ -191,6 +191,8 @@ export default function OwnerDashboard() {
           title="Enquiries passed to you"
           emptyText="None waiting on you."
           viewAllHref="/admin/enquiries"
+          shownCount={Math.min(5, data.passedToOwner.length)}
+          totalCount={data.passedToOwner.length}
         >
           {data.passedToOwner.slice(0, 5).map((e) => (
             <Row key={e.id} href={`/admin/enquiries/${e.id}`} primary={e.customers.name} secondary={e.closure_explanation?.slice(0, 60) + '...'} />
@@ -203,6 +205,8 @@ export default function OwnerDashboard() {
           badgeColor="bg-purple-100 text-purple-800"
           emptyText="None open right now."
           viewAllHref="/admin/enquiries"
+          shownCount={Math.min(5, data.commercialVesselEnquiries.length)}
+          totalCount={data.commercialVesselEnquiries.length}
         >
           {data.commercialVesselEnquiries.slice(0, 5).map((e) => (
             <Row
@@ -221,6 +225,8 @@ export default function OwnerDashboard() {
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing owed. Nice."
           viewAllHref="/admin/orders"
+          shownCount={Math.min(5, data.paymentsOutstanding.length)}
+          totalCount={data.paymentsOutstanding.length}
         >
           {data.paymentsOutstanding.slice(0, 5).map((o) => {
             const overdue = daysAgo(o.oldestCreatedAt) >= 7;
@@ -251,6 +257,8 @@ export default function OwnerDashboard() {
             { label: 'Installations', href: '/admin/installations' },
             { label: 'Services', href: '/admin/service-calls' },
           ]}
+          shownCount={Math.min(5, data.jobsToDispatch.length)}
+          totalCount={data.jobsToDispatch.length}
         >
           {data.jobsToDispatch.slice(0, 5).map((t) => {
             const age = daysAgo(t.created_at);

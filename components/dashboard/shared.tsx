@@ -18,6 +18,8 @@ export function DashboardCard({
   emptyText,
   viewAllHref,
   viewAllLinks,
+  shownCount,
+  totalCount,
   children,
 }: {
   title: string;
@@ -29,9 +31,16 @@ export function DashboardCard({
   // (Jobs to Dispatch: installations + service visits) — a single "View
   // all" link can only ever show one of them, silently hiding the other.
   viewAllLinks?: { label: string; href: string }[];
+  // How many of the total matching rows this card is actually showing
+  // (every card here truncates to its top 5) — rendered as "4/10" next
+  // to View all so it's obvious there's more to see, not just a list
+  // that happens to stop at 5.
+  shownCount?: number;
+  totalCount?: number;
   children: React.ReactNode;
 }) {
   const isEmpty = Array.isArray(children) ? children.length === 0 : !children;
+  const showCount = totalCount != null && totalCount > 0;
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div className="flex justify-between items-center mb-2">
@@ -39,18 +48,23 @@ export function DashboardCard({
         {badge && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>{badge}</span>}
       </div>
       {isEmpty ? <p className="text-sm text-gray-500">{emptyText}</p> : children}
-      {viewAllHref && (
-        <Link href={viewAllHref} className="block text-sm text-blue-600 hover:underline mt-2">
-          View all →
-        </Link>
-      )}
-      {viewAllLinks && (
-        <div className="flex gap-3 mt-2">
-          {viewAllLinks.map((l) => (
-            <Link key={l.href} href={l.href} className="text-sm text-blue-600 hover:underline">
-              {l.label} →
+      {(viewAllHref || viewAllLinks) && (
+        <div className="flex justify-between items-center mt-2 gap-2">
+          {viewAllHref && (
+            <Link href={viewAllHref} className="text-sm text-blue-600 hover:underline">
+              View all →
             </Link>
-          ))}
+          )}
+          {viewAllLinks && (
+            <div className="flex gap-3">
+              {viewAllLinks.map((l) => (
+                <Link key={l.href} href={l.href} className="text-sm text-blue-600 hover:underline">
+                  {l.label} →
+                </Link>
+              ))}
+            </div>
+          )}
+          {showCount && <span className="text-xs text-gray-500">{shownCount}/{totalCount}</span>}
         </div>
       )}
     </div>

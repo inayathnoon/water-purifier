@@ -2472,7 +2472,22 @@ through the exact query the API uses and came back newest-first; two
 calls logged against one ticket came back oldest-first through the
 exact query the detail page uses. Both cleaned up afterward.
 
-## V1 Status: all 7 stages built
+## Dashboard Cards Show "Shown/Total" Next to View All (2026-09-07)
+
+Every dashboard card truncates to its top 5 rows with no indication
+there might be more — a card reading "5 rows, nothing else" looked
+identical whether that was everything or the top 5 of 40. `DashboardCard`
+(`components/dashboard/shared.tsx`) gained optional `shownCount`/
+`totalCount` props, rendered as `4/10` on the same row as "View all →",
+opposite side — shown whenever `totalCount > 0` (even `3/3`, confirming
+nothing's hidden, not just when truncated). Every card on both Admin and
+Owner dashboards that has a "View all" link/links now passes these,
+computed client-side from the array already being sliced to 5 (no API
+change needed) — "Confirm finished work" sums its two source arrays
+(`awaitingConfirmation` + `satisfactionCallsDue`) since that card merges
+both into one list. The two owner cards with no click-through ("Who's
+busy today", "Discount given this month") get neither prop, so they show
+nothing new.
 
 Every hard rule (§13) is enforced in code, most of them in two independent
 places (a Postgres constraint/trigger *and* the service layer) so no future
