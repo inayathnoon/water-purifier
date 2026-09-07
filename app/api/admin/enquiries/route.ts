@@ -45,7 +45,7 @@ export async function GET() {
       .select('*, customers(*)')
       .eq('kind', 'enquiry')
       .eq('status', 'open')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     return Response.json({ enquiries: data });

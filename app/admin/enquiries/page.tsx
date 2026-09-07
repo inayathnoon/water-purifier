@@ -160,8 +160,12 @@ function EnquiriesPageInner() {
     load();
   };
 
-  // Sort so anything ≥14 days old floats to the top (§5.6)
-  const sorted = [...enquiries].sort((a, b) => daysOld(b.created_at) - daysOld(a.created_at));
+  // Newest first — the admin dashboard's own "New Enquiries" card is
+  // still oldest-first for flagging (§5.6/§15.4); this list is for
+  // finding a specific enquiry, where the most recent one is usually
+  // the one just created. A 14+ day old enquiry still gets its red-flag
+  // border wherever it lands, just no longer pinned to the top here.
+  const sorted = [...enquiries].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">

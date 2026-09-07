@@ -2448,6 +2448,30 @@ shows whenever `plannedInstallationDate` is non-empty, it now appears by
 default instead of only after picking a date — consistent with the field
 itself now defaulting to filled.
 
+## Enquiries List: Newest-First; Call Log: Chronological (2026-09-07)
+
+`/admin/enquiries` sorted oldest-first on purpose (§5.6 — so a 14+ day
+neglected enquiry floats to the top). That's the right order for the
+admin dashboard's "New Enquiries" flagging card (unchanged, still
+oldest-first there, still the correct place to spot neglected ones), but
+wrong for the full list page itself — finding a specific enquiry there
+usually means the one just created, buried under however many old ones
+have piled up. Changed to plain newest-first (`created_at` descending,
+both the API query and the client sort), the same regardless of whether
+you arrive via the nav "Enquiries" button or the dashboard card's "View
+all" — one page, one order. A 14+ day old enquiry still gets its
+red-flag left border wherever it lands; it's just no longer pinned to
+the top of this particular list.
+
+Separately, an individual enquiry's call log (`/admin/enquiries/[id]`)
+now reads oldest-call-first instead of newest-first — a conversation
+history reads chronologically, not like a feed.
+
+Verified live: two enquiries backdated to different dates round-tripped
+through the exact query the API uses and came back newest-first; two
+calls logged against one ticket came back oldest-first through the
+exact query the detail page uses. Both cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

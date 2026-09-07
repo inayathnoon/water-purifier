@@ -15,11 +15,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .single();
     if (ticketError) throw ticketError;
 
+    // Oldest first — reads as a chronological conversation, not a feed.
     const { data: calls, error: callsError } = await supabaseAdmin
       .from('call_log')
       .select('*')
       .eq('ticket_id', id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
     if (callsError) throw callsError;
 
     return Response.json({ ticket, calls: calls ?? [] });
