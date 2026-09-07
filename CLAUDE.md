@@ -2435,6 +2435,19 @@ Referral correctly cleared `source_other_note` to null; switching it
 back to 'other' with no note was correctly refused again; providing one
 saved correctly. All test rows cleaned from both the DB and the sheet.
 
+## New Purchase: Planned Installation Defaults to Bill Date (2026-09-07)
+
+Bill Date already defaulted to today; Planned Installation sat empty
+until picked, even though most purchases are installed the same day
+they're sold. `plannedInstallationDate` now defaults to `todayIST()`
+(same as `billDate`) in both the form's initial state and its post-submit
+reset — still a plain editable/clearable date input, so a purchase
+actually being installed later still works exactly as before. One side
+effect, not a separate change: since the "Assign to Staff" row already
+shows whenever `plannedInstallationDate` is non-empty, it now appears by
+default instead of only after picking a date — consistent with the field
+itself now defaulting to filled.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

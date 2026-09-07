@@ -105,7 +105,10 @@ function InstallationsPageInner() {
     customerId: null as string | null,
     forceNewAddress: false,
     billDate: todayIST(),
-    plannedInstallationDate: '',
+    // Defaults to the same day as Bill Date — most purchases are installed
+    // the same day they're sold — but still editable/clearable for one
+    // that isn't.
+    plannedInstallationDate: todayIST(),
     assignedToId: '',
     bookedHalfDay: 'morning',
   });
@@ -267,7 +270,7 @@ function InstallationsPageInner() {
       customerId: null,
       forceNewAddress: false,
       billDate: todayIST(),
-      plannedInstallationDate: '',
+      plannedInstallationDate: todayIST(),
       assignedToId: '',
       bookedHalfDay: 'morning',
     });
