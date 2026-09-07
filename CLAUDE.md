@@ -2579,6 +2579,43 @@ Verified live: two real payment calls logged against a real order came
 back through `getCustomerWithHistory()` in newest-first order, matching
 what the Purchase card now renders. Cleaned up afterward.
 
+## Root Cause + One-Time Backfill: `payment_history` Missing the Initial Paid Amount (2026-09-07)
+
+Reported live: a real purchase (ANEES/APPY) showed `Paid ₹27,500` but its
+"Payments:" log only listed ₹17,500 across four entries — ₹10,000 paid
+at the time of sale was never logged. Root cause: `createDirectPurchase()`
+writes `orders.paid_amount` directly from the New Purchase form's Paid
+field, but only ever `recordPayment()` appends to `payment_history` — so
+any money already in hand at the moment of sale (the common case) was
+counted in the total but invisible in the log. Checking turned up this
+wasn't a one-off: **95 of 99 real orders** had this exact gap, almost all
+from the original historical bulk import (which set `paid_amount`
+directly and never touched `payment_history` at all).
+
+Two separate fixes, deliberately not one:
+- **Root cause, permanent**: `createDirectPurchase()` now also writes an
+  initial `payment_history` entry (`{amount, date: billDate, recordedBy:
+  null}`) whenever `paidAmount > 0`, so this gap can't recur for any
+  purchase made from here on.
+- **Existing data, one-time only**: a throwaway script (written, run
+  once against production, deleted — this logic intentionally lives
+  nowhere in the app) found every order where `sum(payment_history) !=
+  paid_amount`, and inserted the missing amount as one entry dated at
+  that order's own bill date (`created_at`) — "whenever that booking was
+  made," per the explicit instruction — merged into the array in
+  chronological order rather than just appended, so an old lump payment
+  reads *before* later ones (verified on ANEES's own order: the
+  backfilled ₹10,000 now sits first, dated 2026-01-01, ahead of the four
+  real ₹5,000/₹2,500 entries from April–September). Zero anomalies
+  found (no order had `sum(payment_history) > paid_amount`); all 95
+  fixed and re-verified to sum exactly to `paid_amount` afterward.
+
+Verified live, separately, that the permanent fix behaves correctly
+going forward: a real purchase created with an upfront paid amount got
+exactly one `payment_history` entry dated at its bill date; a real
+zero-paid purchase got an empty array, not a stray zero-amount entry.
+Both cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

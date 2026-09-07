@@ -453,6 +453,15 @@ export async function createDirectPurchase(input: {
         // explicitly picked a different one, otherwise the DB default
         // (now()) applies as before.
         ...(billCreatedAt ? { created_at: billCreatedAt } : {}),
+        // Money already in hand at the moment of sale needs its own
+        // payment_history entry too — otherwise only a later
+        // recordPayment() call ever logs anything, and the amount paid
+        // up front is invisible in the log even though it's counted in
+        // paid_amount (found 2026-09-07: a real historical purchase's
+        // ₹15,000 paid showed only a single later ₹5,000 entry).
+        ...(item.paidAmount > 0
+          ? { payment_history: [{ amount: item.paidAmount, date: billCreatedAt ?? new Date().toISOString(), recordedBy: null }] }
+          : {}),
       })
       .select('*')
       .single();
