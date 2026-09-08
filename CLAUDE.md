@@ -2833,6 +2833,40 @@ own testing (9 total) was found and removed from all four affected
 sheets; a full re-audit afterward came back at 0 stray rows across
 every sheet.
 
+## Bug: A Purchase Paid in Full at Sale Time Never Closed (2026-09-08)
+
+Reported live: ARFAN (SWAD) showed "₹0 owed" but was still sitting in
+Payments Outstanding. Root cause: `recordPayment()` already auto-closes
+an order the moment a payment brings its balance to 0 — but
+`createDirectPurchase()` had no equivalent check, so a purchase paid in
+full *at the moment of sale* (money already in hand, no separate
+`recordPayment()` call ever happens) stayed `status: 'open'` forever
+with `balance_owed: 0`, waiting on a manual "Close purchase" click that
+might never come. Same gap affects a free item (price 0) — both are
+"already fully paid," just via a different route to get there.
+
+- `createDirectPurchase()` now closes the order immediately (via the
+  existing `closeOrder()`) whenever `paidAmount >= price` for that item
+  — same principle `recordPayment()` already applies, just also checked
+  at creation time. Caught and fixed a real bug in the same change while
+  verifying: `closeOrder()`'s return value was being discarded, so even
+  once the close-check was added, the function was still handing back
+  the stale pre-close order object.
+- Belt-and-suspenders on the read side too: both dashboards'
+  "Payments outstanding" queries now filter `balance_owed > 0`
+  explicitly, not just `status = 'open'` — so a $0-balance order can
+  never show up there as "owed" again even if something else upstream
+  ever leaves one open.
+- One-time fix: closed Arfan's actual stuck order directly (verified
+  it was the only one in the entire `orders` table in this state).
+
+Verified live: a real fully-paid-at-sale purchase now closes
+immediately (`status: 'closed'`, `balance_owed: 0`); a free item does
+too; a genuinely partial payment correctly stays open. Re-ran the
+Payments Outstanding query directly and confirmed Arfan no longer
+appears. All 5 hard-rule tests still pass. Test data and sheet rows
+cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

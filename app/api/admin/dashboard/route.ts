@@ -66,11 +66,17 @@ export async function GET() {
       // §7.3/§7.6/§15.6: every order still owed, with discount visible.
       // installation_date lets the card show how long ago the unit was
       // actually fitted, alongside the balance — a much older unpaid
-      // installation reads as more urgent than a fresh one.
+      // installation reads as more urgent than a fresh one. balance_owed
+      // > 0 is the actual "still owed" test — status alone isn't enough:
+      // an order paid in full at the moment of sale is supposed to close
+      // itself immediately (createDirectPurchase()), but this is a second,
+      // independent check so a $0-balance order can never show up here
+      // as "owed" even if something upstream ever left it open again.
       supabaseAdmin
         .from('orders')
         .select('id, sold_price, discount, balance_owed, last_payment_call_at, tickets(installation_date, customers(name, phone_number))')
         .eq('status', 'open')
+        .gt('balance_owed', 0)
         .order('balance_owed', { ascending: false }),
 
       // Follow-up satisfaction call, separate from the install-confirm

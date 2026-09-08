@@ -6,6 +6,7 @@ import { syncServiceToSheetSafely, removeServiceFromSheetSafely } from './servic
 import { syncEnquiryToSheetSafely, removeEnquiryFromSheetSafely } from './enquirySheet';
 import { syncServiceVisitPartsToSheetSafely } from './sparePartSalesSheet';
 import { logTicketPaymentToSheetSafely } from './paymentsSheet';
+import { closeOrder } from './orders';
 import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
@@ -496,8 +497,22 @@ export async function createDirectPurchase(input: {
 
     // The sale is registered the moment it's made, not when it later
     // happens to close — "closed" is just orders.status flipping once
-    // balance_owed hits 0, not a separate business event. Fire-and-forget.
-    syncOrderToSalesSheetSafely(order.id).catch(() => {});
+    // balance_owed hits 0, not a separate business event. If the full
+    // price is already paid at the moment of sale (or it's a free item,
+    // price 0), close it right here rather than leaving it sitting
+    // "open" forever waiting on a manual click — recordPayment() already
+    // does exactly this when a later payment finishes the balance off;
+    // this was the one gap where it didn't happen (found 2026-09-08: a
+    // real ₹17,000 purchase paid in full at sale time stayed "open" with
+    // balance_owed 0 indefinitely, which "Payments outstanding" then
+    // read as still owing money).
+    let finalOrder = order;
+    if (item.paidAmount >= item.price) {
+      finalOrder = await closeOrder(order.id);
+    } else {
+      // Fire-and-forget.
+      syncOrderToSalesSheetSafely(order.id).catch(() => {});
+    }
     if (item.paidAmount > 0) {
       logTicketPaymentToSheetSafely({
         ticketId: ticket.id,
@@ -507,7 +522,7 @@ export async function createDirectPurchase(input: {
       }).catch(() => {});
     }
 
-    results.push({ ticket, order });
+    results.push({ ticket, order: finalOrder });
   }
 
   return results;

@@ -82,10 +82,13 @@ export async function GET() {
 
       // §7.3/§7.6: every order still owed — same list admin sees, not just
       // the 7+ day ones — so the owner can check on any of it directly.
+      // balance_owed > 0 is the real "still owed" test, same reasoning as
+      // the admin dashboard's identical query.
       supabaseAdmin
         .from('orders')
         .select('id, balance_owed, created_at, last_payment_call_at, tickets(customers(name, phone_number))')
-        .eq('status', 'open'),
+        .eq('status', 'open')
+        .gt('balance_owed', 0),
 
       // Commercial/Vessel enquiries are automatically flagged for the
       // owner's eye — a bigger sale than a routine kitchen unit, worth
