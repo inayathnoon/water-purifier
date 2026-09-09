@@ -66,7 +66,7 @@ function SparePartsPageInner() {
   const load = async () => {
     setLoading(true);
     const salesUrl = ticketId ? `/api/admin/spare-part-sales?ticketId=${ticketId}` : '/api/admin/spare-part-sales';
-    const requests: Promise<Response>[] = [fetch('/api/staff/spare-parts'), fetch(salesUrl)];
+    const requests: Promise<Response>[] = [fetch('/api/admin/spare-parts'), fetch(salesUrl)];
     if (ticketId) requests.push(fetch(`/api/admin/tickets/${ticketId}`));
     const [sparePartsRes, salesRes, ticketRes] = await Promise.all(requests);
 
