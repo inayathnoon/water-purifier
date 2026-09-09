@@ -21,10 +21,12 @@ import 'dotenv/config';
 
 import { createDirectPurchase, bookJob, completeJob, createEnquiry, closeEnquiry } from '../lib/services/tickets';
 import { closeOrder } from '../lib/services/orders';
+import { recordSparePartSale } from '../lib/services/sparePartSales';
 import { clearMatchingRowByHeader, writeSheetsClient, quotedTab } from '../lib/services/googleSheets';
 import { SALES_TAB } from '../lib/services/salesSheet';
 import { ENQUIRY_TAB } from '../lib/services/enquirySheet';
 import { PAYMENTS_TAB } from '../lib/services/paymentsSheet';
+import { SPARE_PART_SALES_TAB } from '../lib/services/sparePartSalesSheet';
 
 // Payments rows are matched on their own generated id (append-only, never
 // upserted in place — see CLAUDE.md), so there's no business key to hand
@@ -48,6 +50,14 @@ async function deletePaymentsRowsForPhone(phone: string): Promise<void> {
 }
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+// Spare Part Sales sheet rows are matched on the sale's own id, not a
+// business key — clear each one directly rather than via clearMatchingRowByHeader's phone/date matching.
+async function deleteSparePartSaleSheetRows(saleIds: string[]): Promise<void> {
+  for (const id of saleIds) {
+    await clearMatchingRowByHeader(SPARE_PART_SALES_TAB, { id }, ['id']);
+  }
+}
 
 async function makeCustomer(phone: string) {
   const { data } = await supabase
@@ -149,69 +159,57 @@ test('§13.2: enquiry closure requires a real explanation and a prior call', asy
   }
 });
 
-// §13.3 — no charge inside the warranty year, regardless of what a
-// technician enters; the charge is preserved once outside it.
-test('§13.3: warranty override forces an in-warranty charge to zero', async () => {
+// §13.3 — no charge inside the warranty year, regardless of what's
+// selected; the charge is preserved once outside it. Since 2026-09-09,
+// this enforcement lives in recordSparePartSale() (spare parts sold when
+// admin confirms a job, from /admin/spare-parts) rather than completeJob()
+// — see CLAUDE.md's staff-portal-removal note.
+test('§13.3: warranty override forces an in-warranty sale to zero', async () => {
   const cust = await makeCustomer('9990000003');
-  const staffId = await realStaffId();
+  const adminId = await realAdminId();
   try {
     const withinWarranty = new Date();
     withinWarranty.setMonth(withinWarranty.getMonth() - 6); // 6 months ago — still under warranty
 
     const { data: inWarrantyTicket } = await supabase
       .from('tickets')
-      .insert({
-        customer_id: cust.id,
-        kind: 'service_visit',
-        status: 'booked',
-        assigned_to_id: staffId,
-        installation_date: withinWarranty.toISOString().slice(0, 10),
-        booked_date: new Date().toISOString().slice(0, 10),
-        booked_half_day: 'morning',
-      })
+      .insert({ customer_id: cust.id, kind: 'service_visit', status: 'completed', installation_date: withinWarranty.toISOString().slice(0, 10) })
       .select()
       .single();
 
-    const completedInWarranty = await completeJob(inWarrantyTicket.id, staffId, {
-      actualDate: new Date().toISOString().slice(0, 10),
-      actualStartTime: '09:00',
-      actualEndTime: '10:00',
-      notes: 'test',
-      partsUsed: 'Solenoid valve x1',
-      chargeAmount: 600, // a tech entering a charge anyway — must be overridden to 0
+    const [inWarrantySale] = await recordSparePartSale({
+      items: [{ partName: 'Solenoid valve', unitPrice: 600, quantity: 1 }], // selected anyway — must be overridden to 0
+      soldBy: adminId,
+      ticketId: inWarrantyTicket.id,
     });
-    assert.equal(completedInWarranty.charge_amount, 0, 'a chargeable amount entered inside warranty must be forced to 0');
+    assert.equal(Number(inWarrantySale.total), 0, 'a price selected inside warranty must be forced to 0');
 
     const outsideWarranty = new Date();
     outsideWarranty.setFullYear(outsideWarranty.getFullYear() - 2); // 2 years ago — well outside warranty
 
     const { data: outsideTicket } = await supabase
       .from('tickets')
-      .insert({
-        customer_id: cust.id,
-        kind: 'service_visit',
-        status: 'booked',
-        assigned_to_id: staffId,
-        installation_date: outsideWarranty.toISOString().slice(0, 10),
-        booked_date: new Date().toISOString().slice(0, 10),
-        booked_half_day: 'morning',
-      })
+      .insert({ customer_id: cust.id, kind: 'service_visit', status: 'completed', installation_date: outsideWarranty.toISOString().slice(0, 10) })
       .select()
       .single();
 
-    const completedOutside = await completeJob(outsideTicket.id, staffId, {
-      actualDate: new Date().toISOString().slice(0, 10),
-      actualStartTime: '09:00',
-      actualEndTime: '10:00',
-      notes: 'test',
-      partsUsed: 'Solenoid valve x1',
-      chargeAmount: 600,
+    const [outsideSale] = await recordSparePartSale({
+      items: [{ partName: 'Solenoid valve', unitPrice: 600, quantity: 1 }],
+      soldBy: adminId,
+      ticketId: outsideTicket.id,
     });
-    assert.equal(completedOutside.charge_amount, 600, 'a charge entered outside warranty must be preserved');
+    assert.equal(Number(outsideSale.total), 600, 'a price selected outside warranty must be preserved');
 
-    // The out-of-warranty completion above also logs a "Service" row to
-    // the Payments sheet (fire-and-forget) — wait for it, then clear it.
+    // Both sales above also sync to the Spare Part Sales sheet and (the
+    // out-of-warranty one) the Payments sheet — all fire-and-forget, so
+    // cleanup has to wait for them to land first, same as every other
+    // sheet-touching test in this file.
     await new Promise((r) => setTimeout(r, 3000));
+    await Promise.all([
+      supabase.from('spare_part_sales').delete().eq('id', inWarrantySale.id),
+      supabase.from('spare_part_sales').delete().eq('id', outsideSale.id),
+    ]);
+    await deleteSparePartSaleSheetRows([inWarrantySale.id, outsideSale.id]);
     await deletePaymentsRowsForPhone(cust.phone_number);
   } finally {
     await cleanupCustomer(cust.id);

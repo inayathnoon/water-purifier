@@ -4,23 +4,11 @@ import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } fro
 import { syncOrderToSalesSheetSafely, removeOrderFromSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely, removeServiceFromSheetSafely } from './serviceSheet';
 import { syncEnquiryToSheetSafely, removeEnquiryFromSheetSafely } from './enquirySheet';
-import { syncServiceVisitPartsToSheetSafely } from './sparePartSalesSheet';
 import { logTicketPaymentToSheetSafely } from './paymentsSheet';
 import { closeOrder } from './orders';
-import { todayIST, halfDayNowIST, daysAgoIST } from '../dates';
+import { todayIST, halfDayNowIST } from '../dates';
 
 const MIN_EXPLANATION_WORDS = 5;
-
-// One line item behind a service visit's charge_amount — lets a revenue
-// report split "spare parts sold on this visit" from "the flat service
-// charge line" without parsing the free-text parts_used summary.
-export interface ChargeBreakdownItem {
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  isServiceCharge: boolean;
-}
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -588,6 +576,11 @@ export async function bookJob(
       customerName: data.customers.name,
       customerAddress: data.customers.address,
       technicianName: technician?.name ?? 'Unknown',
+      // Only ever set on an ad-hoc Service Call (§ Root Cause Fix:
+      // product_interest/issue_note split) — the only place a technician
+      // ever saw this was a box on /staff/jobs, so once that page is gone
+      // this Telegram message is the only place it survives at all.
+      issueNote: data.issue_note ?? null,
     });
   })().catch(() => {});
 
@@ -595,10 +588,16 @@ export async function bookJob(
 }
 
 /**
- * §6.5/§6.6: technician records what actually happened. They can start/finish
- * their own job but cannot change assignee, booked date, or warranty — so
- * this function simply never accepts those fields as input. If a client
- * sends them anyway, they're ignored, not silently applied.
+ * §6.5/§6.6: what actually happened, recorded by an admin from the
+ * dashboard's "Finished Installation/Service" card once the technician
+ * reports back (by phone/Telegram) that a job is done — there's no
+ * technician login to record it themselves. `callerId` is always the
+ * ticket's own `assigned_to_id`, not the admin's own id, so the ownership
+ * check below stays meaningful and `notifyJobCompleted()` still names the
+ * real technician. Always stamps *today* as `actual_date` (no backdating)
+ * — see CLAUDE.md's staff-portal-removal note for the accepted tradeoff.
+ * Spare parts sold go through `recordSparePartSale()` instead (linked by
+ * `ticket_id`), not through this ticket's own row — see the same note.
  */
 export async function completeJob(
   ticketId: string,
@@ -608,15 +607,12 @@ export async function completeJob(
     actualStartTime: string;
     actualEndTime: string;
     notes: string;
-    partsUsed?: string;
-    chargeAmount?: number;
-    chargeBreakdown?: ChargeBreakdownItem[];
   }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
 
   if (ticket.assigned_to_id !== callerId) {
-    throw new ApiError(403, 'You can only complete your own jobs');
+    throw new ApiError(403, 'This job is not assigned to that technician');
   }
   if (ticket.status !== 'booked') {
     throw new ApiError(400, 'Job is not in a bookable-to-complete state');
@@ -630,34 +626,22 @@ export async function completeJob(
     status: 'completed', // §6.7: completed, not closed — returns to admin
   };
 
-  if (ticket.kind === 'service_visit') {
-    update.parts_used = input.partsUsed ?? null;
-    // §8.4: the technician does record what a chargeable visit costs.
-    // §8.5/§13.3: but *whether* it's chargeable at all is worked out from
-    // installation_date, never taken from the form — so a visit inside the
-    // warranty year is forced to 0 no matter what the tech typed.
-    const chargeable = !isWithinWarranty(ticket.installation_date, input.actualDate);
-    update.charge_amount = chargeable ? input.chargeAmount ?? null : 0;
-    update.charge_breakdown = chargeable ? input.chargeBreakdown ?? [] : [];
-  }
-
   const { data, error } = await supabaseAdmin
     .from('tickets')
     .update(update)
     .eq('id', ticketId)
     .select(
-      // §13.4: service staff never see a selling price — this select list is
-      // the enforcement point. `agreed_price` (the order's sale price) is
-      // deliberately excluded even though it lives on this same row.
-      'id, kind, status, actual_date, actual_start_time, actual_end_time, actual_notes, parts_used, charge_amount'
+      // §13.4: never a selling price in this response. `agreed_price` (the
+      // order's sale price) is deliberately excluded even though it lives
+      // on this same row — this response shape predates staff login and
+      // is kept exactly as strict now that only admin/owner call it.
+      'id, kind, status, actual_date, actual_start_time, actual_end_time, actual_notes'
     )
     .single();
   if (error) throw new ApiError(500, error.message);
 
-  // §10.5: after the write above has committed. §10.6: no prices in this
-  // message even though charge_amount was just set on the row above.
-  // Fire-and-forget — a Telegram send and two Sheets round trips, none
-  // of which need to hold up the response.
+  // §10.5: after the write above has committed. Fire-and-forget — a
+  // Telegram send shouldn't hold up the response.
   (async () => {
     const [{ data: customer }, { data: technician }] = await Promise.all([
       supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single(),
@@ -673,90 +657,6 @@ export async function completeJob(
     });
   })().catch(() => {});
 
-  if (ticket.kind === 'service_visit') {
-    syncServiceVisitPartsToSheetSafely(ticketId).catch(() => {});
-    if (data.charge_amount) {
-      logTicketPaymentToSheetSafely({
-        ticketId,
-        channel: 'Service',
-        amount: Number(data.charge_amount),
-        date: `${input.actualDate}T12:00:00Z`,
-      }).catch(() => {});
-    }
-  }
-
-  return data;
-}
-
-function isWithinWarranty(installationDate: string | null, checkDate: string): boolean {
-  if (!installationDate) return false;
-  const oneYearLater = new Date(installationDate);
-  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-  return new Date(checkDate) <= oneYearLater;
-}
-
-const EDIT_WINDOW_DAYS = 7;
-
-/**
- * A tech going back to fix a mistake in what they entered for a service
- * visit — wrong charge, forgot a part, notes that don't make sense —
- * without needing an admin to do it for them. Only notes/parts/charge are
- * editable; the actual date/time and assignment aren't, and it works
- * whether the admin has already confirmed-and-closed the ticket or not,
- * for up to a week after the visit itself (not indefinitely — a mistake
- * caught months later goes through an admin instead).
- */
-export async function editCompletedServiceVisit(
-  ticketId: string,
-  callerId: string,
-  input: { notes: string; partsUsed?: string; chargeAmount?: number; chargeBreakdown?: ChargeBreakdownItem[] }
-) {
-  const ticket = await getTicketOrThrow(ticketId);
-  if (ticket.kind !== 'service_visit') throw new ApiError(400, 'Not a service visit');
-  if (ticket.assigned_to_id !== callerId) throw new ApiError(403, 'You can only edit your own jobs');
-  if (!['completed', 'closed'].includes(ticket.status)) throw new ApiError(400, 'Job is not in an editable state');
-  if (!ticket.actual_date || daysAgoIST(ticket.actual_date) > EDIT_WINDOW_DAYS) {
-    throw new ApiError(400, `This job is more than ${EDIT_WINDOW_DAYS} days old and can no longer be edited here`);
-  }
-
-  // §13.3 still applies on a correction, exactly as it did the first time
-  // — checked against the visit's own actual_date, not today's.
-  const chargeable = !isWithinWarranty(ticket.installation_date, ticket.actual_date);
-
-  // Record what's about to be overwritten, and by whom — the one place a
-  // ticket's own charge/parts/notes get corrected after the fact, so
-  // "who changed what" has to survive the overwrite rather than just
-  // being lost (same JSONB-append pattern as orders.payment_history).
-  const editHistory = [
-    ...(ticket.edit_history ?? []),
-    {
-      editedBy: callerId,
-      editedAt: new Date().toISOString(),
-      previous: { notes: ticket.actual_notes, partsUsed: ticket.parts_used, chargeAmount: ticket.charge_amount },
-    },
-  ];
-
-  const update = {
-    actual_notes: input.notes,
-    parts_used: input.partsUsed ?? null,
-    charge_amount: chargeable ? input.chargeAmount ?? null : 0,
-    charge_breakdown: chargeable ? input.chargeBreakdown ?? [] : [],
-    edit_history: editHistory,
-  };
-
-  const { data, error } = await supabaseAdmin
-    .from('tickets')
-    .update(update)
-    .eq('id', ticketId)
-    .select('id, kind, status, actual_date, actual_start_time, actual_end_time, actual_notes, parts_used, charge_amount')
-    .single();
-  if (error) throw new ApiError(500, error.message);
-
-  // The Service sheet already has this visit's row from when it was
-  // first completed/closed — this just updates it in place with the
-  // correction, same upsert-by-phone+date it always uses. Fire-and-forget.
-  syncServiceToSheetSafely(ticketId).catch(() => {});
-  syncServiceVisitPartsToSheetSafely(ticketId).catch(() => {});
   return data;
 }
 

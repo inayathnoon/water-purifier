@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { todayIST, monthStartISTThreshold, monthStartDateIST } from '@/lib/dates';
+import { todayIST, monthStartISTThreshold } from '@/lib/dates';
 
 // §15.3's "what did we earn this month" split out by category — the three
 // product categories (from the sold purifier itself), spare parts (both
@@ -10,9 +10,10 @@ import { todayIST, monthStartISTThreshold, monthStartDateIST } from '@/lib/dates
 const CATEGORY_KEYS = ['KITCHEN', 'VESSEL', 'COMMERCIAL'] as const;
 type CategoryKey = (typeof CATEGORY_KEYS)[number];
 
-interface ChargeBreakdownItem {
-  total: number;
-  isServiceCharge: boolean;
+// Same check used everywhere else a spare-parts price list can include the
+// flat "Service charges" line (whatever case/pluralization the sheet uses).
+function isServiceChargeRow(partName: string): boolean {
+  return partName.trim().toLowerCase().startsWith('service charge');
 }
 
 // booked_date is a plain DATE column — string arithmetic avoids the
@@ -40,7 +41,6 @@ export async function GET() {
     const today = todayIST();
     const weekEnd = dateAddDays(today, 6);
     const monthStartISO = monthStartISTThreshold();
-    const monthStartDate = monthStartDateIST();
 
     const [
       todaysJobs,
@@ -51,8 +51,7 @@ export async function GET() {
       commercialVesselEnquiries,
       weekJobs,
       jobsToDispatch,
-      monthOfficeSpareSales,
-      monthServiceVisits,
+      monthSparePartSales,
     ] = await Promise.all([
       // What's happening today — every job booked for today, by technician.
       supabaseAdmin
@@ -121,18 +120,12 @@ export async function GET() {
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
 
-      // A spare part sold on its own at the office (no visit) — always
-      // pure spare-parts revenue, never a service-charge line.
-      supabaseAdmin.from('spare_part_sales').select('total').gte('created_at', monthStartISO),
-
-      // Spare parts / service-charge revenue that came from an actual
-      // technician visit this month — split via each item's own
-      // isServiceCharge flag, not by parsing the free-text parts_used.
-      supabaseAdmin
-        .from('tickets')
-        .select('charge_breakdown')
-        .eq('kind', 'service_visit')
-        .gte('actual_date', monthStartDate),
+      // Every spare part sold this month — a walk-in office sale
+      // (ticket_id null) and one sold as part of confirming a job
+      // (ticket_id set, from the "Finished Installation/Service" card)
+      // both land in the same table now; part_name alone tells a flat
+      // service-charge line apart from an actual part.
+      supabaseAdmin.from('spare_part_sales').select('total, part_name').gte('created_at', monthStartISO),
     ]);
 
     // Grouped per person, not per order — a customer with two open orders
@@ -200,14 +193,9 @@ export async function GET() {
       if (category && CATEGORY_KEYS.includes(category)) salesByCategory[category] += Number(o.sold_price);
       else salesByCategory.other += Number(o.sold_price);
     }
-    for (const s of monthOfficeSpareSales.data ?? []) {
-      salesByCategory.spare += Number(s.total);
-    }
-    for (const t of monthServiceVisits.data ?? []) {
-      for (const item of (t.charge_breakdown as ChargeBreakdownItem[] | null) ?? []) {
-        if (item.isServiceCharge) salesByCategory.serviceCharge += Number(item.total);
-        else salesByCategory.spare += Number(item.total);
-      }
+    for (const s of monthSparePartSales.data ?? []) {
+      if (isServiceChargeRow(s.part_name)) salesByCategory.serviceCharge += Number(s.total);
+      else salesByCategory.spare += Number(s.total);
     }
 
     return Response.json({

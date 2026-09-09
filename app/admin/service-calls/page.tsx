@@ -46,6 +46,13 @@ interface StaffMember {
   approvedLeave: { start_date: string; end_date: string }[];
 }
 
+interface SparePartSale {
+  id: string;
+  part_name: string;
+  quantity: number;
+  total: number;
+}
+
 interface DueService {
   installationTicketId: string;
   customerName: string;
@@ -102,6 +109,7 @@ function ServiceCallsPageInner() {
   const highlightInstallation = searchParams.get('highlightInstallation');
   const highlightTicket = searchParams.get('highlightTicket');
   const [calls, setCalls] = useState<ServiceCall[]>([]);
+  const [sparePartSalesByTicket, setSparePartSalesByTicket] = useState<Record<string, SparePartSale[]>>({});
   const [due, setDue] = useState<DueService[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,9 +141,22 @@ function ServiceCallsPageInner() {
       fetch('/api/admin/staff'),
       fetch('/api/admin/service-calls/due'),
     ]);
-    setCalls((await callsRes.json()).serviceCalls ?? []);
+    const serviceCalls: ServiceCall[] = (await callsRes.json()).serviceCalls ?? [];
+    setCalls(serviceCalls);
     setStaff((await staffRes.json()).staff ?? []);
     setDue((await dueRes.json()).due ?? []);
+
+    // Spare parts sold against a completed visit — for the "what's
+    // already been recorded" block, right where the admin decides
+    // whether to confirm it. Only ever needed for a 'completed' one.
+    const completedIds = serviceCalls.filter((c) => c.status === 'completed').map((c) => c.id);
+    const salesEntries = await Promise.all(
+      completedIds.map(async (id) => {
+        const res = await fetch(`/api/admin/spare-part-sales?ticketId=${id}`);
+        return [id, (await res.json()).sales ?? []] as const;
+      })
+    );
+    setSparePartSalesByTicket(Object.fromEntries(salesEntries));
     setLoading(false);
   };
 
@@ -305,6 +326,18 @@ function ServiceCallsPageInner() {
   const handleConfirmClose = async (id: string) => {
     setError('');
     const res = await fetch(`/api/admin/tickets/${id}/close`, { method: 'POST' });
+    if (!res.ok) return setError((await res.json()).error);
+    load();
+  };
+
+  // No technician login to mark their own visit done any more — the tech
+  // reports back over Telegram/phone and admin records it here. Same
+  // action as the dashboard's "Finished Installation/Service" card,
+  // reachable here too for anyone working straight off this page.
+  const handleMarkDone = async (id: string) => {
+    if (!(await confirm('Mark this service visit done?'))) return;
+    setError('');
+    const res = await fetch(`/api/admin/tickets/${id}/mark-done`, { method: 'POST' });
     if (!res.ok) return setError((await res.json()).error);
     load();
   };
@@ -652,6 +685,12 @@ function ServiceCallsPageInner() {
                     >
                       Put back to dispatch
                     </button>
+                    <button
+                      onClick={() => handleMarkDone(c.id)}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                    >
+                      Service completed
+                    </button>
                   </div>
                   {bookingId === c.id && (
                     <form onSubmit={(e) => handleBook(e, c.id)} className="pt-3 border-t space-y-2">
@@ -663,27 +702,38 @@ function ServiceCallsPageInner() {
 
               {c.status === 'completed' && (
                 <div className="mt-3 pt-3 border-t space-y-2">
-                  {/* What the tech actually recorded, right where the admin
-                      decides whether to confirm it — not hidden behind a
-                      click, since confirming here can create an order. */}
+                  {/* What's been recorded, right where the admin decides
+                      whether to confirm it — not hidden behind a click,
+                      since confirming here can create an order. Spare
+                      parts are recorded separately (Sell Spare Part,
+                      linked to this ticket), not on the ticket itself. */}
                   <div className="bg-gray-50 rounded-md p-3 text-sm space-y-1">
                     <p>
-                      <span className="text-gray-600">Charge:</span>{' '}
-                      {c.charge_amount != null ? `₹${c.charge_amount}` : '—'}
+                      <span className="text-gray-600">Spare parts:</span>{' '}
+                      {(sparePartSalesByTicket[c.id] ?? []).length === 0
+                        ? '—'
+                        : sparePartSalesByTicket[c.id]
+                            .map((s) => `${s.part_name} x${s.quantity} (₹${s.total})`)
+                            .join(', ')}
                     </p>
                     <p>
-                      <span className="text-gray-600">Parts used:</span> {c.parts_used || '—'}
-                    </p>
-                    <p>
-                      <span className="text-gray-600">Tech's notes:</span> {c.actual_notes || '—'}
+                      <span className="text-gray-600">Notes:</span> {c.actual_notes || '—'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleConfirmClose(c.id)}
-                    className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
-                  >
-                    Confirm & close
-                  </button>
+                  <div className="flex gap-2">
+                    <a
+                      href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
+                      className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                    >
+                      + Spare part
+                    </a>
+                    <button
+                      onClick={() => handleConfirmClose(c.id)}
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                    >
+                      Confirm & close
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -58,13 +58,18 @@ export async function notifyJobAssigned(input: {
   customerName: string;
   customerAddress: string;
   technicianName: string;
+  // Only ever set on an ad-hoc Service Call — a technician has no other
+  // way to see this now that there's no staff login (this was previously
+  // shown only on /staff/jobs's "Reported problem" box).
+  issueNote?: string | null;
 }) {
   const text =
     `📋 <b>Job assigned</b>\n` +
     `${input.productOrKind} — ${input.bookedDate} (${input.bookedHalfDay}), ${input.location}\n` +
     `${input.customerName}, ${input.customerAddress}\n` +
-    `Assigned to: ${input.technicianName}\n` +
-    `${appUrl(`/tickets/${input.ticketId}`)}`;
+    `Assigned to: ${input.technicianName}` +
+    (input.issueNote ? `\n⚠️ Reported problem: ${input.issueNote}` : '') +
+    `\n${appUrl(`/tickets/${input.ticketId}`)}`;
 
   await sendAndLog('job_assigned', text);
 }

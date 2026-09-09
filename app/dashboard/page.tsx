@@ -34,12 +34,6 @@ function DashboardPageInner() {
         router.push('/auth/login');
         return;
       }
-      // §15.2: a technician should see today's jobs and nothing else —
-      // no dashboard detour on the way there.
-      if (currentUser.role === 'service_staff') {
-        router.replace('/staff/jobs');
-        return;
-      }
       // The app's own developer/maintainer sees a maintenance panel, not
       // the business dashboard — a separate account/page from 'owner' —
       // unless they've explicitly asked to preview one (see viewAs above).
@@ -101,7 +95,18 @@ function DashboardPageInner() {
       </header>
 
       <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {user.role === 'admin' ? <AdminDashboard /> : <OwnerDashboard />}
+        {user.role === 'admin' ? (
+          <AdminDashboard />
+        ) : user.role === 'owner' ? (
+          <OwnerDashboard />
+        ) : (
+          // service_staff — see CLAUDE.md's staff-portal-removal note.
+          // Jobs are assigned and reported over Telegram now; this
+          // account has nothing to do in the app itself any more.
+          <p className="text-gray-500">
+            There's nothing here for this account any more — job assignments now come through the Telegram group.
+          </p>
+        )}
       </main>
     </div>
   );

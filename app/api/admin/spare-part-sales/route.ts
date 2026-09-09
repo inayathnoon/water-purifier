@@ -1,10 +1,11 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
-import { recordSparePartSale, listRecentSparePartSales } from '@/lib/services/sparePartSales';
+import { recordSparePartSale, listRecentSparePartSales, listSparePartSalesForTicket } from '@/lib/services/sparePartSales';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireUser(['admin', 'owner']);
-    const sales = await listRecentSparePartSales();
+    const ticketId = new URL(request.url).searchParams.get('ticketId');
+    const sales = ticketId ? await listSparePartSalesForTicket(ticketId) : await listRecentSparePartSales();
     return Response.json({ sales });
   } catch (err) {
     return handleApiError(err);
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
       customerName: body.customerName,
       phoneNumber: body.phoneNumber,
       soldBy: user.id,
+      ticketId: body.ticketId || undefined,
     });
 
     return Response.json({ sale }, { status: 201 });

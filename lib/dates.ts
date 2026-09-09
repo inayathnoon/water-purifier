@@ -90,3 +90,30 @@ export function halfDayNowIST(now: Date = new Date()): 'morning' | 'afternoon' |
   if (hour < 17) return 'afternoon';
   return 'evening';
 }
+
+/**
+ * §13.3: a service visit within one year of installation is free,
+ * regardless of what anyone enters — the one place this date math is
+ * done, shared by every caller that needs to know whether a charge is
+ * even allowed (completeJob()'s admin-driven mark-done step,
+ * recordSparePartSale()'s job-linked spare-parts check, and the
+ * Sell-Spare-Part picker's own client-side "don't bother asking" display).
+ */
+export function isWithinWarranty(installationDate: string | null, checkDate: string): boolean {
+  if (!installationDate) return false;
+  const oneYearLater = new Date(installationDate);
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+  return new Date(checkDate) <= oneYearLater;
+}
+
+/**
+ * Fixed clock windows for each half-day slot — used when a job's actual
+ * start/end time needs to be derived rather than typed (§ Mark Done:
+ * Skip Exact Time, and now the admin-driven mark-done step, which has no
+ * technician on hand to type a time at all).
+ */
+export const HALF_DAY_TIMES: Record<string, { start: string; end: string }> = {
+  morning: { start: '09:00', end: '12:00' },
+  afternoon: { start: '12:00', end: '15:00' },
+  evening: { start: '15:00', end: '18:00' },
+};

@@ -242,46 +242,6 @@ export async function clearMatchingRowByHeader(
 }
 
 /**
- * Blanks every row whose `column` value starts with `prefix` — for a
- * source that writes a variable number of rows per real-world thing
- * (a service visit's spare-parts breakdown, re-synced whole on every
- * completion/correction) rather than one fixed row per record. Clearing
- * every prior row first, then writing the current set fresh, is what
- * stops a shrinking item count from leaving a stale row behind that
- * describes a part no longer actually used.
- */
-export async function clearRowsByPrefix(tab: string, column: string, prefix: string): Promise<number> {
-  const { headers, qtab, sheets, sheetId } = await readRealHeader(tab);
-  const colIdx = headers.indexOf(column);
-  if (colIdx === -1) throw new ApiError(422, `The "${tab}" sheet is missing the "${column}" column needed to match rows`);
-
-  const col = columnLetter(colIdx);
-  let column1: string[][];
-  try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!${col}2:${col}` });
-    column1 = res.data.values ?? [];
-  } catch (e) {
-    throw new ApiError(500, `Could not read the "${tab}" sheet: ${(e as Error).message}`);
-  }
-
-  const matchedRows = column1
-    .map((r, i) => ((r[0] ?? '').startsWith(prefix) ? i : -1))
-    .filter((i) => i !== -1);
-  if (matchedRows.length === 0) return 0;
-
-  const lastCol = columnLetter(headers.length - 1);
-  try {
-    await sheets.spreadsheets.values.batchClear({
-      spreadsheetId: sheetId,
-      requestBody: { ranges: matchedRows.map((i) => `${qtab}!A${i + 2}:${lastCol}${i + 2}`) },
-    });
-  } catch (e) {
-    throw permissionAwareError(e, `clear rows in "${tab}"`);
-  }
-  return matchedRows.length;
-}
-
-/**
  * Corrects every existing row in one tab that's keyed on `oldPhone`,
  * in place — for when a customer's phone number itself was wrong and
  * gets fixed. The normal upsert functions can't handle this on their

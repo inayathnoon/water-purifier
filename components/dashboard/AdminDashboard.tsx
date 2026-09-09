@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { daysAgoIST, enquiryUrgency } from '@/lib/dates';
 import BookingForm from '@/components/BookingForm';
 import WeekSchedule from '@/components/dashboard/WeekSchedule';
+import { useConfirm } from '@/components/useConfirm';
 import { DashboardCard, Row, StaffMember, emptyAssignForm } from './shared';
 
 const daysAgo = daysAgoIST;
@@ -14,6 +15,8 @@ interface AdminDashboardData {
   oldEnquiryCount: number;
   jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string; area: string } }[];
   overdueDispatchCount: number;
+  dueForMarkDone: { id: string; kind: string; booked_date: string; customers: { name: string; phone_number: string } }[];
+  overdueMarkDoneCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: {
     installationTicketId: string;
@@ -59,6 +62,11 @@ export default function AdminDashboard() {
   const [satisfactionNote, setSatisfactionNote] = useState('');
   const [satisfactionError, setSatisfactionError] = useState('');
   const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
+  // Part 1 of "Finished Installation/Service" — no technician login to
+  // mark their own job done any more, so admin does it from here.
+  const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
+  const [markDoneError, setMarkDoneError] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
 
   const loadDashboard = () => {
     fetch('/api/admin/dashboard')
@@ -140,6 +148,31 @@ export default function AdminDashboard() {
     loadDashboard();
   };
 
+  // Part 1 — "Installed" / "Service completed": the tech has reported
+  // back (phone/Telegram) that the job is done; admin records it here.
+  // Stamps today as the completion date — see CLAUDE.md's staff-portal
+  // removal note for why there's no backdating field.
+  const handleMarkDone = async (ticketId: string, label: string) => {
+    if (!(await confirm(`Mark this ${label.toLowerCase()} done?`))) return;
+    setMarkDoneError('');
+    setMarkingDoneId(ticketId);
+    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
+    setMarkingDoneId(null);
+    if (!res.ok) {
+      setMarkDoneError((await res.json()).error ?? 'Failed to mark done');
+      return;
+    }
+    loadDashboard();
+  };
+
+  // Part 2 — any spare part sold gets recorded on Sell Spare Part,
+  // pre-filled and tagged with this job's own ticket id so the sale is
+  // traceable back to it (§13.3's warranty-free check is enforced there,
+  // server-side, from the ticket this links to).
+  const sellSparePartHref = (t: { id: string; kind: string; customers: { name: string; phone_number: string } }) =>
+    `/admin/spare-parts?new=1&ticketId=${t.id}&kind=${t.kind}` +
+    `&customerName=${encodeURIComponent(t.customers.name)}&phone=${encodeURIComponent(t.customers.phone_number)}`;
+
   const startSatisfaction = (orderId: string) => {
     setSatisfactionError('');
     setSatisfactionNoteFor(orderId);
@@ -173,8 +206,14 @@ export default function AdminDashboard() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="flex flex-col gap-3 mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
+          <Link href="/admin/leave" className="text-sm text-blue-600 hover:underline">
+            Request time off →
+          </Link>
+        </div>
         <div className="grid grid-cols-6 gap-2 max-w-3xl">
           {[
             { href: '/admin/enquiries', label: 'Enquiries', newHref: '/admin/enquiries?new=1', newLabel: '+ New Enquiry', newColor: 'bg-blue-600 hover:bg-blue-700 text-white' },
@@ -298,12 +337,17 @@ export default function AdminDashboard() {
 
         <DashboardCard
           title="Finished Installation/Service"
-          badge={data.overdueConfirmationCount > 0 ? `${data.overdueConfirmationCount} over 7 days` : undefined}
+          badge={
+            data.overdueMarkDoneCount + data.overdueConfirmationCount > 0
+              ? `${data.overdueMarkDoneCount + data.overdueConfirmationCount} overdue`
+              : undefined
+          }
           badgeColor="bg-red-100 text-red-800"
-          emptyText="Nothing waiting on a confirmation call."
+          emptyText="Nothing waiting here."
         >
           {(() => {
             const combined = [
+              ...data.dueForMarkDone.map((t) => ({ type: 'due' as const, t })),
               ...data.awaitingConfirmation.map((t) => ({ type: 'job' as const, t })),
               ...data.satisfactionCallsDue.map((s) => ({ type: 'satisfaction' as const, s })),
             ];
@@ -312,8 +356,34 @@ export default function AdminDashboard() {
             return (
               <>
                 {confirmJobError && <p className="text-red-600 text-xs mb-1">{confirmJobError}</p>}
+                {markDoneError && <p className="text-red-600 text-xs mb-1">{markDoneError}</p>}
                 {visible.map((item) =>
-                  item.type === 'job' ? (
+                  item.type === 'due' ? (
+                    // Part 1 (Installed/Service completed) + part 2 (any spare sold).
+                    <div key={`due-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{item.t.customers.name}</p>
+                        <p className="text-xs text-gray-500">{item.t.customers.phone_number}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs ${daysAgo(item.t.booked_date) >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
+                          {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.booked_date)}d
+                          {daysAgo(item.t.booked_date) >= 3 ? ' — overdue' : ''}
+                        </span>
+                        <Link href={sellSparePartHref(item.t)} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap">
+                          + Spare part
+                        </Link>
+                        <button
+                          onClick={() => handleMarkDone(item.t.id, item.t.kind === 'installation' ? 'Installation' : 'Service visit')}
+                          disabled={markingDoneId === item.t.id}
+                          className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {markingDoneId === item.t.id ? 'Saving...' : item.t.kind === 'installation' ? 'Installed' : 'Service completed'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : item.type === 'job' ? (
+                    // Part 2 (any spare sold, if not already) + part 3 (calling customer to confirm).
                     <div key={`job-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
                       <div>
                         <p className="text-sm font-medium">{item.t.customers.name}</p>
@@ -324,6 +394,9 @@ export default function AdminDashboard() {
                           {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.actual_date)}d
                           {daysAgo(item.t.actual_date) >= 7 ? ' — overdue' : ''}
                         </span>
+                        <Link href={sellSparePartHref(item.t)} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap">
+                          + Spare part
+                        </Link>
                         <button
                           onClick={() => handleConfirmJob(item.t.id)}
                           disabled={confirmingJobId === item.t.id}

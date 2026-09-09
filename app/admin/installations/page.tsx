@@ -293,6 +293,21 @@ function InstallationsPageInner() {
     load();
   };
 
+  // No technician login to mark their own job done any more — the tech
+  // reports back over Telegram/phone and admin records it here. Same
+  // action as the dashboard's "Finished Installation/Service" card,
+  // reachable here too for anyone working straight off this page.
+  const handleMarkDone = async (ticketId: string) => {
+    if (!(await confirm('Mark this installation done?'))) return;
+    setError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
+    if (!res.ok) {
+      setError((await res.json()).error ?? 'Failed to mark done');
+      return;
+    }
+    load();
+  };
+
   // §6.3: show how much load each tech is carrying for a given date/half-day.
   const loadFor = (staffId: string, date: string, halfDay: string) =>
     installations.filter(
@@ -557,6 +572,12 @@ function InstallationsPageInner() {
                         className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
                       >
                         Put back to dispatch
+                      </button>
+                      <button
+                        onClick={() => handleMarkDone(inst.id)}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                      >
+                        Installed
                       </button>
                     </>
                   )}

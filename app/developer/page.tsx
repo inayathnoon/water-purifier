@@ -196,9 +196,6 @@ export default function DeveloperPage() {
           <Link href="/dashboard?viewAs=owner" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
             View as Owner
           </Link>
-          <Link href="/staff/jobs" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
-            View as Staff
-          </Link>
         </div>
       </div>
 

@@ -32,7 +32,7 @@ export async function GET() {
     const today = todayIST();
     const weekEnd = dateAddDays(today, 6);
 
-    const [newEnquiries, jobsToDispatch, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue, weekJobs] = await Promise.all([
+    const [newEnquiries, jobsToDispatch, dueForMarkDone, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue, weekJobs] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
@@ -55,7 +55,22 @@ export async function GET() {
         .eq('status', 'open')
         .order('created_at', { ascending: true }),
 
-      // §6.7: completed jobs waiting on the admin's confirmation call.
+      // Booked jobs due (or overdue) to be marked done — there's no
+      // technician login to do this themselves any more; the tech reports
+      // back over Telegram/phone and admin records it here (part 1 of the
+      // "Finished Installation/Service" card). A job booked for a future
+      // date doesn't belong here yet.
+      supabaseAdmin
+        .from('tickets')
+        .select('id, kind, booked_date, customers(name, phone_number)')
+        .in('kind', ['installation', 'service_visit'])
+        .eq('status', 'booked')
+        .lte('booked_date', today)
+        .order('booked_date', { ascending: true }),
+
+      // §6.7: completed jobs waiting on the admin's confirmation call
+      // (part 3 — after part 1 above, or on a job whose tech-recorded
+      // completion predates the staff-portal removal).
       supabaseAdmin
         .from('tickets')
         .select('id, kind, actual_date, customers(name, phone_number)')
@@ -112,6 +127,10 @@ export async function GET() {
     // A job still waiting to be assigned after 3 days is worth flagging the
     // same way an overdue payment call or enquiry is elsewhere on this page.
     const overdueDispatchCount = (jobsToDispatch.data ?? []).filter((t) => daysAgoIST(t.created_at) >= 3).length;
+
+    // A booked job still not marked done 3+ days after its own booked
+    // date is worth flagging the same way — same threshold as dispatch.
+    const overdueMarkDoneCount = (dueForMarkDone.data ?? []).filter((t) => daysAgoIST(t.booked_date) >= 3).length;
 
     const overdueCallCount = (paymentsOutstanding.data ?? []).filter((o) => {
       const days = o.last_payment_call_at ? daysAgoIST(o.last_payment_call_at) : Infinity;
@@ -170,6 +189,8 @@ export async function GET() {
       oldEnquiryCount,
       jobsToDispatch: jobsToDispatch.data ?? [],
       overdueDispatchCount,
+      dueForMarkDone: dueForMarkDone.data ?? [],
+      overdueMarkDoneCount,
       awaitingConfirmation: awaitingConfirmation.data ?? [],
       overdueConfirmationCount,
       serviceCallsDue,

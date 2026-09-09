@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
-import { todayIST } from '@/lib/dates';
+import { todayIST, isWithinWarranty } from '@/lib/dates';
 
 interface SparePart {
   name: string;
@@ -19,12 +19,13 @@ interface SparePartSale {
   customer_name: string | null;
   phone_number: string | null;
   created_at: string;
+  ticket_id: string | null;
   users: { name: string } | null;
 }
 
-// A "Service charges" row exists for use on an actual visit's Mark Done
-// form — doesn't belong in a standalone retail sale, where no visit is
-// happening at all.
+// A "Service charges" row exists for use when a spare part is sold as
+// part of confirming an actual service visit — doesn't belong in a
+// standalone office sale, where no visit is happening at all.
 function isServiceCharge(p: SparePart): boolean {
   return p.name.trim().toLowerCase().startsWith('service charge');
 }
@@ -38,16 +39,19 @@ export default function SparePartsPage() {
 }
 
 function SparePartsPageInner() {
-  // ?new=1 opens the sale form directly — no longer linked from the
-  // dashboard (this is the only place to sell a spare part now), kept
-  // for consistency with every other "+ New X" deep link in the app.
+  // ?new=1 opens the sale form directly. When linked from the admin
+  // dashboard's "Finished Installation/Service" card (?ticketId=...&
+  // kind=...&customerName=...&phone=...), the sale is tagged to that job
+  // — see recordSparePartSale()'s §13.3 warranty check.
   const searchParams = useSearchParams();
+  const ticketId = searchParams.get('ticketId');
+  const ticketKind = searchParams.get('kind');
   const [loading, setLoading] = useState(true);
-  const [showSellForm, setShowSellForm] = useState(searchParams.get('new') === '1');
+  const [showSellForm, setShowSellForm] = useState(searchParams.get('new') === '1' || !!ticketId);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
-  const [sellCustomerName, setSellCustomerName] = useState('');
-  const [sellPhoneNumber, setSellPhoneNumber] = useState('');
+  const [sellCustomerName, setSellCustomerName] = useState(searchParams.get('customerName') ?? '');
+  const [sellPhoneNumber, setSellPhoneNumber] = useState(searchParams.get('phone') ?? '');
   const [sellError, setSellError] = useState('');
   const [submittingSell, setSubmittingSell] = useState(false);
   const [recentSales, setRecentSales] = useState<SparePartSale[]>([]);
@@ -55,34 +59,52 @@ function SparePartsPageInner() {
   const [editForm, setEditForm] = useState({ partName: '', unitPrice: '', quantity: '', customerName: '', phoneNumber: '', saleDate: '' });
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
+  // Only relevant when linked to a service visit — an installation or a
+  // walk-in office sale has no warranty concept to check.
+  const [withinWarranty, setWithinWarranty] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const [sparePartsRes, salesRes] = await Promise.all([
-      fetch('/api/staff/spare-parts'),
-      fetch('/api/admin/spare-part-sales'),
-    ]);
-    setSpareParts(((await sparePartsRes.json()).parts ?? []).filter((p: SparePart) => !isServiceCharge(p)));
+    const salesUrl = ticketId ? `/api/admin/spare-part-sales?ticketId=${ticketId}` : '/api/admin/spare-part-sales';
+    const requests: Promise<Response>[] = [fetch('/api/staff/spare-parts'), fetch(salesUrl)];
+    if (ticketId) requests.push(fetch(`/api/admin/tickets/${ticketId}`));
+    const [sparePartsRes, salesRes, ticketRes] = await Promise.all(requests);
+
+    let showServiceCharge = false;
+    if (ticketId && ticketKind === 'service_visit' && ticketRes) {
+      const { ticket } = await ticketRes.json();
+      const inWarranty = isWithinWarranty(ticket?.installation_date ?? null, todayIST());
+      setWithinWarranty(inWarranty);
+      showServiceCharge = !inWarranty; // a free visit has nothing to charge for either.
+    }
+
+    const allParts: SparePart[] = (await sparePartsRes.json()).parts ?? [];
+    setSpareParts(showServiceCharge ? allParts : allParts.filter((p) => !isServiceCharge(p)));
     setRecentSales((await salesRes.json()).sales ?? []);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const adjustSellQty = (name: string, delta: number) => {
     setSellQuantities((prev) => ({ ...prev, [name]: Math.max(0, (prev[name] ?? 0) + delta) }));
   };
 
-  const sellTotal = spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * p.price, 0);
+  // Under warranty, every part is free — shown as such, not just silently
+  // charged 0, so it's clear this isn't a bug (§13.3 is still enforced
+  // server-side in recordSparePartSale() regardless of what's shown here).
+  const displayPrice = (p: SparePart) => (withinWarranty ? 0 : p.price);
+  const sellTotal = spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * displayPrice(p), 0);
 
   const handleSellSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingSell) return;
     const items = spareParts
       .filter((p) => (sellQuantities[p.name] ?? 0) > 0)
-      .map((p) => ({ partName: p.name, unitPrice: p.price, quantity: sellQuantities[p.name] }));
+      .map((p) => ({ partName: p.name, unitPrice: displayPrice(p), quantity: sellQuantities[p.name] }));
     if (items.length === 0) {
       setSellError('Pick at least one part.');
       return;
@@ -92,7 +114,7 @@ function SparePartsPageInner() {
     const res = await fetch('/api/admin/spare-part-sales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items, customerName: sellCustomerName, phoneNumber: sellPhoneNumber }),
+      body: JSON.stringify({ items, customerName: sellCustomerName, phoneNumber: sellPhoneNumber, ticketId: ticketId || undefined }),
     });
     setSubmittingSell(false);
     if (!res.ok) {
@@ -100,9 +122,11 @@ function SparePartsPageInner() {
       return;
     }
     setSellQuantities({});
-    setSellCustomerName('');
-    setSellPhoneNumber('');
-    setShowSellForm(false);
+    if (!ticketId) {
+      setSellCustomerName('');
+      setSellPhoneNumber('');
+      setShowSellForm(false);
+    }
     load();
   };
 
@@ -150,32 +174,43 @@ function SparePartsPageInner() {
       <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         <h1 className="text-2xl font-bold">Spares</h1>
-        <button
-          onClick={() => setShowSellForm((s) => !s)}
-          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
-        >
-          {showSellForm ? 'Cancel' : '+ Spare Part'}
-        </button>
+        {!ticketId && (
+          <button
+            onClick={() => setShowSellForm((s) => !s)}
+            className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
+          >
+            {showSellForm ? 'Cancel' : '+ Spare Part'}
+          </button>
+        )}
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        A part sold on its own at the office — no visit, no job, customer details optional.
+        {ticketId
+          ? 'Spare parts sold as part of confirming this job — linked back to it automatically.'
+          : 'A part sold on its own at the office — no visit, no job, customer details optional.'}
       </p>
 
       {showSellForm && (
         <form onSubmit={handleSellSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-3">
           {sellError && <p className="text-red-600 text-sm">{sellError}</p>}
+          {withinWarranty && (
+            <p className="text-sm bg-blue-50 text-blue-800 rounded-md px-3 py-2">
+              Still under warranty — any parts used here are free of charge.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <input
               placeholder="Customer name (optional)"
               className="border rounded px-3 py-2 text-gray-900"
               value={sellCustomerName}
               onChange={(e) => setSellCustomerName(e.target.value.toUpperCase())}
+              readOnly={!!ticketId}
             />
             <input
               placeholder="Phone number (optional)"
               className="border rounded px-3 py-2 text-gray-900"
               value={sellPhoneNumber}
               onChange={(e) => setSellPhoneNumber(e.target.value)}
+              readOnly={!!ticketId}
             />
           </div>
           <div className="border rounded-lg divide-y">
@@ -186,7 +221,7 @@ function SparePartsPageInner() {
                 <div key={p.name} className="flex justify-between items-center p-3">
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-gray-500">₹{p.price}</p>
+                    <p className="text-xs text-gray-500">{withinWarranty ? 'Free' : `₹${p.price}`}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
@@ -222,11 +257,11 @@ function SparePartsPageInner() {
         </form>
       )}
 
-      <h2 className="text-lg font-semibold mb-2">Recent sales</h2>
+      <h2 className="text-lg font-semibold mb-2">{ticketId ? 'Recorded for this job' : 'Recent sales'}</h2>
       {loading ? (
         <p>Loading...</p>
       ) : recentSales.length === 0 ? (
-        <p className="text-gray-900">No spare part sales yet.</p>
+        <p className="text-gray-900">{ticketId ? 'Nothing recorded yet.' : 'No spare part sales yet.'}</p>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
           {recentSales.map((s) => (

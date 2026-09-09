@@ -2867,6 +2867,118 @@ Payments Outstanding query directly and confirmed Arfan no longer
 appears. All 5 hard-rule tests still pass. Test data and sheet rows
 cleaned up afterward.
 
+## Staff Self-Service Portal Removed — Telegram + Admin-Entered Instead (2026-09-09)
+
+Business decision: drop the technician login entirely (`/staff/jobs`,
+`/staff/time-off`) — go back to informal Telegram coordination for "what's
+my job," with admin recording what happened once the tech reports back
+(phone/Telegram) rather than the tech logging in to record it themselves.
+Full design/removal writeup: `docs/removed-features/staff-self-service-portal.md`
+(what existed, why, what replaced it, how to bring it back — the commit
+just before this removal is tagged `pre-staff-portal-removal`).
+
+**What stayed untouched, deliberately**: Supabase Auth accounts,
+`public.users` rows, RLS, and the `enforce_assignee_is_service_staff`
+trigger — `assigned_to_id` still needs a real, *active* `service_staff`
+row (migration 018 requires `active = true`), so Cristeen/Babu/Yasir's
+accounts are not deactivated, just never logged into again. This was
+purely an application-layer removal.
+
+**New: admin drives job completion from the dashboard's "Finished
+Installation/Service" card**, now three parts instead of just a
+confirmation call:
+1. **"Installed" / "Service completed"** — `POST
+   /api/admin/tickets/[id]/mark-done` calls the same `completeJob()`
+   (now only accepting `actualDate`/`actualStartTime`/`actualEndTime`/
+   `notes` — parts/charge fields dropped, see below), passing the
+   ticket's own `assigned_to_id` as the caller so the ownership check and
+   the completion notification's technician name both stay correct even
+   though an admin clicked the button. Always stamps *today* — no
+   backdating field, an accepted tradeoff (a late confirm shifts the
+   warranty start by the same gap). The card's `awaitingConfirmation`
+   query widened with a second one, `dueForMarkDone` (`status='booked'
+   AND booked_date <= today`), so a due-or-overdue booked job shows up
+   here needing this step, not just an already-completed one. Same
+   button added to `/admin/installations` and `/admin/service-calls`
+   directly, for anyone working off those pages instead of the dashboard.
+2. **Any spare part sold, linked to the job** — routes through **Sell
+   Spare Part** (`/admin/spare-parts?ticketId=...`, a "+ Spare part" link
+   passing the ticket's id/kind/customer straight from data the dashboard
+   already has), not through the ticket's own `charge_breakdown` any
+   more. New `spare_part_sales.ticket_id` column (migration 035, nullable
+   — an office walk-in sale keeps it null). `recordSparePartSale()` now
+   re-derives §13.3's in-warranty-free check itself when a ticket is
+   linked (this flow had no warranty concept at all before this
+   change) — forces every item's price to 0, server-side, regardless of
+   what was selected; `/admin/spare-parts` shows a matching "Under
+   warranty — parts are free" banner and hides the flat "Service
+   charges" row in that case (shown otherwise, for a linked
+   out-of-warranty visit — a pure walk-in office sale still never gets
+   it, unchanged). `updateSparePartSale()` re-applies the same check on a
+   correction, so editing a job-linked sale's price can't be used to
+   dodge it either.
+3. **Calling the customer to confirm** — unchanged, the existing
+   "Confirm"/satisfaction-call flow, just now only reachable once part 1
+   is done.
+
+**`completeJob()` simplified**: dropped `partsUsed`/`chargeAmount`/
+`chargeBreakdown` — spare parts live in `spare_part_sales` now, not on
+the ticket. `tickets.parts_used`/`charge_amount`/`charge_breakdown`/
+`edit_history` are left in the schema, unused (same "harmless unused
+column" precedent as `callback_date`/`CRON_SECRET`) — a historical
+ticket's already-recorded `charge_amount` still displays correctly on
+the Customer Directory, it just never gets a new value going forward
+(a known, accepted gap — not fixed this round). `editCompletedServiceVisit()`
+(the tech's own §8.4 mistake-fix window) is removed outright —
+`/admin/spare-parts`'s existing Edit support now covers correcting a
+spare-part sale, including a job-linked one's warranty check.
+
+**Owner dashboard's "Sales by category" repointed**: `spare`/
+`serviceCharge` now sum straight off `spare_part_sales` for the month
+(every channel — office, and now job-linked) instead of
+`tickets.charge_breakdown`, which nothing writes to any more. Split by
+part name (`isServiceChargeRow()`, the same "starts with 'service
+charge'" check used everywhere else) rather than a structured flag,
+since `spare_part_sales` never had one.
+
+**Telegram message fix, made in the same pass**: `notifyJobAssigned()`
+now includes an ad-hoc Service Call's `issue_note` when present —
+`/staff/jobs`'s "Reported problem" box (a 2026-09-06 bug fix) was
+previously the *only* place a technician ever saw what was actually
+wrong; removing that page without this addition would have silently
+reintroduced the exact bug it fixed.
+
+**Leave requests**: kept, but now filed by admin on a tech's behalf —
+new `POST /api/admin/leave` + `/admin/leave` (staff dropdown, dates,
+reason). `requestLeave()`/`decideLeave()` themselves are unchanged; the
+service layer never assumed the requester was the caller, only that a
+real `requesterId` was given. The owner-only decide step (§11.3),
+`/owner/leave`, is untouched.
+
+A signed-in `service_staff` account (nothing stops one from still
+signing in, since Auth itself wasn't touched) now sees a plain "there's
+nothing here for this account any more" message on `/dashboard` instead
+of a redirect to a now-deleted page — same for the Telegram deep-link
+redirect-target route.
+
+**Verified live against production, end to end**: an ad-hoc service
+ticket with a real issue note, booked to a real technician — the
+resulting `job_assigned` Telegram send logged `sent` in
+`notifications_log`; the admin mark-done logic run directly against that
+same ticket correctly flipped it to `completed` with today's
+`actual_date`; a leave request filed for that technician (not the
+caller) correctly created the request and posted the `leave_requested`
+Telegram message; a job-linked spare-part sale, both inside and outside
+warranty, produced the exact `spare_part_sales` totals expected (0 and
+1100 for 2× a ₹550 part) and synced to the "Spare Part Sales" sheet with
+the right `channel`/`ticket_id` (a new column added directly to the real
+sheet, same pattern as every other sheet extension in this app). All 5
+`npm test` hard-rule tests pass — §13.3's own test was rewritten to
+exercise `recordSparePartSale()` instead of `completeJob()`, matching
+where that enforcement actually lives now. `tsc`/`next build` both
+clean. All test data (DB rows and the one sheet row) cleaned up
+afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

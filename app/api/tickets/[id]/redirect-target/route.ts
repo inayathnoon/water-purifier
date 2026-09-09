@@ -11,7 +11,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
 
     if (user.role === 'service_staff') {
-      return Response.json({ target: '/staff/jobs' });
+      // See CLAUDE.md's staff-portal-removal note — there's no page in
+      // the app for this account any more; jobs are assigned/reported
+      // over Telegram, not clicked into from a deep link.
+      return Response.json({ target: '/dashboard' });
     }
 
     const { data: ticket, error } = await supabaseAdmin.from('tickets').select('kind').eq('id', id).single();
