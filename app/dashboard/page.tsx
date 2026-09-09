@@ -104,7 +104,7 @@ function DashboardPageInner() {
           // Jobs are assigned and reported over Telegram now; this
           // account has nothing to do in the app itself any more.
           <p className="text-gray-500">
-            There's nothing here for this account any more — job assignments now come through the Telegram group.
+            There&apos;s nothing here for this account any more — job assignments now come through the Telegram group.
           </p>
         )}
       </main>
