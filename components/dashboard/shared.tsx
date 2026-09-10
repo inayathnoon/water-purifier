@@ -27,6 +27,7 @@ export function DashboardCard({
   viewAllLinks,
   shownCount,
   totalCount,
+  highlight,
   children,
 }: {
   title: string;
@@ -44,12 +45,15 @@ export function DashboardCard({
   // that happens to stop at 5.
   shownCount?: number;
   totalCount?: number;
+  // A stronger red border/tint for a card that needs the owner's eye
+  // regardless of badge count — e.g. any payment outstanding at all.
+  highlight?: boolean;
   children: React.ReactNode;
 }) {
   const isEmpty = Array.isArray(children) ? children.length === 0 : !children;
   const showCount = totalCount != null && totalCount > 0;
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <div className={`bg-white rounded-lg shadow-sm p-4 border ${highlight ? 'border-red-300 bg-red-50/40' : 'border-gray-200'}`}>
       <div className="flex justify-between items-center mb-2">
         <h3 className="font-semibold text-gray-900">{title}</h3>
         {badge && <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>{badge}</span>}

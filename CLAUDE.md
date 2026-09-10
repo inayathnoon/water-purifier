@@ -2979,6 +2979,64 @@ where that enforcement actually lives now. `tsc`/`next build` both
 clean. All test data (DB rows and the one sheet row) cleaned up
 afterward.
 
+## Staff-Portal Removal Follow-Up: Spares Gate, Owner Dashboard Rebuilt (2026-09-10)
+
+Three explicit business asks after living with the removal above for a day.
+
+**A service visit can't be marked done until the spares step is actually
+done.** Previously "+ Spare part" and "Service completed" sat side by
+side with no ordering between them. New `tickets.spares_confirmed`
+(migration 036, default `false`) — `completeJob()` now refuses (400) to
+mark a `service_visit` done while it's still `false`. Two ways to satisfy
+it, both on `/admin/spare-parts?ticketId=...`: recording a real sale
+(`recordSparePartSale()` now sets it itself) or a new **"No parts used"**
+button (`confirmNoSparesNeeded()`, `POST
+/api/admin/tickets/[id]/confirm-no-spares`) for the common case of
+nothing being needed. Doesn't apply to an installation — no spares step
+of its own. Enforced server-side (the actual gate) and mirrored
+client-side (`AdminDashboard`'s "Service completed" button, and
+`/admin/service-calls`'s own, both disabled with a tooltip until
+satisfied) — same "real rule lives in the service layer, UI just avoids
+showing a dead end" pattern as every other hard rule in this app.
+
+**The confirm step now reads as a state, not a plain action, for a
+service visit.** Once marked done, the button that calls
+`closeTicketAfterConfirmation()` shows **"Called to confirm"** in yellow
+(was blue on the dashboard, green on `/admin/service-calls`) while
+waiting, and flashes **"Complete"** in green the moment it's clicked
+(the row then leaves the list once the ticket actually closes, same as
+before). An installation's equivalent button is untouched — this is
+service-visit-specific, matching where the spares gate applies.
+
+**Owner dashboard rebuilt around what the owner actually asked for**:
+this month's numbers first, then three things needing their attention,
+everything else pushed below the fold. `/api/owner/dashboard`'s
+`salesByCategory` now carries `{count, revenue}` per category instead of
+revenue alone (count = number of orders for Kitchen/Vessel/Commercial,
+number of chargeable visits for Service, total quantity moved for Spare
+parts) plus a `salesTotal`. New page order: nav grid → **"This month"**
+table (Total/Kitchen/Vessel/Commercial/Service/Spare parts, sold-count +
+revenue) → three cards (**Passed to you**, **Vessel/Commercial
+enquiries**, **Payments outstanding**) → *(moved down, unchanged)* Jobs
+today/Who's busy/Discount given, This Week schedule, Jobs to Dispatch,
+pending-leave banner. `DashboardCard` gained an optional `highlight` prop
+(red border/tint) — used on Payments Outstanding per the owner's ask to
+have it stand out on the home page, rather than adding a reminder button
+of its own (this list already has "last called Nd ago"/"never called"
+per customer; the ask was to make the list itself more prominent, not to
+add a new action).
+
+**Verified live against production**: `completeJob()` on a fresh
+service_visit ticket correctly refused before any spares step, then
+succeeded once `confirmNoSparesNeeded()` was called; a second ticket's
+`recordSparePartSale()` call was confirmed to set `spares_confirmed`
+itself; the owner-dashboard aggregation was independently re-run against
+real data and matched exactly (a real Kitchen purchase + a real spare
+sale moved the count/revenue numbers by exactly the expected amounts).
+`tsc`/`next build`/`eslint` (back to the pre-existing 26-error/4-warning
+baseline) all clean, all 5 `npm test` hard-rule tests still pass. All
+test data cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

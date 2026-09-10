@@ -617,6 +617,14 @@ export async function completeJob(
   if (ticket.status !== 'booked') {
     throw new ApiError(400, 'Job is not in a bookable-to-complete state');
   }
+  // A service visit can't be marked done until the admin has gone through
+  // the spare-parts step for it — either recording real parts (Sell Spare
+  // Part, which sets this itself) or explicitly saying none were needed
+  // (confirmNoSparesNeeded()). Doesn't apply to an installation, which
+  // has no spare-parts step of its own.
+  if (ticket.kind === 'service_visit' && !ticket.spares_confirmed) {
+    throw new ApiError(400, 'Record spare parts (or confirm none were needed) before marking this visit done');
+  }
 
   const update: Record<string, unknown> = {
     actual_date: input.actualDate,

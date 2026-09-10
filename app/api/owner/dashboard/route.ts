@@ -124,8 +124,9 @@ export async function GET() {
       // (ticket_id null) and one sold as part of confirming a job
       // (ticket_id set, from the "Finished Installation/Service" card)
       // both land in the same table now; part_name alone tells a flat
-      // service-charge line apart from an actual part.
-      supabaseAdmin.from('spare_part_sales').select('total, part_name').gte('created_at', monthStartISO),
+      // service-charge line apart from an actual part. quantity feeds
+      // "number sold" for the spare-parts row below.
+      supabaseAdmin.from('spare_part_sales').select('total, part_name, quantity').gte('created_at', monthStartISO),
     ]);
 
     // Grouped per person, not per order — a customer with two open orders
@@ -175,34 +176,51 @@ export async function GET() {
       { sold: 0, discount: 0, collected: 0 }
     );
 
-    // Sales by category: the purifier itself (by products.category, from
-    // sold_price), spare parts (office sale + whatever a tech sold on a
-    // visit), and the flat service-charge line — clubbed into one table
-    // for the owner instead of three separate places to look.
-    const salesByCategory: Record<CategoryKey, number> & { other: number; spare: number; serviceCharge: number } = {
-      KITCHEN: 0,
-      VESSEL: 0,
-      COMMERCIAL: 0,
-      other: 0, // a sale with no linked product row (historical import, hand-typed "Other")
-      spare: 0,
-      serviceCharge: 0,
+    // This month's numbers, per category — the purifier itself (by
+    // products.category, from sold_price), spare parts (office sale +
+    // whatever's sold confirming a job), and the flat service-charge
+    // line, each with both a count ("number sold") and revenue. Clubbed
+    // into one table for the owner instead of three separate places to
+    // look — this is now the top of the owner's whole dashboard.
+    type CategoryTotal = { count: number; revenue: number };
+    const salesByCategory: Record<CategoryKey, CategoryTotal> & { other: CategoryTotal; spare: CategoryTotal; serviceCharge: CategoryTotal } = {
+      KITCHEN: { count: 0, revenue: 0 },
+      VESSEL: { count: 0, revenue: 0 },
+      COMMERCIAL: { count: 0, revenue: 0 },
+      other: { count: 0, revenue: 0 }, // a sale with no linked product row (historical import, hand-typed "Other")
+      spare: { count: 0, revenue: 0 },
+      serviceCharge: { count: 0, revenue: 0 },
     };
     for (const o of monthOrders.data ?? []) {
       const category = (o.tickets as unknown as { products: { category: CategoryKey } | null } | null)?.products
         ?.category;
-      if (category && CATEGORY_KEYS.includes(category)) salesByCategory[category] += Number(o.sold_price);
-      else salesByCategory.other += Number(o.sold_price);
+      const bucket = category && CATEGORY_KEYS.includes(category) ? salesByCategory[category] : salesByCategory.other;
+      bucket.count += 1;
+      bucket.revenue += Number(o.sold_price);
     }
     for (const s of monthSparePartSales.data ?? []) {
-      if (isServiceChargeRow(s.part_name)) salesByCategory.serviceCharge += Number(s.total);
-      else salesByCategory.spare += Number(s.total);
+      // "Number sold" for a part is the quantity moved, not the row
+      // count; for the flat service-charge line it's the number of
+      // chargeable visits, i.e. one row each — so a row count instead.
+      if (isServiceChargeRow(s.part_name)) {
+        salesByCategory.serviceCharge.count += 1;
+        salesByCategory.serviceCharge.revenue += Number(s.total);
+      } else {
+        salesByCategory.spare.count += Number(s.quantity);
+        salesByCategory.spare.revenue += Number(s.total);
+      }
     }
+    const salesTotal: CategoryTotal = Object.values(salesByCategory).reduce(
+      (acc, c) => ({ count: acc.count + c.count, revenue: acc.revenue + c.revenue }),
+      { count: 0, revenue: 0 }
+    );
 
     return Response.json({
       todaysJobs: todaysJobs.data ?? [],
       whoIsBusy,
       monthRevenue,
       salesByCategory,
+      salesTotal,
       pendingLeaveCount: pendingLeave.data?.length ?? 0,
       passedToOwner: passedToOwner.data ?? [],
       paymentsOutstanding: paymentsOutstandingByPerson,

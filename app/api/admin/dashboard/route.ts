@@ -62,7 +62,7 @@ export async function GET() {
       // date doesn't belong here yet.
       supabaseAdmin
         .from('tickets')
-        .select('id, kind, booked_date, customers(name, phone_number)')
+        .select('id, kind, booked_date, spares_confirmed, customers(name, phone_number)')
         .in('kind', ['installation', 'service_visit'])
         .eq('status', 'booked')
         .lte('booked_date', today)

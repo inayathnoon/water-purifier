@@ -60,6 +60,13 @@ export async function recordSparePartSale(input: {
   const { data, error } = await supabaseAdmin.from('spare_part_sales').insert(rows).select('*');
   if (error) throw new ApiError(500, error.message);
 
+  // Recording real parts against a job satisfies the same "spares step
+  // done" gate as explicitly saying none were needed (confirmNoSparesNeeded())
+  // — a service visit can't be marked done until one or the other happens.
+  if (input.ticketId) {
+    await supabaseAdmin.from('tickets').update({ spares_confirmed: true }).eq('id', input.ticketId);
+  }
+
   // Registered the moment the sale is made, same reasoning as every
   // other sheet sync in this app — one row per item, since a single
   // sale can cover several parts at once. Fire-and-forget (not awaited)
@@ -97,6 +104,22 @@ export async function listRecentSparePartSales(limit = 20) {
     .select('*, users:sold_by(name)')
     .order('created_at', { ascending: false })
     .limit(limit);
+  if (error) throw new ApiError(500, error.message);
+  return data;
+}
+
+/**
+ * The other way to satisfy the "spares step done" gate — the admin looked
+ * and genuinely nothing was used. Same effect as recordSparePartSale()
+ * setting spares_confirmed, just with no rows to insert.
+ */
+export async function confirmNoSparesNeeded(ticketId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .update({ spares_confirmed: true })
+    .eq('id', ticketId)
+    .select('id, spares_confirmed')
+    .single();
   if (error) throw new ApiError(500, error.message);
   return data;
 }

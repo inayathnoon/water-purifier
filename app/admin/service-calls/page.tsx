@@ -32,6 +32,7 @@ interface ServiceCall {
   charge_amount: number | null;
   parts_used: string | null;
   actual_notes: string | null;
+  spares_confirmed: boolean;
   assigned_to_id: string | null;
   parent_installation_id: string | null;
   product_interest: string | null;
@@ -114,6 +115,7 @@ function ServiceCallsPageInner() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [callNote, setCallNote] = useState<Record<string, string>>({});
   const [declineNote, setDeclineNote] = useState<Record<string, string>>({});
   const [bookingId, setBookingId] = useState<string | null>(null);
@@ -325,7 +327,9 @@ function ServiceCallsPageInner() {
 
   const handleConfirmClose = async (id: string) => {
     setError('');
+    setConfirmingId(id);
     const res = await fetch(`/api/admin/tickets/${id}/close`, { method: 'POST' });
+    setConfirmingId(null);
     if (!res.ok) return setError((await res.json()).error);
     load();
   };
@@ -687,11 +691,24 @@ function ServiceCallsPageInner() {
                     </button>
                     <button
                       onClick={() => handleMarkDone(c.id)}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                      disabled={!c.spares_confirmed}
+                      title={!c.spares_confirmed ? 'Record spare parts (or "No parts used") on this job first' : undefined}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Service completed
                     </button>
                   </div>
+                  {!c.spares_confirmed && (
+                    <p className="text-xs text-gray-500">
+                      <a
+                        href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        + Spare part
+                      </a>{' '}
+                      needed before this can be marked done.
+                    </p>
+                  )}
                   {bookingId === c.id && (
                     <form onSubmit={(e) => handleBook(e, c.id)} className="pt-3 border-t space-y-2">
                       <BookingForm staff={staff} value={bookForm} onChange={setBookForm} submitLabel="Save changes" />
@@ -729,9 +746,14 @@ function ServiceCallsPageInner() {
                     </a>
                     <button
                       onClick={() => handleConfirmClose(c.id)}
-                      className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                      disabled={confirmingId === c.id}
+                      className={`px-3 py-1.5 rounded-md text-sm disabled:opacity-50 ${
+                        confirmingId === c.id
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
+                      }`}
                     >
-                      Confirm & close
+                      {confirmingId === c.id ? 'Complete' : 'Called to confirm'}
                     </button>
                   </div>
                 </div>

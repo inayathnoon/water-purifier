@@ -3,10 +3,10 @@ import { supabaseAdmin } from '@/lib/db';
 
 // A small generic single-ticket read — currently only used by Sell Spare
 // Part (linked from the dashboard) to know whether the job it's tagging
-// is still within warranty, so it can show/hide the flat "Service
-// charges" line and the free-parts message before the form is submitted
-// (the actual §13.3 enforcement happens server-side in
-// recordSparePartSale(), regardless of what this returns).
+// is still within warranty (to show/hide the flat "Service charges" line
+// and the free-parts message before the form is submitted — the actual
+// §13.3 enforcement happens server-side in recordSparePartSale()) and
+// whether it's already satisfied the spares-step gate.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireUser(['admin', 'owner']);
@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     const { data, error } = await supabaseAdmin
       .from('tickets')
-      .select('id, kind, installation_date, customers(name, phone_number)')
+      .select('id, kind, installation_date, spares_confirmed, customers(name, phone_number)')
       .eq('id', id)
       .single();
     if (error || !data) throw new ApiError(404, 'Ticket not found');

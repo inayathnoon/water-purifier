@@ -5,15 +5,21 @@ import Link from 'next/link';
 import { daysAgoIST } from '@/lib/dates';
 import BookingForm from '@/components/BookingForm';
 import WeekSchedule from '@/components/dashboard/WeekSchedule';
-import { DashboardCard, Row, StatCard, StaffMember, emptyAssignForm } from './shared';
+import { DashboardCard, Row, StaffMember, emptyAssignForm } from './shared';
 
 const daysAgo = daysAgoIST;
+
+interface CategoryTotal {
+  count: number;
+  revenue: number;
+}
 
 interface OwnerDashboardData {
   todaysJobs: { id: string; kind: string; customers: { name: string } }[];
   whoIsBusy: Record<string, number>;
   monthRevenue: { sold: number; discount: number; collected: number };
-  salesByCategory: { KITCHEN: number; VESSEL: number; COMMERCIAL: number; other: number; spare: number; serviceCharge: number };
+  salesByCategory: { KITCHEN: CategoryTotal; VESSEL: CategoryTotal; COMMERCIAL: CategoryTotal; other: CategoryTotal; spare: CategoryTotal; serviceCharge: CategoryTotal };
+  salesTotal: CategoryTotal;
   pendingLeaveCount: number;
   passedToOwner: { id: string; closure_explanation: string; customers: { name: string; phone_number: string } }[];
   paymentsOutstanding: {
@@ -92,6 +98,8 @@ export default function OwnerDashboard() {
 
   if (!data) return <p>Loading...</p>;
 
+  const overdueBalanceCount = data.paymentsOutstanding.filter((o) => daysAgo(o.oldestCreatedAt) >= 7).length;
+
   return (
     <div>
       <div className="flex flex-col gap-3 mb-4">
@@ -126,69 +134,54 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <StatCard label="Jobs today" value={String(data.todaysJobs.length)} />
-        <StatCard label="Sold this month" value={`₹${data.monthRevenue.sold.toFixed(2)}`} />
-        <StatCard label="Collected this month" value={`₹${data.monthRevenue.collected.toFixed(2)}`} />
-      </div>
-
+      {/* What the owner actually asked for: this month's numbers, then
+          the three things that need their attention — nothing else above
+          the fold. Jobs/schedule/staff-load stuff moved to the bottom. */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-        <h2 className="font-semibold mb-3">Sales by category — this month</h2>
+        <h2 className="font-semibold mb-3">This month</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 text-xs">
+                <th className="pb-2 font-medium">Category</th>
+                <th className="pb-2 font-medium text-right">Sold</th>
+                <th className="pb-2 font-medium text-right">Revenue</th>
+              </tr>
+            </thead>
             <tbody className="divide-y">
-              {[
-                ['Vessel', data.salesByCategory.VESSEL],
-                ['Kitchen', data.salesByCategory.KITCHEN],
-                ['Commercial', data.salesByCategory.COMMERCIAL],
-                ['Spare parts', data.salesByCategory.spare],
-                ['Service charge', data.salesByCategory.serviceCharge],
-                ...(data.salesByCategory.other > 0 ? [['Other (no product on record)', data.salesByCategory.other]] as [string, number][] : []),
-              ].map(([label, amount]) => (
+              {(
+                [
+                  ['Kitchen', data.salesByCategory.KITCHEN],
+                  ['Vessel', data.salesByCategory.VESSEL],
+                  ['Commercial', data.salesByCategory.COMMERCIAL],
+                  ['Service', data.salesByCategory.serviceCharge],
+                  ['Spare parts', data.salesByCategory.spare],
+                  ...(data.salesByCategory.other.count > 0 ? [['Other (no product on record)', data.salesByCategory.other]] as [string, CategoryTotal][] : []),
+                ] as [string, CategoryTotal][]
+              ).map(([label, c]) => (
                 <tr key={label}>
                   <td className="py-2 text-gray-900">{label}</td>
-                  <td className="py-2 text-right font-medium">₹{Number(amount).toFixed(2)}</td>
+                  <td className="py-2 text-right tabular-nums">{c.count}</td>
+                  <td className="py-2 text-right font-medium tabular-nums">₹{c.revenue.toFixed(2)}</td>
                 </tr>
               ))}
               <tr className="border-t-2">
                 <td className="py-2 font-semibold">Total</td>
-                <td className="py-2 text-right font-semibold">
-                  ₹
-                  {(
-                    data.salesByCategory.VESSEL +
-                    data.salesByCategory.KITCHEN +
-                    data.salesByCategory.COMMERCIAL +
-                    data.salesByCategory.spare +
-                    data.salesByCategory.serviceCharge +
-                    data.salesByCategory.other
-                  ).toFixed(2)}
-                </td>
+                <td className="py-2 text-right font-semibold tabular-nums">{data.salesTotal.count}</td>
+                <td className="py-2 text-right font-semibold tabular-nums">₹{data.salesTotal.revenue.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          Spare parts includes both an office walk-in sale and whatever a tech sold during a visit.
+          Spare parts includes both an office walk-in sale and whatever&apos;s sold confirming a job. Service is the flat
+          out-of-warranty visit charge.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DashboardCard title="Who's busy today" emptyText="No jobs booked today.">
-          {Object.entries(data.whoIsBusy).map(([name, count]) => (
-            <div key={name} className="flex justify-between py-2 border-b last:border-0 text-sm">
-              <span>{name}</span>
-              <span className="text-gray-900">{count} job(s)</span>
-            </div>
-          ))}
-        </DashboardCard>
-
-        <DashboardCard title="Discount given this month" emptyText="">
-          <p className="text-2xl font-semibold text-gray-900">₹{data.monthRevenue.discount.toFixed(2)}</p>
-          <p className="text-sm text-gray-500 mt-1">Margin sits between list price and sold price (§7.6)</p>
-        </DashboardCard>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <DashboardCard
-          title="Enquiries passed to you"
+          title="Passed to you"
           emptyText="None waiting on you."
           viewAllHref="/admin/enquiries"
           shownCount={Math.min(5, data.passedToOwner.length)}
@@ -200,7 +193,7 @@ export default function OwnerDashboard() {
         </DashboardCard>
 
         <DashboardCard
-          title="Commercial / Vessel enquiries"
+          title="Vessel / Commercial enquiries"
           badge={data.commercialVesselEnquiries.length > 0 ? `${data.commercialVesselEnquiries.length}` : undefined}
           badgeColor="bg-purple-100 text-purple-800"
           emptyText="None open right now."
@@ -220,13 +213,14 @@ export default function OwnerDashboard() {
         </DashboardCard>
 
         <DashboardCard
-          title="Payments Pending"
-          badge={data.paymentsOutstanding.filter((o) => daysAgo(o.oldestCreatedAt) >= 7).length > 0 ? `${data.paymentsOutstanding.filter((o) => daysAgo(o.oldestCreatedAt) >= 7).length} over 7 days` : undefined}
+          title="Payments outstanding"
+          badge={overdueBalanceCount > 0 ? `${overdueBalanceCount} over 7 days` : undefined}
           badgeColor="bg-red-100 text-red-800"
           emptyText="Nothing owed. Nice."
           viewAllHref="/admin/orders"
           shownCount={Math.min(5, data.paymentsOutstanding.length)}
           totalCount={data.paymentsOutstanding.length}
+          highlight={data.paymentsOutstanding.length > 0}
         >
           {data.paymentsOutstanding.slice(0, 5).map((o) => {
             const overdue = daysAgo(o.oldestCreatedAt) >= 7;
@@ -240,14 +234,37 @@ export default function OwnerDashboard() {
                   (o.lastPaymentCallAt ? `last called ${daysAgo(o.lastPaymentCallAt)}d ago` : 'never called')
                 }
                 tag={`₹${o.totalBalance}${overdue ? ` · ${daysAgo(o.oldestCreatedAt)}d` : ''}`}
-                tagColor={overdue ? 'text-red-600' : undefined}
+                tagColor="text-red-600"
               />
             );
           })}
         </DashboardCard>
       </div>
 
-      <div className="mt-6">
+      {/* Everything below here is the day-to-day operations view — same
+          shape admin has, kept for the owner but no longer the first
+          thing they see. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <DashboardCard title="Jobs today" emptyText="Nothing booked today.">
+          <p className="text-2xl font-semibold text-gray-900">{data.todaysJobs.length}</p>
+        </DashboardCard>
+
+        <DashboardCard title="Who's busy today" emptyText="No jobs booked today.">
+          {Object.entries(data.whoIsBusy).map(([name, count]) => (
+            <div key={name} className="flex justify-between py-2 border-b last:border-0 text-sm">
+              <span>{name}</span>
+              <span className="text-gray-900">{count} job(s)</span>
+            </div>
+          ))}
+        </DashboardCard>
+
+        <DashboardCard title="Discount given this month" emptyText="">
+          <p className="text-2xl font-semibold text-gray-900">₹{data.monthRevenue.discount.toFixed(2)}</p>
+          <p className="text-sm text-gray-500 mt-1">Margin sits between list price and sold price (§7.6)</p>
+        </DashboardCard>
+      </div>
+
+      <div>
         <WeekSchedule weekStart={data.weekStart} weekEnd={data.weekEnd} weekJobs={data.weekJobs} staff={staff} />
 
         <DashboardCard

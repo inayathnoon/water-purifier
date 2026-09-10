@@ -15,7 +15,7 @@ interface AdminDashboardData {
   oldEnquiryCount: number;
   jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string; area: string } }[];
   overdueDispatchCount: number;
-  dueForMarkDone: { id: string; kind: string; booked_date: string; customers: { name: string; phone_number: string } }[];
+  dueForMarkDone: { id: string; kind: string; booked_date: string; spares_confirmed: boolean; customers: { name: string; phone_number: string } }[];
   overdueMarkDoneCount: number;
   awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: {
@@ -375,8 +375,13 @@ export default function AdminDashboard() {
                         </Link>
                         <button
                           onClick={() => handleMarkDone(item.t.id, item.t.kind === 'installation' ? 'Installation' : 'Service visit')}
-                          disabled={markingDoneId === item.t.id}
-                          className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                          disabled={markingDoneId === item.t.id || (item.t.kind === 'service_visit' && !item.t.spares_confirmed)}
+                          title={
+                            item.t.kind === 'service_visit' && !item.t.spares_confirmed
+                              ? 'Record spare parts (or "No parts used") first'
+                              : undefined
+                          }
+                          className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                         >
                           {markingDoneId === item.t.id ? 'Saving...' : item.t.kind === 'installation' ? 'Installed' : 'Service completed'}
                         </button>
@@ -397,13 +402,28 @@ export default function AdminDashboard() {
                         <Link href={sellSparePartHref(item.t)} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap">
                           + Spare part
                         </Link>
-                        <button
-                          onClick={() => handleConfirmJob(item.t.id)}
-                          disabled={confirmingJobId === item.t.id}
-                          className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
-                        >
-                          {confirmingJobId === item.t.id ? 'Confirming...' : 'Confirm'}
-                        </button>
+                        {(() => {
+                          const submitting = confirmingJobId === item.t.id;
+                          // A service visit's confirm step reads as "called
+                          // to confirm" (yellow, waiting) rather than a plain
+                          // blue "Confirm" — an installation's stays as-is.
+                          const isServiceVisit = item.t.kind === 'service_visit';
+                          const color = isServiceVisit
+                            ? submitting
+                              ? 'bg-green-600 hover:bg-green-700 text-white'
+                              : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white';
+                          const label = isServiceVisit ? (submitting ? 'Complete' : 'Called to confirm') : submitting ? 'Confirming...' : 'Confirm';
+                          return (
+                            <button
+                              onClick={() => handleConfirmJob(item.t.id)}
+                              disabled={submitting}
+                              className={`px-2 py-1 rounded text-xs disabled:opacity-50 whitespace-nowrap ${color}`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   ) : (

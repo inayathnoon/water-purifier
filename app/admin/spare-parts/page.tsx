@@ -62,6 +62,12 @@ function SparePartsPageInner() {
   // Only relevant when linked to a service visit — an installation or a
   // walk-in office sale has no warranty concept to check.
   const [withinWarranty, setWithinWarranty] = useState(false);
+  // Whether this job has already satisfied the spares-step gate (either a
+  // sale below, or "No parts needed") — a service visit can't be marked
+  // done on its own page/the dashboard until this is true.
+  const [sparesConfirmed, setSparesConfirmed] = useState(false);
+  const [confirmingNoSpares, setConfirmingNoSpares] = useState(false);
+  const [noSparesError, setNoSparesError] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -75,6 +81,7 @@ function SparePartsPageInner() {
       const { ticket } = await ticketRes.json();
       const inWarranty = isWithinWarranty(ticket?.installation_date ?? null, todayIST());
       setWithinWarranty(inWarranty);
+      setSparesConfirmed(!!ticket?.spares_confirmed);
       showServiceCharge = !inWarranty; // a free visit has nothing to charge for either.
     }
 
@@ -82,6 +89,19 @@ function SparePartsPageInner() {
     setSpareParts(showServiceCharge ? allParts : allParts.filter((p) => !isServiceCharge(p)));
     setRecentSales((await salesRes.json()).sales ?? []);
     setLoading(false);
+  };
+
+  const handleNoSparesNeeded = async () => {
+    if (confirmingNoSpares) return;
+    setConfirmingNoSpares(true);
+    setNoSparesError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/confirm-no-spares`, { method: 'POST' });
+    setConfirmingNoSpares(false);
+    if (!res.ok) {
+      setNoSparesError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setSparesConfirmed(true);
   };
 
   useEffect(() => {
@@ -188,6 +208,28 @@ function SparePartsPageInner() {
           ? 'Spare parts sold as part of confirming this job — linked back to it automatically.'
           : 'A part sold on its own at the office — no visit, no job, customer details optional.'}
       </p>
+
+      {ticketId && ticketKind === 'service_visit' && (
+        <div className="mb-6">
+          {sparesConfirmed ? (
+            <p className="text-sm bg-green-50 text-green-800 rounded-md px-3 py-2">
+              Spares step done for this job — it can now be marked complete.
+            </p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-500">Nothing to record for this visit?</p>
+              {noSparesError && <p className="text-red-600 text-xs">{noSparesError}</p>}
+              <button
+                onClick={handleNoSparesNeeded}
+                disabled={confirmingNoSpares}
+                className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                {confirmingNoSpares ? 'Saving...' : 'No parts used'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {showSellForm && (
         <form onSubmit={handleSellSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-3">
