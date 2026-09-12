@@ -74,19 +74,20 @@ export async function notifyJobAssigned(input: {
   await sendAndLog('job_assigned', text);
 }
 
-/** §10.3 row 2: who finished what, for whom, and how long it took. No prices (§10.6). */
+/** §10.3 row 2: who finished what, for whom, where, and how long it took. No prices (§10.6). */
 export async function notifyJobCompleted(input: {
   ticketId: string;
   technicianName: string;
   productOrKind: string;
   customerName: string;
+  customerAddress: string;
   startTime: string;
   endTime: string;
 }) {
   const duration = formatDuration(input.startTime, input.endTime);
   const text =
     `✅ <b>Job completed</b>\n` +
-    `${input.technicianName} finished ${input.productOrKind} for ${input.customerName}\n` +
+    `${input.technicianName} finished ${input.productOrKind} for ${input.customerName}, ${input.customerAddress}\n` +
     `Took ${duration}\n` +
     `${appUrl(`/tickets/${input.ticketId}`)}`;
 

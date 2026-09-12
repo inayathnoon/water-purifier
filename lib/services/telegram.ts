@@ -6,6 +6,21 @@
  * without a try/catch ceremony at every call site.
  */
 export async function sendTelegramMessage(text: string): Promise<{ ok: boolean; error?: string }> {
+  // Real sends only ever happen from the actual deployed Railway
+  // production app. Every local script, `npm test` run, or `npm run dev`
+  // session in this project runs against the real Supabase project (see
+  // CLAUDE.md's testing-discipline notes) and calls bookJob()/
+  // completeJob()/etc. for real — before this guard existed, that meant
+  // every one of them also fired a REAL Telegram message to the real
+  // staff group. Caught 2026-09-12 after the business's owner saw fake
+  // "TEST GATE VERIFY"/"TEST HARD RULES" job-assigned/completed messages
+  // in the actual group chat. Set FORCE_TELEGRAM_SEND=true to deliberately
+  // override this for a one-off manual check.
+  const isRealDeployment = process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
+  if (!isRealDeployment && process.env.FORCE_TELEGRAM_SEND !== 'true') {
+    return { ok: true };
+  }
+
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 

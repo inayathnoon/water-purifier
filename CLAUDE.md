@@ -3037,6 +3037,53 @@ sale moved the count/revenue numbers by exactly the expected amounts).
 baseline) all clean, all 5 `npm test` hard-rule tests still pass. All
 test data cleaned up afterward.
 
+## Bug: Every Test/Verification Script Was Spamming the Real Telegram Group (2026-09-12)
+
+Reported live: the owner saw real "📋 Job assigned" / "✅ Job completed"
+messages in the actual staff Telegram group for fake customers ("TEST
+GATE VERIFY", "TEST HARD RULES"). Root cause: `sendTelegramMessage()` had
+no concept of environment — every local script, every `npm test` run
+(§13.4/§13.5 both call `bookJob()`/`completeJob()` against real staff
+accounts to prove the hard rules), and any ad-hoc verification script
+this whole project's history has run all call the same
+`bookJob()`/`completeJob()` that fire real notifications. This has
+apparently been true since Stage 6 — every hard-rule test run, and every
+one of this session's own verification scripts, has been quietly
+delivering real messages to the real group the whole time.
+
+Fixed at the root, in `sendTelegramMessage()` itself (the one and only
+caller of the Telegram API in this app): a real send now only happens
+when `RAILWAY_ENVIRONMENT_NAME === 'production'` — a variable Railway
+injects automatically into the real deployed app and nothing else can
+have set. Everywhere else (a local script, `npm test`, `npm run dev`)
+the function returns `{ok: true}` immediately, without touching the
+network — `notifications_log` still records `sent`, since nothing about
+the pipeline actually failed, it just chose not to deliver. An explicit
+`FORCE_TELEGRAM_SEND=true` escape hatch exists for the rare deliberate
+case of actually wanting to check a real delivery from outside the
+deployed app.
+
+**Also added while looking at these messages**: neither template
+actually named the product — "Job assigned" just said "Yearly service
+visit"/"Installation" and "Job completed" said "a service visit"/"an
+installation", regardless of what was actually being installed or
+serviced. Both now read the ticket's own `product_interest` (or
+`enquiry_product_interest` for an older ticket) and prefix/suffix it
+onto the kind label (e.g. "Vessel — Yearly service visit"). "Job
+completed" also gained the customer's address, matching "Job assigned"
+(which already had it) — a technician's own name is already right there
+in the message, so the address was the one piece of context missing.
+
+**Verified live**: called `sendTelegramMessage()` directly from a local
+script — returned `{ok: true}` with no request ever reaching Telegram's
+API (confirmed no message arrived in the real group); a full
+`bookJob()`→`completeJob()` run against a disposable test ticket with a
+real `product_interest` logged `sent` for both events with the pipeline
+running clean end to end (proving the new product/address lookups don't
+throw) and, again, no real message delivered. Re-ran `npm test` — same
+5/5 pass, and for the first time, no Telegram message went out from
+running it. All test data cleaned up.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

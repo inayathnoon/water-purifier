@@ -567,9 +567,11 @@ export async function bookJob(
   // Fire-and-forget — a Telegram send shouldn't hold up the response.
   (async () => {
     const { data: technician } = await supabaseAdmin.from('users').select('name').eq('id', input.assignedToId).single();
+    const product = data.product_interest || data.enquiry_product_interest;
+    const kindLabel = data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation';
     await notifyJobAssigned({
       ticketId,
-      productOrKind: data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation',
+      productOrKind: product ? `${product} — ${kindLabel}` : kindLabel,
       bookedDate: input.bookedDate,
       bookedHalfDay: input.bookedHalfDay,
       location: input.location,
@@ -652,14 +654,17 @@ export async function completeJob(
   // Telegram send shouldn't hold up the response.
   (async () => {
     const [{ data: customer }, { data: technician }] = await Promise.all([
-      supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single(),
+      supabaseAdmin.from('customers').select('name, address').eq('id', ticket.customer_id).single(),
       supabaseAdmin.from('users').select('name').eq('id', callerId).single(),
     ]);
+    const product = ticket.product_interest || ticket.enquiry_product_interest;
+    const kindLabel = ticket.kind === 'service_visit' ? 'a service visit' : 'an installation';
     await notifyJobCompleted({
       ticketId,
       technicianName: technician?.name ?? 'Unknown',
-      productOrKind: ticket.kind === 'service_visit' ? 'a service visit' : 'an installation',
+      productOrKind: product ? `${product} (${kindLabel})` : kindLabel,
       customerName: customer?.name ?? 'Unknown',
+      customerAddress: customer?.address ?? 'Unknown',
       startTime: input.actualStartTime,
       endTime: input.actualEndTime,
     });
