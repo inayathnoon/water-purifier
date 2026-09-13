@@ -49,9 +49,16 @@ async function fetchSheetRows(): Promise<string[][]> {
   });
 
   const sheets = google.sheets({ version: 'v4', auth });
+  // UNFORMATTED_VALUE — see the same fix in spareParts.ts: a comma-
+  // formatted list_price cell would otherwise come back as the literal
+  // display string ("1,200"), and Number() on that is NaN. Not currently
+  // hit here (checked live: this sheet's list_price column isn't
+  // comma-formatted), but there's nothing stopping someone from applying
+  // that format later the same way it happened on the Spare Parts tab.
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range: SHEET_RANGE,
+    valueRenderOption: 'UNFORMATTED_VALUE',
   });
 
   return res.data.values ?? [];
@@ -109,7 +116,11 @@ function parseRows(rows: string[][]): { parsed: ParsedRow[]; hasMasterSku: boole
     };
     if (hasMasterSku) entry.masterSku = (row[idx.masterSku] ?? '').trim();
     if (hasListPrice) {
-      const raw = (row[idx.listPrice] ?? '').trim();
+      // Unlike the text columns above, this one can legitimately come
+      // back as a JS number (not a string) now that the sheet is read
+      // with UNFORMATTED_VALUE — a bare .trim() would throw on that.
+      const cell = row[idx.listPrice];
+      const raw = typeof cell === 'number' ? String(cell) : (cell ?? '').trim();
       entry.listPrice = raw === '' ? null : Number(raw);
     }
     parsed.push(entry);
