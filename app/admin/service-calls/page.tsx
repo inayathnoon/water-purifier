@@ -334,17 +334,6 @@ function ServiceCallsPageInner() {
     load();
   };
 
-  // No technician login to mark their own visit done any more — the tech
-  // reports back over Telegram/phone and admin records it here. Same
-  // action as the dashboard's "Finished Installation/Service" card,
-  // reachable here too for anyone working straight off this page.
-  const handleMarkDone = async (id: string) => {
-    if (!(await confirm('Mark this service visit done?'))) return;
-    setError('');
-    const res = await fetch(`/api/admin/tickets/${id}/mark-done`, { method: 'POST' });
-    if (!res.ok) return setError((await res.json()).error);
-    load();
-  };
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
@@ -689,26 +678,13 @@ function ServiceCallsPageInner() {
                     >
                       Put back to dispatch
                     </button>
-                    <button
-                      onClick={() => handleMarkDone(c.id)}
-                      disabled={!c.spares_confirmed}
-                      title={!c.spares_confirmed ? 'Record spare parts (or "No parts used") on this job first' : undefined}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    <a
+                      href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
+                      className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-md text-sm"
                     >
                       Service completed
-                    </button>
+                    </a>
                   </div>
-                  {!c.spares_confirmed && (
-                    <p className="text-xs text-gray-500">
-                      <a
-                        href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        + Spare part
-                      </a>{' '}
-                      needed before this can be marked done.
-                    </p>
-                  )}
                   {bookingId === c.id && (
                     <form onSubmit={(e) => handleBook(e, c.id)} className="pt-3 border-t space-y-2">
                       <BookingForm staff={staff} value={bookForm} onChange={setBookForm} submitLabel="Save changes" />
@@ -738,22 +714,12 @@ function ServiceCallsPageInner() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <a
-                      href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
-                      className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
-                    >
-                      + Spare part
-                    </a>
                     <button
                       onClick={() => handleConfirmClose(c.id)}
                       disabled={confirmingId === c.id}
-                      className={`px-3 py-1.5 rounded-md text-sm disabled:opacity-50 ${
-                        confirmingId === c.id
-                          ? 'bg-green-600 hover:bg-green-700 text-white'
-                          : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
-                      }`}
+                      className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-md text-sm disabled:opacity-50"
                     >
-                      {confirmingId === c.id ? 'Complete' : 'Called to confirm'}
+                      {confirmingId === c.id ? 'Confirming...' : 'Called & Confirmed'}
                     </button>
                   </div>
                 </div>

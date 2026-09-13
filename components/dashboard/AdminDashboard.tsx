@@ -241,39 +241,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <DashboardCard
-          title="New enquiries"
-          badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
-          badgeColor="bg-red-100 text-red-800"
-          emptyText="Nothing open."
-          viewAllHref="/admin/enquiries"
-          shownCount={Math.min(5, data.newEnquiries.length)}
-          totalCount={data.newEnquiries.length}
-        >
-          {data.newEnquiries.slice(0, 5).map((e) => {
-            // Still sorted oldest-created-first (unchanged) even once
-            // flagged again — only the label/color reflect the call.
-            const urgency = enquiryUrgency(e.created_at, e.last_call_at);
-            const tag = e.last_call_at
-              ? `Last called ${daysAgo(e.last_call_at)}d ago`
-              : urgency === 'red'
-                ? `${daysAgo(e.created_at)}d — decide now`
-                : `${daysAgo(e.created_at)}d`;
-            const tagColor = urgency === 'red' ? 'text-red-600' : urgency === 'yellow' ? 'text-yellow-700' : 'text-gray-900';
-            return (
-              <Row
-                key={e.id}
-                href={`/admin/enquiries/${e.id}`}
-                primary={e.customers.name}
-                secondary={e.enquiry_product_interest || e.customers.phone_number}
-                tag={tag}
-                tagColor={tagColor}
-              />
-            );
-          })}
-        </DashboardCard>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <DashboardCard
           title="Jobs to dispatch"
           badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} over 3 days` : undefined}
@@ -334,28 +302,6 @@ export default function AdminDashboard() {
           })}
         </DashboardCard>
 
-        <DashboardCard
-          title="Yearly service calls due"
-          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
-          badgeColor="bg-blue-100 text-blue-800"
-          emptyText="None due this month."
-          viewAllHref="/admin/service-calls"
-          shownCount={Math.min(5, data.serviceCallsDue.length)}
-          totalCount={data.serviceCallsDue.length}
-        >
-          {data.serviceCallsDue.slice(0, 5).map((s) => (
-            <Row
-              key={s.installationTicketId}
-              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
-              primary={s.customerName}
-              secondary={`${s.phoneNumber} · ${s.area}`}
-              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
-            />
-          ))}
-        </DashboardCard>
-      </div>
-
-      <div className="my-3">
         <WeekSchedule
           weekStart={data.weekStart}
           weekEnd={data.weekEnd}
@@ -364,41 +310,73 @@ export default function AdminDashboard() {
           onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
           activeJobId={editingJobId}
         />
-
-        {editingJobId &&
-          (() => {
-            const job = data.weekJobs.find((j) => j.id === editingJobId);
-            if (!job) return null;
-            return (
-              <form
-                onSubmit={(e) => handleAssign(e, job)}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-3 space-y-2 max-w-md"
-              >
-                <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium">
-                    Editing {job.customers.name}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
-                  </p>
-                  <button type="button" onClick={() => setEditingJobId(null)} className="text-xs text-gray-600 hover:underline">
-                    Cancel
-                  </button>
-                </div>
-                {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
-                <BookingForm
-                  staff={staff}
-                  value={assignForm}
-                  onChange={setAssignForm}
-                  showLocation={job.kind !== 'installation'}
-                  submitLabel="Save changes"
-                  submittingLabel="Saving..."
-                  submitting={assigning}
-                  compact
-                />
-              </form>
-            );
-          })()}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {editingJobId &&
+        (() => {
+          const job = data.weekJobs.find((j) => j.id === editingJobId);
+          if (!job) return null;
+          return (
+            <form
+              onSubmit={(e) => handleAssign(e, job)}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-3 space-y-2 max-w-md"
+            >
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-medium">
+                  Editing {job.customers.name}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
+                </p>
+                <button type="button" onClick={() => setEditingJobId(null)} className="text-xs text-gray-600 hover:underline">
+                  Cancel
+                </button>
+              </div>
+              {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
+              <BookingForm
+                staff={staff}
+                value={assignForm}
+                onChange={setAssignForm}
+                showLocation={job.kind !== 'installation'}
+                submitLabel="Save changes"
+                submittingLabel="Saving..."
+                submitting={assigning}
+                compact
+              />
+            </form>
+          );
+        })()}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+        <DashboardCard
+          title="New enquiries"
+          badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
+          badgeColor="bg-red-100 text-red-800"
+          emptyText="Nothing open."
+          viewAllHref="/admin/enquiries"
+          shownCount={Math.min(5, data.newEnquiries.length)}
+          totalCount={data.newEnquiries.length}
+        >
+          {data.newEnquiries.slice(0, 5).map((e) => {
+            // Still sorted oldest-created-first (unchanged) even once
+            // flagged again — only the label/color reflect the call.
+            const urgency = enquiryUrgency(e.created_at, e.last_call_at);
+            const tag = e.last_call_at
+              ? `Last called ${daysAgo(e.last_call_at)}d ago`
+              : urgency === 'red'
+                ? `${daysAgo(e.created_at)}d — decide now`
+                : `${daysAgo(e.created_at)}d`;
+            const tagColor = urgency === 'red' ? 'text-red-600' : urgency === 'yellow' ? 'text-yellow-700' : 'text-gray-900';
+            return (
+              <Row
+                key={e.id}
+                href={`/admin/enquiries/${e.id}`}
+                primary={e.customers.name}
+                secondary={e.enquiry_product_interest || e.customers.phone_number}
+                tag={tag}
+                tagColor={tagColor}
+              />
+            );
+          })}
+        </DashboardCard>
+
         <DashboardCard
           title="Finished Installation/Service"
           badge={
@@ -423,7 +401,11 @@ export default function AdminDashboard() {
                 {markDoneError && <p className="text-red-600 text-xs mb-1">{markDoneError}</p>}
                 {visible.map((item) =>
                   item.type === 'due' ? (
-                    // Part 1 (Installed/Service completed) + part 2 (any spare sold).
+                    // Installation: mark done directly, no spares step.
+                    // Service visit: "Service completed" sends the admin to
+                    // Sell Spare Part instead — recording a sale (or saying
+                    // none were needed) there is what actually marks the
+                    // job done now, not a separate click here.
                     <div key={`due-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
                       <div>
                         <p className="text-sm font-medium">{item.t.customers.name}</p>
@@ -434,25 +416,27 @@ export default function AdminDashboard() {
                           {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.booked_date)}d
                           {daysAgo(item.t.booked_date) >= 3 ? ' — overdue' : ''}
                         </span>
-                        <Link href={sellSparePartHref(item.t)} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap">
-                          + Spare part
-                        </Link>
-                        <button
-                          onClick={() => handleMarkDone(item.t.id, item.t.kind === 'installation' ? 'Installation' : 'Service visit')}
-                          disabled={markingDoneId === item.t.id || (item.t.kind === 'service_visit' && !item.t.spares_confirmed)}
-                          title={
-                            item.t.kind === 'service_visit' && !item.t.spares_confirmed
-                              ? 'Record spare parts (or "No parts used") first'
-                              : undefined
-                          }
-                          className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                        >
-                          {markingDoneId === item.t.id ? 'Saving...' : item.t.kind === 'installation' ? 'Installed' : 'Service completed'}
-                        </button>
+                        {item.t.kind === 'installation' ? (
+                          <button
+                            onClick={() => handleMarkDone(item.t.id, 'Installation')}
+                            disabled={markingDoneId === item.t.id}
+                            className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {markingDoneId === item.t.id ? 'Saving...' : 'Installed'}
+                          </button>
+                        ) : (
+                          <Link
+                            href={sellSparePartHref(item.t)}
+                            className="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded text-xs whitespace-nowrap"
+                          >
+                            Service completed
+                          </Link>
+                        )}
                       </div>
                     </div>
                   ) : item.type === 'job' ? (
-                    // Part 2 (any spare sold, if not already) + part 3 (calling customer to confirm).
+                    // Spares (for a service visit) are already handled by
+                    // this point — nothing left but the confirmation call.
                     <div key={`job-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
                       <div>
                         <p className="text-sm font-medium">{item.t.customers.name}</p>
@@ -463,31 +447,17 @@ export default function AdminDashboard() {
                           {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.actual_date)}d
                           {daysAgo(item.t.actual_date) >= 7 ? ' — overdue' : ''}
                         </span>
-                        <Link href={sellSparePartHref(item.t)} className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap">
-                          + Spare part
-                        </Link>
-                        {(() => {
-                          const submitting = confirmingJobId === item.t.id;
-                          // A service visit's confirm step reads as "called
-                          // to confirm" (yellow, waiting) rather than a plain
-                          // blue "Confirm" — an installation's stays as-is.
-                          const isServiceVisit = item.t.kind === 'service_visit';
-                          const color = isServiceVisit
-                            ? submitting
-                              ? 'bg-green-600 hover:bg-green-700 text-white'
+                        <button
+                          onClick={() => handleConfirmJob(item.t.id)}
+                          disabled={confirmingJobId === item.t.id}
+                          className={`px-2 py-1 rounded text-xs disabled:opacity-50 whitespace-nowrap ${
+                            item.t.kind === 'installation'
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
                               : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white';
-                          const label = isServiceVisit ? (submitting ? 'Complete' : 'Called to confirm') : submitting ? 'Confirming...' : 'Confirm';
-                          return (
-                            <button
-                              onClick={() => handleConfirmJob(item.t.id)}
-                              disabled={submitting}
-                              className={`px-2 py-1 rounded text-xs disabled:opacity-50 whitespace-nowrap ${color}`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })()}
+                          }`}
+                        >
+                          {confirmingJobId === item.t.id ? 'Confirming...' : 'Called & Confirmed'}
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -561,7 +531,28 @@ export default function AdminDashboard() {
             />
           ))}
         </DashboardCard>
+      </div>
 
+      <div className="mt-3">
+        <DashboardCard
+          title="Yearly service calls due"
+          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
+          badgeColor="bg-blue-100 text-blue-800"
+          emptyText="None due this month."
+          viewAllHref="/admin/service-calls"
+          shownCount={Math.min(5, data.serviceCallsDue.length)}
+          totalCount={data.serviceCallsDue.length}
+        >
+          {data.serviceCallsDue.slice(0, 5).map((s) => (
+            <Row
+              key={s.installationTicketId}
+              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
+              primary={s.customerName}
+              secondary={`${s.phoneNumber} · ${s.area}`}
+              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
+            />
+          ))}
+        </DashboardCard>
       </div>
     </div>
   );

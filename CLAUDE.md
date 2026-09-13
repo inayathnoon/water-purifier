@@ -3189,6 +3189,63 @@ days of a real week (Sun through Sat) — every one resolves to the same
 Monday. `tsc`/`next build` clean, `eslint` unchanged (25/3, no new
 issues), all 5 hard-rule tests pass.
 
+## Service Visit Completion Collapsed Into the Spares Step (2026-09-13)
+
+Reported live from a screenshot: "+ Spare part" and "Service completed"
+sitting side by side as two separate clicks "doesn't look good," and the
+spares-confirmed gate (disabled button + tooltip, added earlier this
+session) was clunkier than it needed to be. Redesigned around one idea:
+**for a service visit, going to Sell Spare Part *is* the completion
+step**, not a prerequisite check before a separate one.
+
+- The dashboard's "Service completed" (service visits only —
+  installations still mark done directly, no spares step of their own)
+  is now a single link straight to `/admin/spare-parts?ticketId=...`,
+  matching what "+ Spare part" already was. No more disabled state, no
+  tooltip, no separate gate to explain.
+- On that page, whichever path the admin takes — **"No parts used"** or
+  **"Record sale"** — now also calls `POST
+  /api/admin/tickets/[id]/mark-done` immediately after succeeding, then
+  redirects to `/dashboard`. One action, one place, one redirect back —
+  new `markDoneAndGoHome()` in `app/admin/spare-parts/page.tsx`, only
+  triggered when `kind=service_visit` (an installation-linked spare sale,
+  reached from an already-completed job, doesn't re-trigger mark-done).
+  `completeJob()`'s own `spares_confirmed` check (server-side) is
+  unchanged and still enforced — now naturally always true by the time
+  this call happens, since it's the same click that just set it.
+- The confirmation-call button (part 3) is now labeled **"Called &
+  Confirmed"** everywhere, replacing the earlier yellow→green transition
+  state — the "+ Spare part" link on this row is gone too, since spares
+  are already handled by the time a service visit gets here.
+- **Consistent color scheme, used everywhere in this flow**: yellow
+  (`bg-yellow-500`, matching "+ New Service") for every service-visit
+  action — "Service completed," "Called & Confirmed" on both the
+  dashboard and `/admin/service-calls`; blue for every installation
+  action — "Installed," its own "Called & Confirmed." No more
+  green/blue mixed in in this one flow.
+- `/admin/service-calls`'s own booked/completed blocks got the identical
+  treatment — its "Service completed" is now a plain yellow link to
+  Sell Spare Part (the `spares_confirmed`-gated button and its hint text
+  are gone), and "Called to confirm"/"Complete" is now one steady yellow
+  "Called & Confirmed" button, with the "+ Spare part" link removed from
+  that block too.
+- **Layout, worked out live**: Yearly Service Calls Due tried in the top
+  row, then moved back out to its own full-width row below Finished
+  Installation/Service — dangling-alone-in-a-grid was solved by giving
+  it a full-width row of its own instead of forcing it to share a column
+  count with cards it doesn't really belong next to. Final top section:
+  Jobs to Dispatch | This Week (side by side, not full-width — This
+  Week already renders its own card chrome and heading, so it drops
+  into a grid column directly), then New enquiries | Finished
+  Installation/Service | Payments outstanding (3-column), then Yearly
+  Service Calls Due full-width.
+
+**Verified live**: `bookJob()` → `confirmNoSparesNeeded()` →
+`completeJob()` chained exactly as the page now does it end to end
+against a real ticket, confirmed the ticket ends up `completed`.
+`tsc`/`next build`/`eslint` clean (still 25/4, no new issues), all 5
+hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

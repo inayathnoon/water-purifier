@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import HomeLink from '@/components/HomeLink';
 import { todayIST, isWithinWarranty } from '@/lib/dates';
 
@@ -44,8 +44,16 @@ function SparePartsPageInner() {
   // kind=...&customerName=...&phone=...), the sale is tagged to that job
   // — see recordSparePartSale()'s §13.3 warranty check.
   const searchParams = useSearchParams();
+  const router = useRouter();
   const ticketId = searchParams.get('ticketId');
   const ticketKind = searchParams.get('kind');
+  // Reaching this page for a service visit *is* the completion step now
+  // — "Service completed" on the dashboard sends the admin straight here
+  // instead of marking done directly. Whichever spares path they take
+  // (recording a real sale, or "No parts used") also marks the job done
+  // and sends them back to the dashboard, so there's exactly one place
+  // this ever happens from, not two separate clicks.
+  const [markDoneError, setMarkDoneError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showSellForm, setShowSellForm] = useState(searchParams.get('new') === '1' || !!ticketId);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
@@ -100,6 +108,19 @@ function SparePartsPageInner() {
     setLoading(false);
   };
 
+  // The actual "mark this service visit done" call, fired only once the
+  // spares step (whichever path) has already succeeded — see the note
+  // above. On success, home is the dashboard, same for either path.
+  const markDoneAndGoHome = async () => {
+    setMarkDoneError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
+    if (!res.ok) {
+      setMarkDoneError((await res.json()).error ?? 'Spares saved, but marking the job done failed — try again below.');
+      return;
+    }
+    router.push('/dashboard');
+  };
+
   const handleNoSparesNeeded = async () => {
     if (confirmingNoSpares) return;
     setConfirmingNoSpares(true);
@@ -111,6 +132,7 @@ function SparePartsPageInner() {
       return;
     }
     setSparesConfirmed(true);
+    if (ticketKind === 'service_visit') await markDoneAndGoHome();
   };
 
   const handleUndoNoSpares = async () => {
@@ -168,6 +190,11 @@ function SparePartsPageInner() {
       setSellCustomerName('');
       setSellPhoneNumber('');
       setShowSellForm(false);
+    }
+    if (ticketId && ticketKind === 'service_visit') {
+      setSparesConfirmed(true);
+      await markDoneAndGoHome();
+      return;
     }
     load();
   };
