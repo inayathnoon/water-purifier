@@ -207,9 +207,8 @@ export default function AdminDashboard() {
   return (
     <div>
       {confirmDialog}
-      <div className="flex flex-col gap-3 mb-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">Today — everyone you need to call</h2>
+      <div className="flex flex-col gap-2 mb-3">
+        <div className="flex justify-end">
           <Link href="/admin/leave" className="text-sm text-blue-600 hover:underline">
             Request time off →
           </Link>
@@ -242,7 +241,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <DashboardCard
           title="New enquiries"
           badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
@@ -334,7 +333,52 @@ export default function AdminDashboard() {
             );
           })}
         </DashboardCard>
+      </div>
 
+      <div className="my-3">
+        <WeekSchedule
+          weekStart={data.weekStart}
+          weekEnd={data.weekEnd}
+          weekJobs={data.weekJobs}
+          staff={staff}
+          onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
+          activeJobId={editingJobId}
+        />
+
+        {editingJobId &&
+          (() => {
+            const job = data.weekJobs.find((j) => j.id === editingJobId);
+            if (!job) return null;
+            return (
+              <form
+                onSubmit={(e) => handleAssign(e, job)}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-3 space-y-2 max-w-md"
+              >
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-medium">
+                    Editing {job.customers.name}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
+                  </p>
+                  <button type="button" onClick={() => setEditingJobId(null)} className="text-xs text-gray-600 hover:underline">
+                    Cancel
+                  </button>
+                </div>
+                {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
+                <BookingForm
+                  staff={staff}
+                  value={assignForm}
+                  onChange={setAssignForm}
+                  showLocation={job.kind !== 'installation'}
+                  submitLabel="Save changes"
+                  submittingLabel="Saving..."
+                  submitting={assigning}
+                  compact
+                />
+              </form>
+            );
+          })()}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <DashboardCard
           title="Finished Installation/Service"
           badge={
@@ -517,49 +561,6 @@ export default function AdminDashboard() {
             />
           ))}
         </DashboardCard>
-      </div>
-
-      <div className="mt-6">
-        <WeekSchedule
-          weekStart={data.weekStart}
-          weekEnd={data.weekEnd}
-          weekJobs={data.weekJobs}
-          staff={staff}
-          onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
-          activeJobId={editingJobId}
-        />
-
-        {editingJobId &&
-          (() => {
-            const job = data.weekJobs.find((j) => j.id === editingJobId);
-            if (!job) return null;
-            return (
-              <form
-                onSubmit={(e) => handleAssign(e, job)}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 space-y-2 max-w-md"
-              >
-                <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium">
-                    Editing {job.customers.name}'s {job.kind === 'installation' ? 'installation' : 'service visit'}
-                  </p>
-                  <button type="button" onClick={() => setEditingJobId(null)} className="text-xs text-gray-600 hover:underline">
-                    Cancel
-                  </button>
-                </div>
-                {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
-                <BookingForm
-                  staff={staff}
-                  value={assignForm}
-                  onChange={setAssignForm}
-                  showLocation={job.kind !== 'installation'}
-                  submitLabel="Save changes"
-                  submittingLabel="Saving..."
-                  submitting={assigning}
-                  compact
-                />
-              </form>
-            );
-          })()}
       </div>
     </div>
   );

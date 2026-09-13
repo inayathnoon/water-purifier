@@ -124,6 +124,24 @@ export async function confirmNoSparesNeeded(ticketId: string) {
   return data;
 }
 
+/**
+ * Undo confirmNoSparesNeeded() — for the "clicked it by mistake, actually
+ * need to record real parts" case. Only meaningful before the job's been
+ * marked done (completeJob() re-checks this gate every time, so there's
+ * nothing to protect once it's already passed).
+ */
+export async function unconfirmSpares(ticketId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .update({ spares_confirmed: false })
+    .eq('id', ticketId)
+    .eq('status', 'booked')
+    .select('id, spares_confirmed')
+    .single();
+  if (error) throw new ApiError(400, 'Can only undo before this job is marked done');
+  return data;
+}
+
 /** Every spare part sold against one particular job — used to show what's already been recorded on it. */
 export async function listSparePartSalesForTicket(ticketId: string) {
   const { data, error } = await supabaseAdmin

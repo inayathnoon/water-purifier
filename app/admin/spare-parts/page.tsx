@@ -86,7 +86,16 @@ function SparePartsPageInner() {
     }
 
     const allParts: SparePart[] = (await sparePartsRes.json()).parts ?? [];
-    setSpareParts(showServiceCharge ? allParts : allParts.filter((p) => !isServiceCharge(p)));
+    const visibleParts = showServiceCharge ? allParts : allParts.filter((p) => !isServiceCharge(p));
+    setSpareParts(visibleParts);
+    // A chargeable visit always includes the flat visit charge — default
+    // its quantity to 1 rather than making the admin remember to bump it
+    // from 0 every time (§ Bug: Service Charge Default Silently Never
+    // Matched — the same default this picker had before it moved here).
+    if (showServiceCharge) {
+      const serviceChargePart = visibleParts.find(isServiceCharge);
+      if (serviceChargePart) setSellQuantities((prev) => ({ ...prev, [serviceChargePart.name]: prev[serviceChargePart.name] ?? 1 }));
+    }
     setRecentSales((await salesRes.json()).sales ?? []);
     setLoading(false);
   };
@@ -102,6 +111,19 @@ function SparePartsPageInner() {
       return;
     }
     setSparesConfirmed(true);
+  };
+
+  const handleUndoNoSpares = async () => {
+    if (confirmingNoSpares) return;
+    setConfirmingNoSpares(true);
+    setNoSparesError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/unconfirm-spares`, { method: 'POST' });
+    setConfirmingNoSpares(false);
+    if (!res.ok) {
+      setNoSparesError((await res.json()).error ?? 'Failed to undo');
+      return;
+    }
+    setSparesConfirmed(false);
   };
 
   useEffect(() => {
@@ -212,9 +234,19 @@ function SparePartsPageInner() {
       {ticketId && ticketKind === 'service_visit' && (
         <div className="mb-6">
           {sparesConfirmed ? (
-            <p className="text-sm bg-green-50 text-green-800 rounded-md px-3 py-2">
-              Spares step done for this job — it can now be marked complete.
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm bg-green-50 text-green-800 rounded-md px-3 py-2 flex-1">
+                Spares step done for this job — it can now be marked complete.
+              </p>
+              {noSparesError && <p className="text-red-600 text-xs">{noSparesError}</p>}
+              <button
+                onClick={handleUndoNoSpares}
+                disabled={confirmingNoSpares}
+                className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+              >
+                Undo
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-3">
               <p className="text-sm text-gray-500">Nothing to record for this visit?</p>

@@ -25,13 +25,14 @@ function dateAddDays(dateStr: string, days: number): string {
 }
 
 /**
- * §15.3: an owner should be able to answer three questions without asking
- * anyone — what's happening today, what did we earn this month, and who's
- * busy. §7.6: discounts belong here too, since margin sits between list
- * and sold price. Also: this week's schedule per technician, jobs still
- * needing dispatch (owner can assign directly, same as admin), and every
- * outstanding payment (not just the 7+ day ones) with when it was last
- * called about.
+ * §15.3: this month's numbers by category (count + revenue), enquiries
+ * needing the owner's own attention (passed-up, Vessel/Commercial), this
+ * week's schedule, jobs still needing dispatch (owner can assign
+ * directly, same as admin), and every outstanding payment (not just the
+ * 7+ day ones) with when it was last called about. "New enquiries" and
+ * "Finished Installation/Service" — the same admin dashboard cards, same
+ * data — come from /api/admin/dashboard instead, which already allows
+ * an owner caller; no need to duplicate those queries here too.
  */
 export async function GET() {
   try {
@@ -43,7 +44,6 @@ export async function GET() {
     const monthStartISO = monthStartISTThreshold();
 
     const [
-      todaysJobs,
       monthOrders,
       pendingLeave,
       passedToOwner,
@@ -53,21 +53,13 @@ export async function GET() {
       jobsToDispatch,
       monthSparePartSales,
     ] = await Promise.all([
-      // What's happening today — every job booked for today, by technician.
-      supabaseAdmin
-        .from('tickets')
-        .select('id, kind, booked_half_day, users:assigned_to_id(name), customers(name)')
-        .in('kind', ['installation', 'service_visit'])
-        .eq('booked_date', today)
-        .in('status', ['booked', 'completed']),
-
       // What did we earn this month — orders created (i.e. sale closed) this
       // month. products(category) comes along via tickets.product_code, for
       // the by-category revenue split below (null for a hand-typed/historical
       // order with no linked product row).
       supabaseAdmin
         .from('orders')
-        .select('sold_price, discount, paid_amount, tickets(products(category))')
+        .select('sold_price, tickets(products(category))')
         .gte('created_at', monthStartISO),
 
       supabaseAdmin.from('leave_requests').select('id, requester_id, start_date, end_date, users:requester_id(name)').eq('status', 'pending'),
@@ -161,21 +153,6 @@ export async function GET() {
     }
     const paymentsOutstandingByPerson = [...owedByCustomer.values()].sort((a, b) => b.totalBalance - a.totalBalance);
 
-    const whoIsBusy: Record<string, number> = {};
-    for (const job of todaysJobs.data ?? []) {
-      const name = (job.users as unknown as { name: string } | null)?.name ?? 'Unassigned';
-      whoIsBusy[name] = (whoIsBusy[name] ?? 0) + 1;
-    }
-
-    const monthRevenue = (monthOrders.data ?? []).reduce(
-      (acc, o) => ({
-        sold: acc.sold + Number(o.sold_price),
-        discount: acc.discount + Number(o.discount),
-        collected: acc.collected + Number(o.paid_amount),
-      }),
-      { sold: 0, discount: 0, collected: 0 }
-    );
-
     // This month's numbers, per category — the purifier itself (by
     // products.category, from sold_price), spare parts (office sale +
     // whatever's sold confirming a job), and the flat service-charge
@@ -216,9 +193,6 @@ export async function GET() {
     );
 
     return Response.json({
-      todaysJobs: todaysJobs.data ?? [],
-      whoIsBusy,
-      monthRevenue,
       salesByCategory,
       salesTotal,
       pendingLeaveCount: pendingLeave.data?.length ?? 0,

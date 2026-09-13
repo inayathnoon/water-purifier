@@ -3084,6 +3084,64 @@ throw) and, again, no real message delivered. Re-ran `npm test` — same
 5/5 pass, and for the first time, no Telegram message went out from
 running it. All test data cleaned up.
 
+## Dashboard Layout Pass: Admin Compacted, Owner Rebuilt as a Real Dashboard (2026-09-13)
+
+A batch of direct UI feedback, admin dashboard first:
+
+- **Bug fixed**: `/admin/spare-parts`'s "Service charges" row didn't
+  default to quantity 1 any more after this flow moved off `/staff/jobs`
+  — the old default-to-1 logic never came with it. Restored.
+- **Undo** next to "Spares step done... it can now be marked complete" —
+  new `unconfirmSpares()` (`POST /api/admin/tickets/[id]/unconfirm-spares`),
+  only while the job's still `booked` (nothing to protect once it's
+  already marked done, since `completeJob()` re-checks the gate itself
+  every time anyway). For the "clicked No parts used by mistake" case.
+- **"+ Spare part" popup considered, not built** — asked for only if it
+  wouldn't add real complexity; it would (duplicating the whole picker/
+  warranty/no-parts-needed flow into a modal), so this stayed a page
+  link as before.
+- Removed the "Today — everyone you need to call" heading and tightened
+  spacing throughout (`gap-4`→`gap-3`, `mb-4`→`mb-3`) to fit more on
+  screen at once.
+- **This Week moved up** — between the New Enquiries/Jobs to Dispatch
+  row and the Finished Installation/Service/Payments Outstanding/Yearly
+  Service Calls Due row, instead of sitting at the very bottom.
+
+**Owner dashboard rebuilt**, not just re-skinned — the owner's own words:
+"for admin this is a tool, for owner it is a dashboard."
+
+- **This month is now scorecards, not a table** — one colored card per
+  segment (Kitchen/Vessel/Commercial/Service/Spare parts, count + revenue)
+  plus a dark Total card on the right, replacing both the old table and
+  the "Business overview" heading entirely — this is the first thing on
+  the page now.
+- **"Discount given this month" removed.**
+- **New enquiries** and **Finished Installation/Service** — the exact
+  same cards and actions admin has (mark done, sell a spare part, call to
+  confirm, the spares gate) — now also on the owner's dashboard, since
+  the owner already had `admin`-equal permissions on every one of those
+  endpoints; they just weren't surfaced here yet. Rather than duplicate
+  admin dashboard's query logic a second time in `/api/owner/dashboard`,
+  `OwnerDashboard` fetches `/api/admin/dashboard` directly for these two
+  cards' data (already allows an `owner` caller) and reuses the identical
+  handlers — real code duplication between the two components, accepted
+  deliberately here for speed over a shared-component extraction, given
+  everything else already in flight this session.
+- **Layout, top to bottom**: nav grid → scorecards → Passed to
+  you/Vessel-Commercial enquiries (unchanged, kept) → Jobs to Dispatch |
+  Finished Installation/Service → This Week (full width) → New
+  enquiries | Payments outstanding (still `highlight`ed) → pending-leave
+  banner. `/api/owner/dashboard` trimmed of the now-unused
+  `todaysJobs`/`whoIsBusy`/`monthRevenue` queries and fields.
+
+**Verified**: `tsc`/`next build` clean; `eslint` at 25 errors (one fewer
+than the prior 26-error baseline, no new issues — confirmed by isolating
+the three changed files); all 5 `npm test` hard-rule tests still pass,
+with no Telegram message sent while running them (the guard from the
+section above holding). The trimmed `orders` select for
+`salesByCategory` re-checked directly against live data, unchanged
+shape.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
