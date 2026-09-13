@@ -39,12 +39,15 @@ interface OwnerDashboardData {
   scheduleDays: string[];
 }
 
-const CATEGORY_CARDS: { key: 'KITCHEN' | 'VESSEL' | 'COMMERCIAL' | 'serviceCharge' | 'spare'; label: string; color: string }[] = [
-  { key: 'KITCHEN', label: 'Kitchen', color: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
-  { key: 'VESSEL', label: 'Vessel', color: 'bg-blue-50 border-blue-200 text-blue-900' },
-  { key: 'COMMERCIAL', label: 'Commercial', color: 'bg-purple-50 border-purple-200 text-purple-900' },
-  { key: 'serviceCharge', label: 'Service', color: 'bg-orange-50 border-orange-200 text-orange-900' },
-  { key: 'spare', label: 'Spare parts', color: 'bg-teal-50 border-teal-200 text-teal-900' },
+// One accent voice (blue), neutral surfaces for everything else — a card
+// per segment doesn't need five different hues to read as five segments;
+// the label already says which is which.
+const CATEGORY_CARDS: { key: 'KITCHEN' | 'VESSEL' | 'COMMERCIAL' | 'serviceCharge' | 'spare'; label: string }[] = [
+  { key: 'KITCHEN', label: 'Kitchen' },
+  { key: 'VESSEL', label: 'Vessel' },
+  { key: 'COMMERCIAL', label: 'Commercial' },
+  { key: 'serviceCharge', label: 'Service' },
+  { key: 'spare', label: 'Spare parts' },
 ];
 
 export default function OwnerDashboard() {
@@ -92,16 +95,16 @@ export default function OwnerDashboard() {
           the page, not a link list. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {CATEGORY_CARDS.map((c) => (
-          <div key={c.key} className={`rounded-xl border p-3 ${c.color}`}>
-            <p className="text-xs font-medium opacity-70">{c.label}</p>
-            <p className="text-2xl font-bold tabular-nums mt-1">{data.salesByCategory[c.key].count}</p>
-            <p className="text-sm font-medium tabular-nums opacity-80">₹{data.salesByCategory[c.key].revenue.toFixed(0)}</p>
+          <div key={c.key} className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs font-medium text-gray-500">{c.label}</p>
+            <p className="text-2xl font-bold tabular-nums mt-1 text-gray-900">{data.salesByCategory[c.key].count}</p>
+            <p className="text-sm font-medium tabular-nums text-blue-700">₹{data.salesByCategory[c.key].revenue.toFixed(0)}</p>
           </div>
         ))}
-        <div className="rounded-xl border border-gray-800 bg-gray-900 text-white p-3">
-          <p className="text-xs font-medium opacity-70">Total</p>
+        <div className="rounded-xl border border-gray-900 bg-gray-900 text-white p-3">
+          <p className="text-xs font-medium text-gray-400">Total</p>
           <p className="text-2xl font-bold tabular-nums mt-1">{data.salesTotal.count}</p>
-          <p className="text-sm font-medium tabular-nums opacity-90">₹{data.salesTotal.revenue.toFixed(0)}</p>
+          <p className="text-sm font-medium tabular-nums text-blue-300">₹{data.salesTotal.revenue.toFixed(0)}</p>
         </div>
       </div>
 
@@ -112,7 +115,7 @@ export default function OwnerDashboard() {
         <DashboardCard
           title="Vessel / Commercial enquiries"
           badge={data.commercialVesselEnquiries.length > 0 ? `${data.commercialVesselEnquiries.length}` : undefined}
-          badgeColor="bg-purple-100 text-purple-800"
+          badgeColor="bg-gray-100 text-gray-700"
           emptyText="None open right now."
           viewAllHref="/admin/enquiries"
           shownCount={Math.min(5, data.commercialVesselEnquiries.length)}

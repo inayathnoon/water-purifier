@@ -412,9 +412,11 @@ export default function AdminDashboard() {
                         <p className="text-xs text-gray-500">{item.t.customers.phone_number}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs ${daysAgo(item.t.booked_date) >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
-                          {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.booked_date)}d
-                          {daysAgo(item.t.booked_date) >= 3 ? ' — overdue' : ''}
+                        <span className={`text-xs text-right leading-tight ${daysAgo(item.t.booked_date) >= 3 ? 'text-red-600' : 'text-gray-500'}`}>
+                          <span className="block">{item.t.kind === 'installation' ? 'Installation' : 'Service visit'}</span>
+                          <span className="block">
+                            {daysAgo(item.t.booked_date)}d{daysAgo(item.t.booked_date) >= 3 ? ' — overdue' : ''}
+                          </span>
                         </span>
                         {item.t.kind === 'installation' ? (
                           <button
@@ -443,9 +445,11 @@ export default function AdminDashboard() {
                         <p className="text-xs text-gray-500">{item.t.customers.phone_number}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs ${daysAgo(item.t.actual_date) >= 7 ? 'text-red-600' : 'text-gray-900'}`}>
-                          {item.t.kind === 'installation' ? 'Installation' : 'Service visit'} · {daysAgo(item.t.actual_date)}d
-                          {daysAgo(item.t.actual_date) >= 7 ? ' — overdue' : ''}
+                        <span className={`text-xs text-right leading-tight ${daysAgo(item.t.actual_date) >= 7 ? 'text-red-600' : 'text-gray-500'}`}>
+                          <span className="block">{item.t.kind === 'installation' ? 'Installation' : 'Service visit'}</span>
+                          <span className="block">
+                            {daysAgo(item.t.actual_date)}d{daysAgo(item.t.actual_date) >= 7 ? ' — overdue' : ''}
+                          </span>
                         </span>
                         <button
                           onClick={() => handleConfirmJob(item.t.id)}
@@ -468,8 +472,9 @@ export default function AdminDashboard() {
                           <p className="text-xs text-gray-500">{item.s.customers.phone_number}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-gray-900">
-                            Follow-up · installed {daysAgo(item.s.installationDate)}d ago
+                          <span className="text-xs text-right leading-tight text-gray-500">
+                            <span className="block">Follow-up</span>
+                            <span className="block">installed {daysAgo(item.s.installationDate)}d ago</span>
                           </span>
                           <button
                             onClick={() => (satisfactionNoteFor === item.s.orderId ? setSatisfactionNoteFor(null) : startSatisfaction(item.s.orderId))}
