@@ -58,8 +58,22 @@ interface QueueRow {
   ageDays: number;
   ageLabel: string;
   ageTone: Tone;
+  // Sort priority for the "All" view specifically — Dispatch, Installation,
+  // Service visit, Follow up, Payment, Enquiry (not by age across the
+  // whole queue) — a real dispatch/install/service/payment mix reads
+  // clearer grouped by what kind of thing it is than shuffled by age.
+  priority: number;
   render: () => React.ReactNode;
 }
+
+const PRIORITY = {
+  dispatch: 0,
+  installation: 1,
+  service_visit: 2,
+  follow_up: 3,
+  payment: 4,
+  enquiry: 5,
+} as const;
 
 const FILTERS: { key: FilterGroup | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -220,6 +234,7 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: age >= 3 ? `${age}d overdue` : `${age}d open`,
         ageTone: age >= 3 ? 'danger' : 'neutral',
+        priority: PRIORITY.dispatch,
         render: () => (
           <div key={t.id} className="py-3 border-b border-divider last:border-0">
             <div className="flex items-center gap-3">
@@ -276,6 +291,7 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: label,
         ageTone: tone,
+        priority: PRIORITY.enquiry,
         render: () => (
           <div key={e.id} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -307,6 +323,7 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: age >= 3 ? `${age}d overdue` : `${age}d`,
         ageTone: age >= 3 ? 'danger' : 'neutral',
+        priority: t.kind === 'installation' ? PRIORITY.installation : PRIORITY.service_visit,
         render: () => (
           <div key={`due-${t.id}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -325,7 +342,7 @@ export default function AdminDashboard() {
                 disabled={markingDoneId === t.id}
                 className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
               >
-                {markingDoneId === t.id ? 'Saving…' : 'Installed'}
+                {markingDoneId === t.id ? 'Saving…' : 'Installation completed'}
               </button>
             ) : (
               <a href={sellSparePartHref(t)} className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint">
@@ -348,6 +365,7 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: age >= 7 ? `${age}d overdue` : `${age}d`,
         ageTone: age >= 7 ? 'danger' : 'neutral',
+        priority: t.kind === 'installation' ? PRIORITY.installation : PRIORITY.service_visit,
         render: () => (
           <div key={`job-${t.id}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -383,6 +401,7 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: `installed ${age}d ago`,
         ageTone: 'neutral',
+        priority: PRIORITY.follow_up,
         render: () => (
           <div key={`satisfaction-${s.orderId}`} className="py-3 border-b border-divider last:border-0">
             <div className="flex items-center gap-3">
@@ -436,6 +455,7 @@ export default function AdminDashboard() {
         ageDays,
         ageLabel: `${(s.monthsSinceInstall / 12).toFixed(1)}y since install`,
         ageTone: 'neutral',
+        priority: PRIORITY.service_visit,
         render: () => (
           <div key={`yearly-${s.installationTicketId}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -468,6 +488,7 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: `${formatINR(o.totalBalance)}${o.oldestInstallationDate ? ` · ${age}d` : ''}`,
         ageTone: 'danger',
+        priority: PRIORITY.payment,
         render: () => (
           <div key={`payment-${o.phoneNumber}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -492,11 +513,16 @@ export default function AdminDashboard() {
       });
     }
 
-    out.sort((a, b) => b.ageDays - a.ageDays);
+    // "All" reads clearer grouped by kind (Dispatch, Installation, Service
+    // visit, Follow up, Payment, Enquiry) than shuffled purely by age;
+    // a single filtered view stays sorted oldest-first, since everything
+    // in it is already the same kind.
+    out.sort((a, b) => (filter === 'all' ? a.priority - b.priority || b.ageDays - a.ageDays : b.ageDays - a.ageDays));
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     data,
+    filter,
     assigningId,
     assignForm,
     assignError,
