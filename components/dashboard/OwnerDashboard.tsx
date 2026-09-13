@@ -121,6 +121,8 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
+      <WeekSchedule days={data.scheduleDays} weekJobs={data.weekJobs} staff={staff} />
+
       {/* Money outstanding — the owner's highest-value module: a compact
           table, not five separate cards. */}
       <div className="bg-surface border border-rule">
@@ -221,8 +223,6 @@ export default function OwnerDashboard() {
           })}
         </DashboardCard>
       </div>
-
-      <WeekSchedule days={data.scheduleDays} weekJobs={data.weekJobs} staff={staff} />
     </div>
   );
 }

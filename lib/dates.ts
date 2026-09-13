@@ -153,3 +153,17 @@ export function mondayOfWeekIST(now: Date = new Date()): string {
   const mondayUTC = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() - daysSinceMonday);
   return new Date(mondayUTC).toISOString().slice(0, 10);
 }
+
+// A fixed Monday-through-Saturday calendar week (Sunday excluded, same
+// as the rest of this app's scheduling) — for the owner's Staff Schedule
+// specifically, which is meant to show the whole current work week, not
+// a rolling "next N days" window that would otherwise cut across weeks.
+// Changes over on Monday, since mondayOfWeekIST() itself rolls forward then.
+export function mondaySaturdayWeekIST(now: Date = new Date()): string[] {
+  const monday = mondayOfWeekIST(now);
+  const mondayDate = new Date(`${monday}T00:00:00Z`);
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(mondayDate.getTime() + i * 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 10);
+  });
+}

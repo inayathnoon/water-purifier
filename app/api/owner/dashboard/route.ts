@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { monthStartISTThreshold, nextWorkingDaysIST } from '@/lib/dates';
+import { monthStartISTThreshold, mondaySaturdayWeekIST } from '@/lib/dates';
 
 // §15.3's "what did we earn this month" split out by category — the three
 // product categories (from the sold purifier itself), spare parts (both
@@ -31,9 +31,11 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Owner" preview works.
     await requireUser(['owner', 'developer']);
 
-    // Today plus the next 2 days, skipping Sunday — not a fixed calendar
-    // week any more (see nextWorkingDaysIST()).
-    const scheduleDays = nextWorkingDaysIST(3);
+    // Owner's Staff Schedule is a fixed Monday-Saturday calendar week
+    // (changes over on Monday) — unlike admin's rolling "today + next 2
+    // working days" queue, the owner wants to see the whole current
+    // week at a glance, not a short forward-looking window.
+    const scheduleDays = mondaySaturdayWeekIST();
     const weekStart = scheduleDays[0];
     const weekEnd = scheduleDays[scheduleDays.length - 1];
     const monthStartISO = monthStartISTThreshold();
