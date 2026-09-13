@@ -343,7 +343,7 @@ function ServiceCallsPageInner() {
         <div className="flex gap-2">
           <button
             onClick={() => setShowNewForm((s) => !s)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+            className="px-4 py-2 bg-accent hover:bg-accent-hover text-white"
           >
             {showNewForm ? 'Cancel' : '+ New Service'}
           </button>
@@ -451,7 +451,7 @@ function ServiceCallsPageInner() {
           <button
             type="submit"
             disabled={submittingNew}
-            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+            className="px-4 py-2 bg-accent hover:bg-accent-hover text-white disabled:opacity-50"
           >
             {submittingNew ? 'Creating...' : 'Create service request'}
           </button>
@@ -485,7 +485,7 @@ function ServiceCallsPageInner() {
               <button
                 onClick={() => handleRequestService(d.installationTicketId)}
                 disabled={requestingId === d.installationTicketId}
-                className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+                className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-sm disabled:opacity-50 whitespace-nowrap"
               >
                 {requestingId === d.installationTicketId ? 'Requesting...' : 'Mark service requested'}
               </button>
@@ -600,7 +600,7 @@ function ServiceCallsPageInner() {
                     />
                   </div>
                   {requestEditForm.customerPhone.trim() !== requestEditForm.originalCustomerPhone && (
-                    <p className="text-xs text-orange-700">
+                    <p className="text-xs text-warn">
                       Changing the phone number also renames this customer&apos;s existing Sales/Service/Enquiry
                       sheet rows to match, so future syncs keep finding them.
                     </p>

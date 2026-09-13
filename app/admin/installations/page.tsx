@@ -8,6 +8,7 @@ import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
 import BookingForm from '@/components/BookingForm';
 import { todayIST } from '@/lib/dates';
+import { formatINR } from '@/lib/format';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
@@ -330,7 +331,7 @@ function InstallationsPageInner() {
             }
             setShowPurchaseForm((s) => !s);
           }}
-          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          className="px-4 py-2 bg-accent hover:bg-accent-hover text-white"
         >
           {showPurchaseForm ? 'Cancel' : '+ New Purchase'}
         </button>
@@ -384,7 +385,7 @@ function InstallationsPageInner() {
                       }
                     />
                     {item.listPrice != null && (
-                      <p className="text-xs text-ink-2 mt-1">List price: ₹{item.listPrice}</p>
+                      <p className="text-xs text-ink-2 mt-1">List price: {formatINR(item.listPrice)}</p>
                     )}
                     <input
                       placeholder="Extra details (optional — e.g. 'and Prefilter')"
@@ -492,7 +493,7 @@ function InstallationsPageInner() {
           <button
             type="submit"
             disabled={purchaseSubmitting}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+            className="px-4 py-2 bg-accent hover:bg-accent-hover text-white disabled:opacity-50"
           >
             {purchaseSubmitting ? 'Recording...' : 'Record purchase'}
           </button>
@@ -517,15 +518,15 @@ function InstallationsPageInner() {
                   <p className="text-sm text-ink-2">
                     {inst.customers.address}, {inst.customers.area}
                   </p>
-                  <p className="text-sm text-ink-2 mt-1">Agreed price: ₹{inst.agreed_price}</p>
+                  <p className="text-sm text-ink-2 mt-1">Agreed price: {formatINR(inst.agreed_price)}</p>
                   {inst.planned_installation_date && !inst.booked_date && (
                     <p className="text-sm text-accent-deep">Planned for: {inst.planned_installation_date}</p>
                   )}
                   {firstOrder(inst.orders) && (
                     <p className="text-sm text-ink-2">
-                      Paid: ₹{firstOrder(inst.orders)!.paid_amount}
+                      Paid: {formatINR(firstOrder(inst.orders)!.paid_amount)}
                       {firstOrder(inst.orders)!.balance_owed > 0 && (
-                        <span className="text-danger"> · ₹{firstOrder(inst.orders)!.balance_owed} owed</span>
+                        <span className="text-danger"> · {formatINR(firstOrder(inst.orders)!.balance_owed)} owed</span>
                       )}
                     </p>
                   )}
@@ -583,7 +584,7 @@ function InstallationsPageInner() {
                   {inst.status === 'completed' && (
                     <button
                       onClick={() => handleCloseAfterConfirm(inst.id)}
-                      className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                      className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-sm"
                     >
                       Confirm & close
                     </button>

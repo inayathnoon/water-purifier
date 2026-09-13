@@ -31,7 +31,7 @@ const SOURCE_BADGE: Record<string, string> = {
   water_test: 'bg-warn-tint text-warn',
   ready_to_buy: 'bg-ok-tint text-ok',
   referral: 'bg-accent-tint text-accent-deep',
-  other: 'bg-purple-100 text-purple-800',
+  other: 'bg-inset text-ink-2',
 };
 
 // Label on the left, the field on the right — placeholder text alone was

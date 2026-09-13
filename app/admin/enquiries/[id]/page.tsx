@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
 import { todayIST } from '@/lib/dates';
-import { toStartCase } from '@/lib/format';
+import { toStartCase, formatINR } from '@/lib/format';
 
 interface Call {
   id: string;
@@ -53,10 +53,10 @@ const ACTION_LABEL: Record<string, string> = {
 // for the lost sale, green for a sale (convert / link to an existing
 // purchase).
 const ACTION_STYLE: Record<string, string> = {
-  pass_to_owner: 'bg-warn-tint0 text-white border-yellow-500',
-  mark_inactive: 'bg-red-600 text-white border-red-600',
-  convert: 'bg-green-600 text-white border-green-600',
-  link_existing: 'bg-green-600 text-white border-green-600',
+  pass_to_owner: 'bg-warn text-white border-warn',
+  mark_inactive: 'bg-danger text-white border-danger',
+  convert: 'bg-ok text-white border-ok',
+  link_existing: 'bg-ok text-white border-ok',
 };
 
 export default function EnquiryDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -435,7 +435,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                       >
                         <div>
                           <p className="font-medium text-sm">{p.customers.name}</p>
-                          <p className="text-xs text-ink-2">{p.customers.phone_number} · ₹{p.agreed_price}</p>
+                          <p className="text-xs text-ink-2">{p.customers.phone_number} · {formatINR(p.agreed_price)}</p>
                         </div>
                         <p className="text-xs text-ink-2">{new Date(p.created_at).toLocaleDateString()}</p>
                       </button>

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import { todayIST, isWithinWarranty } from '@/lib/dates';
+import { formatINR } from '@/lib/format';
 
 interface SparePart {
   name: string;
@@ -245,7 +246,7 @@ function SparePartsPageInner() {
         {!ticketId && (
           <button
             onClick={() => setShowSellForm((s) => !s)}
-            className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
+            className="px-4 py-2 bg-accent hover:bg-accent-hover text-white"
           >
             {showSellForm ? 'Cancel' : '+ Spare Part'}
           </button>
@@ -344,11 +345,11 @@ function SparePartsPageInner() {
             )}
           </div>
           <div className="flex justify-between items-center pt-2">
-            <span className="font-medium">Total: ₹{sellTotal}</span>
+            <span className="font-medium">Total: {formatINR(sellTotal)}</span>
             <button
               type="submit"
               disabled={submittingSell}
-              className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:opacity-50"
+              className="px-4 py-2 bg-accent hover:bg-accent-hover text-white disabled:opacity-50"
             >
               {submittingSell ? 'Recording...' : 'Record sale'}
             </button>
@@ -376,7 +377,7 @@ function SparePartsPageInner() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-medium">₹{s.total}</span>
+                  <span className="font-medium">{formatINR(s.total)}</span>
                   <button
                     onClick={() => (editingId === s.id ? setEditingId(null) : startEditing(s))}
                     className="text-xs text-ink-2 hover:underline"
@@ -440,7 +441,7 @@ function SparePartsPageInner() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:opacity-50"
+                    className="px-4 py-2 bg-accent hover:bg-accent-hover text-white disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : 'Save changes'}
                   </button>

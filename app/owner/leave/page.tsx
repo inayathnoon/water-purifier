@@ -76,7 +76,7 @@ export default function OwnerLeavePage() {
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={() => decide(r.id, 'approved')}
-                      className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                      className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-sm"
                     >
                       Approve
                     </button>

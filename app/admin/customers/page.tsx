@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import AreaSelect from '@/components/AreaSelect';
 import { todayIST } from '@/lib/dates';
+import { toStartCase, formatINR } from '@/lib/format';
 
 interface Customer {
   id: string;
@@ -271,8 +272,8 @@ function CustomerDirectoryPageInner() {
               <div key={c.id}>
                 <div className="w-full p-4 hover:bg-accent-tint flex justify-between items-center gap-2">
                   <button onClick={() => toggleExpand(c)} className="flex-1 text-left">
-                    <p className="font-medium">{c.name}</p>
-                    <p className="text-sm text-ink-2">
+                    <p className="font-semibold text-[15px]">{toStartCase(c.name)}</p>
+                    <p className="text-[13px] text-ink-2">
                       {c.phone_number} · {c.address}, {c.area}
                     </p>
                   </button>
@@ -319,7 +320,7 @@ function CustomerDirectoryPageInner() {
                       />
                     </div>
                     {editForm.phoneNumber.trim() !== c.phone_number && (
-                      <p className="text-xs text-orange-700">
+                      <p className="text-xs text-warn">
                         Changing the phone number also renames this customer&apos;s existing Sales/Service/Enquiry
                         sheet rows to match, so future syncs keep finding them.
                       </p>
@@ -361,20 +362,19 @@ function CustomerDirectoryPageInner() {
                                 <p className="mt-1 text-ink">{t.enquiry_product_interest}</p>
                               )}
                               {t.kind === 'installation' && t.agreed_price != null && (
-                                <p className="mt-1 text-ink">Agreed price: ₹{t.agreed_price}</p>
+                                <p className="mt-1 text-ink">Agreed price: {formatINR(t.agreed_price)}</p>
                               )}
                               {t.kind === 'service_visit' && t.charge_amount != null && (
                                 <p className="mt-1 text-ink">
-                                  Charge: {t.charge_amount === 0 ? 'Free (under warranty)' : `₹${t.charge_amount}`}
+                                  Charge: {t.charge_amount === 0 ? 'Free (under warranty)' : formatINR(t.charge_amount)}
                                 </p>
                               )}
                               {order && (
                                 <>
-                                  <p className="mt-1 text-ink-2">
-                                    List ₹{order.list_price} · Sold ₹{order.sold_price} · Discount ₹{order.discount} · Paid ₹
-                                    {order.paid_amount} ·{' '}
-                                    <span className={order.balance_owed > 0 ? 'text-danger font-medium' : 'text-green-600'}>
-                                      Balance ₹{order.balance_owed}
+                                  <p className="mt-1 text-ink-2 tabular-nums">
+                                    List {formatINR(order.list_price)} · Sold {formatINR(order.sold_price)} · Discount {formatINR(order.discount)} · Paid {formatINR(order.paid_amount)} ·{' '}
+                                    <span className={order.balance_owed > 0 ? 'text-danger font-semibold' : 'text-ok font-semibold'}>
+                                      Balance {formatINR(order.balance_owed)}
                                     </span>
                                     {order.balance_owed > 0 && (
                                       <>
@@ -394,10 +394,10 @@ function CustomerDirectoryPageInner() {
                                     )}
                                   </p>
                                   {order.payment_history?.length > 0 && (
-                                    <div className="mt-1 text-xs text-ink-2">
+                                    <div className="mt-1 text-xs text-ink-2 tabular-nums">
                                       Payments:{' '}
                                       {order.payment_history
-                                        .map((p) => `₹${p.amount} on ${p.date.slice(0, 10)}`)
+                                        .map((p) => `${formatINR(p.amount)} on ${p.date.slice(0, 10)}`)
                                         .join(', ')}
                                     </div>
                                   )}

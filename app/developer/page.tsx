@@ -316,7 +316,7 @@ export default function DeveloperPage() {
           <h2 className="font-semibold">Staff Accounts</h2>
           <button
             onClick={() => setShowAddForm((s) => !s)}
-            className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+            className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-sm"
           >
             {showAddForm ? 'Cancel' : '+ Add Staff'}
           </button>
@@ -350,7 +350,7 @@ export default function DeveloperPage() {
             </select>
             <button
               disabled={submitting}
-              className="w-full py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50"
+              className="w-full py-2 bg-ok hover:opacity-90 text-white text-sm disabled:opacity-50"
             >
               {submitting ? 'Creating...' : 'Create account'}
             </button>

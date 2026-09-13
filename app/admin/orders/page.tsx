@@ -5,7 +5,7 @@ import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import AreaSelect from '@/components/AreaSelect';
 import { daysAgoIST, todayIST } from '@/lib/dates';
-import { toStartCase } from '@/lib/format';
+import { toStartCase, formatINR } from '@/lib/format';
 import { getCurrentUser, type User } from '@/lib/auth';
 
 interface Order {
@@ -340,61 +340,66 @@ export default function OrdersPage() {
             <button
               onClick={handleDownload}
               disabled={visibleOrders.length === 0}
-              className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-[13px] font-semibold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             >
               Download Excel
             </button>
           ) : (
             <Link
               href="/admin/installations?new=1"
-              className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
             >
-              + New Purchase
+              + New purchase
             </Link>
           )}
         </div>
       </div>
 
-      <div className="relative mb-4 max-w-sm">
-        <input
-          placeholder="Find a customer — phone number or name"
-          className="w-full border rounded px-3 py-2 text-ink"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button
-            onClick={() => setQuery('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 text-sm"
-          >
-            ✕
-          </button>
-        )}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="relative max-w-sm w-full">
+          <input
+            placeholder="Search customer — phone or name"
+            className="w-full h-10 border border-rule rounded-xs pl-3 pr-8 text-[13px] focus-visible:outline-2 focus-visible:outline-accent"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 text-[13px]"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <span className="text-[13px] text-ink-2 tabular-nums shrink-0">
+          {visibleOrders.length} purchase{visibleOrders.length === 1 ? '' : 's'}
+        </span>
       </div>
 
-      {error && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
+      {error && <p className="text-danger bg-danger-tint border-l-2 border-l-danger p-3 text-[13px] mb-4">{error}</p>}
 
       {loading ? (
-        <p>Loading...</p>
+        <p className="text-ink-2 text-[13px]">Loading…</p>
       ) : visibleOrders.length === 0 ? (
-        <p className="text-ink">{query ? `No purchases match "${query}".` : 'No purchases yet.'}</p>
+        <p className="text-ink-2 text-[13px] text-center py-8">{query ? `No purchases match "${query}".` : 'No purchases yet.'}</p>
       ) : (
-        <div className="bg-surface rounded-lg shadow-sm border border-rule overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-inset text-left">
+        <div className="bg-surface border border-rule overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead className="bg-inset text-left sticky top-14 z-10">
               <tr>
-                <th className="p-3">Bill Date</th>
-                <th className="p-3">Completed</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Brand</th>
-                <th className="p-3">Name</th>
-                <th className="p-3">Variant</th>
-                <th className="p-3 text-right">Sold</th>
-                <th className="p-3 text-right">Paid</th>
-                <th className="p-3 text-right">Balance</th>
-                <th className="p-3">Payment</th>
-                <th className="p-3">Installation</th>
-                <th className="p-3">Follow-up</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Bill date</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Completed</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Customer</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Brand</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Name</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Variant</th>
+                <th className="p-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Sold</th>
+                <th className="p-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Paid</th>
+                <th className="p-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Balance</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Payment</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Installation</th>
+                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Follow-up</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
@@ -407,39 +412,40 @@ export default function OrdersPage() {
                   <Fragment key={o.id}>
                     <tr
                       onClick={() => setExpandedId(isExpanded ? null : o.id)}
-                      className={`border-t cursor-pointer hover:bg-accent-tint ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
+                      style={{ height: 48 }}
+                      className={`border-t border-divider cursor-pointer hover:bg-accent-tint ${overdueCall ? 'border-l-2 border-l-danger' : ''}`}
                     >
-                      <td className="p-3 whitespace-nowrap">{billDate(o)}</td>
-                      <td className="p-3 whitespace-nowrap">{o.tickets.installation_date ?? '—'}</td>
+                      <td className="p-3 whitespace-nowrap tabular-nums">{billDate(o)}</td>
+                      <td className="p-3 whitespace-nowrap tabular-nums">{o.tickets.installation_date ?? '—'}</td>
                       <td className="p-3">
-                        <p className="font-medium">{o.tickets.customers.name}</p>
-                        <p className="text-xs text-ink-2">{o.tickets.customers.phone_number}</p>
+                        <p className="font-semibold">{toStartCase(o.tickets.customers.name)}</p>
+                        <p className="text-[12px] text-ink-2">{o.tickets.customers.phone_number}</p>
                       </td>
                       <td className="p-3 whitespace-nowrap">{p.brand || '—'}</td>
                       <td className="p-3 max-w-xs truncate">{p.name || '—'}</td>
                       <td className="p-3 whitespace-nowrap">{p.variant || '—'}</td>
-                      <td className="p-3 text-right">₹{o.sold_price}</td>
-                      <td className="p-3 text-right">₹{o.paid_amount}</td>
-                      <td className="p-3 text-right">
-                        <span className={o.balance_owed > 0 ? 'text-danger font-semibold' : 'text-green-600'}>
-                          ₹{o.balance_owed}
+                      <td className="p-3 text-right tabular-nums font-medium">{formatINR(o.sold_price)}</td>
+                      <td className="p-3 text-right tabular-nums font-medium">{formatINR(o.paid_amount)}</td>
+                      <td className="p-3 text-right tabular-nums font-semibold">
+                        <span className={o.balance_owed > 0 ? 'text-danger' : 'text-ink'}>
+                          {formatINR(o.balance_owed)}
                         </span>
                       </td>
                       <td className="p-3 whitespace-nowrap">
-                        <span className={o.balance_owed > 0 ? 'text-danger font-medium' : 'text-green-600'}>
+                        <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] px-1.5 py-0.5 ${o.balance_owed > 0 ? 'bg-danger-tint text-danger' : 'bg-ok-tint text-ok'}`}>
                           {o.balance_owed > 0 ? 'Pending' : 'Completed'}
                         </span>
                       </td>
                       <td className="p-3 whitespace-nowrap">
                         {o.tickets.installation_date ? (
-                          <span className="text-green-600">Completed</span>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] px-1.5 py-0.5 bg-ok-tint text-ok">Completed</span>
                         ) : o.tickets.status === 'completed' ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleConfirmInstallation(o.ticket_id); }}
                             disabled={confirmingId === o.ticket_id}
-                            className="px-2 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover disabled:opacity-50"
+                            className="px-2 py-1 text-[12px] font-semibold border border-rule hover:bg-accent-tint disabled:opacity-50"
                           >
-                            {confirmingId === o.ticket_id ? 'Confirming...' : 'Confirm date'}
+                            {confirmingId === o.ticket_id ? 'Confirming…' : 'Confirm date'}
                           </button>
                         ) : (
                           <span className="text-ink-2">Pending</span>
@@ -447,12 +453,12 @@ export default function OrdersPage() {
                       </td>
                       <td className="p-3 whitespace-nowrap">
                         {o.confirmation_status === 'completed' ? (
-                          <span className="text-green-600">Completed</span>
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] px-1.5 py-0.5 bg-ok-tint text-ok">Completed</span>
                         ) : (
                           <span className="text-ink-2">Pending</span>
                         )}
                       </td>
-                      <td className="p-3 text-accent-deep whitespace-nowrap">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
+                      <td className="p-3 text-accent-deep whitespace-nowrap text-[12px] font-semibold">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-inset">
@@ -464,7 +470,7 @@ export default function OrdersPage() {
                             </div>
                             <div>
                               <p className="text-ink-2 text-xs">Discount</p>
-                              <p>₹{o.discount}</p>
+                              <p>{formatINR(o.discount)}</p>
                             </div>
                             {o.tickets.planned_installation_date && (
                               <div>
@@ -495,7 +501,7 @@ export default function OrdersPage() {
                           </div>
 
                           {overdueCall && (
-                            <p className="text-xs text-orange-600 mb-2">
+                            <p className="text-xs text-warn mb-2">
                               Overdue for a payment call (§7.3 — call every 3 days while owed)
                             </p>
                           )}
@@ -517,7 +523,7 @@ export default function OrdersPage() {
                               {o.balance_owed === 0 && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleClose(o.id); }}
-                                  className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+                                  className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-[13px] font-semibold"
                                 >
                                   Close purchase
                                 </button>
@@ -620,7 +626,7 @@ export default function OrdersPage() {
                                 />
                               </div>
                               {purchaseEditForm.customerPhone.trim() !== purchaseEditForm.originalCustomerPhone && (
-                                <p className="text-xs text-orange-700">
+                                <p className="text-xs text-warn">
                                   Changing the phone number also renames this customer&apos;s existing Sales/Service/Enquiry
                                   sheet rows to match, so future syncs keep finding them.
                                 </p>
@@ -652,7 +658,7 @@ export default function OrdersPage() {
                                 <button
                                   onClick={() => handleVoid(o.ticket_id)}
                                   disabled={voiding}
-                                  className="px-4 py-2 bg-red-600 text-white rounded-md disabled:opacity-50"
+                                  className="px-4 py-2 bg-danger hover:opacity-90 text-white text-[13px] font-semibold disabled:opacity-50"
                                 >
                                   {voiding ? 'Voiding...' : 'Confirm void'}
                                 </button>

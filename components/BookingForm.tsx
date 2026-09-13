@@ -103,7 +103,7 @@ export default function BookingForm({
       </div>
       {extra}
       {isOnApprovedLeave(staff, value.assignedToId, value.bookedDate) && (
-        <p className="text-xs text-orange-600">
+        <p className="text-xs text-warn">
           This person is on approved leave that day — you can still book them (§11.5).
         </p>
       )}

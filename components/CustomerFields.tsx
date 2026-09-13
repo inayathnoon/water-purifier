@@ -143,9 +143,9 @@ export default function CustomerFields({
       </Row>
 
       {hasWarnings && (
-        <div className="ml-[calc(10rem+0.75rem)] bg-orange-50 border border-orange-200 rounded-md p-3 text-sm">
-          <p className="font-medium text-orange-800 mb-1">Heads up — this number already has activity:</p>
-          <ul className="space-y-1 text-orange-800">
+        <div className="ml-[calc(10rem+0.75rem)] bg-warn-tint border border-warn rounded-md p-3 text-sm">
+          <p className="font-medium text-warn mb-1">Heads up — this number already has activity:</p>
+          <ul className="space-y-1 text-warn">
             {warnings!.openEnquiries.map((e) => (
               <li key={e.id}>
                 • An open enquiry ({e.enquiry_product_interest || 'no product noted'}), {daysAgo(e.created_at)}d ago
