@@ -68,7 +68,7 @@ function DashboardPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       {viewAs && (
         <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-900 text-sm text-center py-2">
           Previewing as {viewAs} —{' '}
@@ -79,7 +79,7 @@ function DashboardPageInner() {
       )}
       <header className="bg-white shadow">
         <div className="max-w-6xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-2">
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Water Purifier Service</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Noon Enterprises</h1>
           <div className="flex items-center gap-3 sm:gap-4">
             <span className="text-sm text-gray-500">
               {user.name} ({user.role})

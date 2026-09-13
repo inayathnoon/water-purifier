@@ -36,8 +36,7 @@ interface OwnerDashboardData {
     customers: { name: string };
   }[];
   jobsToDispatch: { id: string; kind: string; created_at: string; enquiry_product_interest: string; customers: { name: string; phone_number: string } }[];
-  weekStart: string;
-  weekEnd: string;
+  scheduleDays: string[];
 }
 
 const CATEGORY_CARDS: { key: 'KITCHEN' | 'VESSEL' | 'COMMERCIAL' | 'serviceCharge' | 'spare'; label: string; color: string }[] = [
@@ -91,7 +90,7 @@ export default function OwnerDashboard() {
       {/* This month, at a glance — one card per segment, the total on the
           right, no plain white table. This is the owner's first read of
           the page, not a link list. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {CATEGORY_CARDS.map((c) => (
           <div key={c.key} className={`rounded-xl border p-3 ${c.color}`}>
             <p className="text-xs font-medium opacity-70">{c.label}</p>
@@ -109,7 +108,7 @@ export default function OwnerDashboard() {
       {/* Escalations first, dispatch status third — status cards are
           view-only (admin does the assigning/marking-done/confirming day
           to day), the owner just sees where things stand. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <DashboardCard
           title="Vessel / Commercial enquiries"
           badge={data.commercialVesselEnquiries.length > 0 ? `${data.commercialVesselEnquiries.length}` : undefined}
@@ -197,7 +196,7 @@ export default function OwnerDashboard() {
       </div>
 
       <div className="mb-4">
-        <WeekSchedule weekStart={data.weekStart} weekEnd={data.weekEnd} weekJobs={data.weekJobs} staff={staff} />
+        <WeekSchedule days={data.scheduleDays} weekJobs={data.weekJobs} staff={staff} />
       </div>
 
       {data.pendingLeaveCount > 0 && (

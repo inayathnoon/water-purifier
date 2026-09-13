@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Water Purifier Service",
+  title: "Noon Enterprises",
   description: "Internal service and sales tracking for the water purifier team",
 };
 

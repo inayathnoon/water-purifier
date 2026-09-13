@@ -276,12 +276,11 @@ function SparePartsPageInner() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <p className="text-sm text-gray-500">Nothing to record for this visit?</p>
               {noSparesError && <p className="text-red-600 text-xs">{noSparesError}</p>}
               <button
                 onClick={handleNoSparesNeeded}
                 disabled={confirmingNoSpares}
-                className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50"
+                className="text-sm text-gray-600 hover:underline disabled:opacity-50"
               >
                 {confirmingNoSpares ? 'Saving...' : 'No parts used'}
               </button>

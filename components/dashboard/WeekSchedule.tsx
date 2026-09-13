@@ -1,8 +1,8 @@
 'use client';
 
-// Mon–Sat of the current calendar week (fixed, not a rolling next-7-days
-// window — see mondayOfWeekIST()), staff as rows — used on both the admin
-// and owner dashboards, identical except admin's cells are clickable (to
+// Today plus the next couple of days, skipping Sunday (see
+// nextWorkingDaysIST()) — staff as rows — used on both the admin and
+// owner dashboards, identical except admin's cells are clickable (to
 // reassign/edit a booked job in place) and owner's are read-only.
 
 // Admin's weekJobs carries extra fields (location, a stricter status) that
@@ -23,25 +23,16 @@ interface WeekScheduleStaff {
   name: string;
 }
 
-function weekDates(start: string, end: string): string[] {
-  const dates: string[] = [];
-  const cur = new Date(`${start}T00:00:00Z`);
-  const last = new Date(`${end}T00:00:00Z`);
-  while (cur <= last) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return dates;
-}
-
 function dayLabel(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   return d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) + ' ' + dateStr.slice(5);
 }
 
 interface WeekScheduleProps<T extends WeekJobBase> {
-  weekStart: string;
-  weekEnd: string;
+  // The exact days to show, in order — not necessarily contiguous
+  // (Sunday is dropped, so the window can span one day further than
+  // `days.length` would otherwise cover).
+  days: string[];
   weekJobs: T[];
   staff: WeekScheduleStaff[];
   // Admin only — clicking a booked job opens its edit form. Owner's
@@ -51,14 +42,14 @@ interface WeekScheduleProps<T extends WeekJobBase> {
 }
 
 export default function WeekSchedule<T extends WeekJobBase>({
-  weekStart,
-  weekEnd,
+  days,
   weekJobs,
   staff,
   onJobClick,
   activeJobId,
 }: WeekScheduleProps<T>) {
-  const days = weekDates(weekStart, weekEnd);
+  const HALF_DAY_ORDER: Record<string, number> = { morning: 0, afternoon: 1, evening: 2 };
+
   const jobsByStaffAndDay = new Map<string, Map<string, T[]>>();
   for (const job of weekJobs) {
     if (!job.assigned_to_id) continue;
@@ -67,11 +58,17 @@ export default function WeekSchedule<T extends WeekJobBase>({
     if (!byDay.has(job.booked_date)) byDay.set(job.booked_date, []);
     byDay.get(job.booked_date)!.push(job);
   }
+  // Morning, then Afternoon, then Evening within each day's cell.
+  for (const byDay of jobsByStaffAndDay.values()) {
+    for (const jobs of byDay.values()) {
+      jobs.sort((a, b) => (HALF_DAY_ORDER[a.booked_half_day] ?? 99) - (HALF_DAY_ORDER[b.booked_half_day] ?? 99));
+    }
+  }
 
   return (
     <div>
       <h2 className="text-lg font-semibold text-gray-900 mb-3">
-        This Week ({weekStart} – {weekEnd})
+        Staff Schedule ({days.length > 1 ? `${dayLabel(days[0])} – ${dayLabel(days[days.length - 1])}` : dayLabel(days[0])})
       </h2>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 overflow-x-auto">
         <table className="w-full text-sm">

@@ -10,7 +10,13 @@
  * stops applying its own dark-mode heuristics to native form controls too. */
 :root {
   color-scheme: light;
-  --background: #ffffff;
+  /* A light, muted slate-blue tint for the page canvas — cooler and more
+     "industrial" than a soft pastel blue, closer to a steel-blue/enterprise
+     tone. White cards (every screen already uses bg-white + a border/
+     shadow, see the 2026-09-05 "White Background" note) sit on top of
+     this instead of on plain white, giving the app some visual identity
+     instead of looking flat. */
+  --background: #eef1f5;
   --foreground: #171717;
 }
 

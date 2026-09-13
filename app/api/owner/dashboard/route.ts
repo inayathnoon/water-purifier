@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { monthStartISTThreshold, mondayOfWeekIST } from '@/lib/dates';
+import { monthStartISTThreshold, nextWorkingDaysIST } from '@/lib/dates';
 
 // §15.3's "what did we earn this month" split out by category — the three
 // product categories (from the sold purifier itself), spare parts (both
@@ -14,14 +14,6 @@ type CategoryKey = (typeof CATEGORY_KEYS)[number];
 // flat "Service charges" line (whatever case/pluralization the sheet uses).
 function isServiceChargeRow(partName: string): boolean {
   return partName.trim().toLowerCase().startsWith('service charge');
-}
-
-// booked_date is a plain DATE column — string arithmetic avoids the
-// timestamptz-threshold helpers built for created_at-style columns.
-function dateAddDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -39,10 +31,11 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Owner" preview works.
     await requireUser(['owner', 'developer']);
 
-    // Mon–Sat of the current calendar week, fixed — not a rolling
-    // next-7-days window from today.
-    const weekStart = mondayOfWeekIST();
-    const weekEnd = dateAddDays(weekStart, 5);
+    // Today plus the next 2 days, skipping Sunday — not a fixed calendar
+    // week any more (see nextWorkingDaysIST()).
+    const scheduleDays = nextWorkingDaysIST(3);
+    const weekStart = scheduleDays[0];
+    const weekEnd = scheduleDays[scheduleDays.length - 1];
     const monthStartISO = monthStartISTThreshold();
 
     const [
@@ -203,8 +196,7 @@ export async function GET() {
       commercialVesselEnquiries: commercialVesselEnquiries.data ?? [],
       weekJobs: weekJobs.data ?? [],
       jobsToDispatch: jobsToDispatch.data ?? [],
-      weekStart,
-      weekEnd,
+      scheduleDays,
     });
   } catch (err) {
     return handleApiError(err);

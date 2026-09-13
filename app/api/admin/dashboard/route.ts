@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { daysAgoIST, isEnquiryOverdue, todayIST, mondayOfWeekIST } from '@/lib/dates';
+import { daysAgoIST, isEnquiryOverdue, todayIST, nextWorkingDaysIST } from '@/lib/dates';
 import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
 // installation_date is a plain DATE (no time/timezone component) — doing
@@ -9,12 +9,6 @@ import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 function dateMinusDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-function dateAddDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -30,10 +24,11 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Admin" preview works.
     await requireUser(['admin', 'owner', 'developer']);
     const today = todayIST();
-    // Mon–Sat of the current calendar week, fixed — not a rolling
-    // next-7-days window from today.
-    const weekStart = mondayOfWeekIST();
-    const weekEnd = dateAddDays(weekStart, 5);
+    // Today plus the next 2 days, skipping Sunday — not a fixed calendar
+    // week any more (see nextWorkingDaysIST()).
+    const scheduleDays = nextWorkingDaysIST(3);
+    const weekStart = scheduleDays[0];
+    const weekEnd = scheduleDays[scheduleDays.length - 1];
 
     const [newEnquiries, jobsToDispatch, dueForMarkDone, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue, weekJobs] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
@@ -200,8 +195,7 @@ export async function GET() {
       overdueCallCount,
       satisfactionCallsDue: satisfactionCallsDueList,
       weekJobs: weekJobs.data ?? [],
-      weekStart,
-      weekEnd,
+      scheduleDays,
       today,
     });
   } catch (err) {

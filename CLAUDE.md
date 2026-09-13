@@ -3246,6 +3246,54 @@ against a real ticket, confirmed the ticket ends up `completed`.
 `tsc`/`next build`/`eslint` clean (still 25/4, no new issues), all 5
 hard-rule tests pass.
 
+## Staff Schedule Rework, Nav Merge, Rebrand (2026-09-13)
+
+Another round of direct, rapid-fire feedback on the dashboards.
+
+**"This Week" → "Staff Schedule", rolling 3 working days.** Replaced
+the fixed Mon–Sat calendar week (added just one round ago) with today
+plus the next 2 days, Sunday always skipped — new `nextWorkingDaysIST()`
+in `lib/dates.ts`, walking forward from today and dropping day-of-week
+0, so the window always extends far enough to show exactly 3 real days
+regardless of where Sunday falls in it. `WeekSchedule` now takes an
+explicit `days: string[]` instead of computing a contiguous range from
+`weekStart`/`weekEnd` internally — both dashboard routes compute
+`scheduleDays` once and hand it straight through; the heading reads
+"Staff Schedule (first – last)". Jobs within each day's cell are now
+sorted Morning → Afternoon → Evening, not left in query order.
+
+**Layout, worked out live over several iterations**: Jobs to Dispatch
+sits next to Staff Schedule (which renders its own card chrome, so it
+drops straight into a grid column); New Enquiries, Finished
+Installation/Service, and Payments Outstanding form the row below;
+Yearly Service Calls Due keeps its own full-width row at the bottom —
+tried merged into the top row first, didn't fit naturally, moved back
+out.
+
+**"Request time off" merged into the main nav/action grid** as a 7th
+column (a lone "+ Request Time Off" button, matching the shape
+Customers/Products already use for having no create action of their
+own) instead of sitting as a separate line above it.
+
+**Spare-parts page tidy-ups**: the flat-fee/kind label under "Service
+visit"/"Installation" tags across the dashboard now stacks on two
+lines instead of running together with " · "; the "No parts used"
+prompt lost its leading question ("Nothing to record for this visit?")
+and is now a plain small text link — the action needs no framing
+question, admins already know what it does.
+
+**Rebrand**: "Water Purifier Service" → "Noon Enterprises" everywhere
+it appeared as a heading or page title (login, dashboard header,
+`<title>`). Page background changed from plain white to a light,
+muted slate-blue (`#eef1f5`) — cards keep their existing `bg-white` +
+border/shadow treatment, now with something to actually sit on top of
+instead of blending into the page.
+
+**Verified**: `nextWorkingDaysIST()` checked from a Saturday, a Monday,
+and a Friday — each correctly skips Sunday and always returns exactly
+3 real dates. `tsc`/`next build`/`eslint` clean (25/4, unchanged), all
+5 hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

@@ -41,8 +41,7 @@ interface AdminDashboardData {
     assigned_to_id: string | null;
     customers: { name: string };
   }[];
-  weekStart: string;
-  weekEnd: string;
+  scheduleDays: string[];
 }
 
 export default function AdminDashboard() {
@@ -207,13 +206,8 @@ export default function AdminDashboard() {
   return (
     <div>
       {confirmDialog}
-      <div className="flex flex-col gap-2 mb-3">
-        <div className="flex justify-end">
-          <Link href="/admin/leave" className="text-sm text-blue-600 hover:underline">
-            Request time off →
-          </Link>
-        </div>
-        <div className="grid grid-cols-6 gap-2 max-w-3xl">
+      <div className="mb-5">
+        <div className="grid grid-cols-7 gap-2 max-w-4xl">
           {[
             { href: '/admin/enquiries', label: 'Enquiries', newHref: '/admin/enquiries?new=1', newLabel: '+ New Enquiry', newColor: 'bg-blue-600 hover:bg-blue-700 text-white' },
             { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase', newColor: 'bg-green-600 hover:bg-green-700 text-white' },
@@ -221,27 +215,32 @@ export default function AdminDashboard() {
             { href: '/admin/spare-parts', label: 'Spares', newHref: '/admin/spare-parts?new=1', newLabel: '+ Sell Spares', newColor: 'bg-orange-500 hover:bg-orange-600 text-white' },
             { href: '/admin/customers', label: 'Customers' },
             { href: '/admin/products', label: 'Products' },
+            { href: '/admin/leave', label: 'Time off', newHref: '/admin/leave', newLabel: '+ Request Time Off', newColor: 'bg-gray-700 hover:bg-gray-800 text-white', browseHidden: true },
           ].map((item) => (
             <div key={item.href} className="flex flex-col gap-2">
               {item.newHref ? (
-                <Link href={item.newHref} className={`px-2 py-2 rounded-md text-sm text-center ${item.newColor}`}>
+                <Link href={item.newHref} className={`px-2 py-2 rounded-md text-sm text-center font-medium ${item.newColor}`}>
                   {item.newLabel}
                 </Link>
               ) : (
                 <div className="px-2 py-2 text-sm invisible">—</div>
               )}
-              <Link
-                href={item.href}
-                className="px-2 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-900 text-center hover:bg-gray-50 hover:border-gray-400"
-              >
-                {item.label}
-              </Link>
+              {item.browseHidden ? (
+                <div className="px-2 py-2 text-sm invisible">—</div>
+              ) : (
+                <Link
+                  href={item.href}
+                  className="px-2 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-900 text-center hover:bg-gray-50 hover:border-gray-400"
+                >
+                  {item.label}
+                </Link>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <DashboardCard
           title="Jobs to dispatch"
           badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} over 3 days` : undefined}
@@ -267,9 +266,11 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
-                      {t.kind === 'installation' ? 'Installation' : 'Service visit'} · {age}d
-                      {age >= 3 ? ' — overdue' : ''}
+                    <span className={`text-xs text-right leading-tight ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
+                      <span className="block">{t.kind === 'installation' ? 'Installation' : 'Service visit'}</span>
+                      <span className="block">
+                        {age}d{age >= 3 ? ' — overdue' : ''}
+                      </span>
                     </span>
                     <button
                       onClick={() => (assigningId === t.id ? setAssigningId(null) : startAssigning(t.id))}
@@ -303,8 +304,7 @@ export default function AdminDashboard() {
         </DashboardCard>
 
         <WeekSchedule
-          weekStart={data.weekStart}
-          weekEnd={data.weekEnd}
+          days={data.scheduleDays}
           weekJobs={data.weekJobs}
           staff={staff}
           onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
@@ -344,7 +344,7 @@ export default function AdminDashboard() {
           );
         })()}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
         <DashboardCard
           title="New enquiries"
           badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
@@ -533,7 +533,7 @@ export default function AdminDashboard() {
         </DashboardCard>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-4">
         <DashboardCard
           title="Yearly service calls due"
           badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
