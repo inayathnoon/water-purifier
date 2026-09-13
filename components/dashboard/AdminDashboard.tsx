@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { daysAgoIST, enquiryUrgency } from '@/lib/dates';
+import { toStartCase, formatINR } from '@/lib/format';
 import BookingForm from '@/components/BookingForm';
 import WeekSchedule from '@/components/dashboard/WeekSchedule';
 import { useConfirm } from '@/components/useConfirm';
-import { DashboardCard, Row, StaffMember, emptyAssignForm } from './shared';
+import { DashboardCard, StaffMember, emptyAssignForm, TypeTag, Tone } from './shared';
 
 const daysAgo = daysAgoIST;
 
@@ -44,25 +44,46 @@ interface AdminDashboardData {
   scheduleDays: string[];
 }
 
+type FilterGroup = 'dispatch' | 'enquiry' | 'closeout' | 'payment';
+
+// One unified row shape the whole "Needs you today" queue is built from —
+// every source list (dispatch, enquiries, close-outs, yearly service,
+// payments) reduces to this so they can share one sort and one filter set.
+interface QueueRow {
+  key: string;
+  group: FilterGroup;
+  kind: string;
+  primary: string;
+  secondary: string;
+  ageDays: number;
+  ageLabel: string;
+  ageTone: Tone;
+  render: () => React.ReactNode;
+}
+
+const FILTERS: { key: FilterGroup | 'all'; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'dispatch', label: 'Dispatch' },
+  { key: 'enquiry', label: 'Enquiries' },
+  { key: 'closeout', label: 'Close-outs' },
+  { key: 'payment', label: 'Payments' },
+];
+
 export default function AdminDashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [filter, setFilter] = useState<FilterGroup | 'all'>('all');
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState(emptyAssignForm());
   const [assignError, setAssignError] = useState('');
   const [assigning, setAssigning] = useState(false);
-  // "Finished Installation/Service" card — confirming right from the
-  // dashboard instead of navigating to Purchases/Services first.
-  const [showAllConfirm, setShowAllConfirm] = useState(false);
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
   const [confirmJobError, setConfirmJobError] = useState('');
   const [satisfactionNoteFor, setSatisfactionNoteFor] = useState<string | null>(null);
   const [satisfactionNote, setSatisfactionNote] = useState('');
   const [satisfactionError, setSatisfactionError] = useState('');
   const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
-  // Part 1 of "Finished Installation/Service" — no technician login to
-  // mark their own job done any more, so admin does it from here.
   const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
   const [markDoneError, setMarkDoneError] = useState('');
   const [confirm, confirmDialog] = useConfirm();
@@ -93,10 +114,6 @@ export default function AdminDashboard() {
     setAssignForm(emptyAssignForm());
   };
 
-  // §5: reassign/reschedule a job that's already booked, straight from
-  // the This Week grid — same book endpoint as a fresh assignment (it's
-  // just an update either way), pre-filled with what's there now instead
-  // of starting blank.
   const startEditingJob = (job: AdminDashboardData['weekJobs'][number]) => {
     setAssignError('');
     setAssigningId(null);
@@ -114,8 +131,6 @@ export default function AdminDashboard() {
     setAssignError('');
     setAssigning(true);
     const endpoint = job.kind === 'installation' ? `/api/admin/installations/${job.id}/book` : `/api/admin/service-calls/${job.id}/book`;
-    // Installations always happen at the customer's home, regardless of
-    // whatever the (hidden, for installations) location select last held.
     const payload = job.kind === 'installation' ? { ...assignForm, location: 'home' } : assignForm;
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -132,9 +147,6 @@ export default function AdminDashboard() {
     loadDashboard();
   };
 
-  // The tech has already marked the job done — this is the admin's
-  // confirmation call, right from the dashboard instead of navigating to
-  // Purchases/Services first. Same endpoint both those pages already use.
   const handleConfirmJob = async (ticketId: string) => {
     setConfirmJobError('');
     setConfirmingJobId(ticketId);
@@ -147,10 +159,6 @@ export default function AdminDashboard() {
     loadDashboard();
   };
 
-  // Part 1 — "Installed" / "Service completed": the tech has reported
-  // back (phone/Telegram) that the job is done; admin records it here.
-  // Stamps today as the completion date — see CLAUDE.md's staff-portal
-  // removal note for why there's no backdating field.
   const handleMarkDone = async (ticketId: string, label: string) => {
     if (!(await confirm(`Mark this ${label.toLowerCase()} done?`))) return;
     setMarkDoneError('');
@@ -164,10 +172,6 @@ export default function AdminDashboard() {
     loadDashboard();
   };
 
-  // Part 2 — any spare part sold gets recorded on Sell Spare Part,
-  // pre-filled and tagged with this job's own ticket id so the sale is
-  // traceable back to it (§13.3's warranty-free check is enforced there,
-  // server-side, from the ticket this links to).
   const sellSparePartHref = (t: { id: string; kind: string; customers: { name: string; phone_number: string } }) =>
     `/admin/spare-parts?new=1&ticketId=${t.id}&kind=${t.kind}` +
     `&customerName=${encodeURIComponent(t.customers.name)}&phone=${encodeURIComponent(t.customers.phone_number)}`;
@@ -178,9 +182,6 @@ export default function AdminDashboard() {
     setSatisfactionNote('');
   };
 
-  // A separate follow-up satisfaction call, needing its own short note
-  // (mirrors §5.4/§5.5's word-count rule) — same endpoint /admin/orders
-  // already uses for "Log follow-up call".
   const handleConfirmSatisfaction = async (e: React.FormEvent, orderId: string) => {
     e.preventDefault();
     if (confirmingSatisfaction) return;
@@ -201,115 +202,366 @@ export default function AdminDashboard() {
     loadDashboard();
   };
 
-  if (!data) return <p>Loading...</p>;
+  // Build one queue from every source list — this is the "Needs you
+  // today" merge (§7.2): dispatch, enquiries, close-outs (due/job/
+  // satisfaction + yearly service), payments.
+  const rows: QueueRow[] = useMemo(() => {
+    if (!data) return [];
+    const out: QueueRow[] = [];
+
+    for (const t of data.jobsToDispatch) {
+      const age = daysAgo(t.created_at);
+      out.push({
+        key: `dispatch-${t.id}`,
+        group: 'dispatch',
+        kind: t.kind,
+        primary: toStartCase(t.customers.name),
+        secondary: [t.enquiry_product_interest, t.customers.area].filter(Boolean).map(toStartCase).join(' · ') || t.customers.phone_number,
+        ageDays: age,
+        ageLabel: age >= 3 ? `${age}d overdue` : `${age}d open`,
+        ageTone: age >= 3 ? 'danger' : 'neutral',
+        render: () => (
+          <div key={t.id} className="py-3 border-b border-divider last:border-0">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                  <TypeTag kind={t.kind} />
+                  {toStartCase(t.customers.name)}
+                </p>
+                <p className="text-[13px] text-ink-2 truncate">
+                  {[t.enquiry_product_interest, t.customers.area].filter(Boolean).map(toStartCase).join(' · ') || t.customers.phone_number}
+                </p>
+              </div>
+              <span className={`text-[13px] font-medium shrink-0 ${age >= 3 ? 'text-danger' : 'text-ink-2'}`}>
+                {age >= 3 ? `${age}d overdue` : `${age}d open`}
+              </span>
+              <button
+                onClick={() => (assigningId === t.id ? setAssigningId(null) : startAssigning(t.id))}
+                className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+              >
+                Assign
+              </button>
+            </div>
+            {assigningId === t.id && (
+              <form onSubmit={(e) => handleAssign(e, t)} className="mt-3 pt-3 border-t border-divider space-y-2">
+                {assignError && <p className="text-danger text-[13px]">{assignError}</p>}
+                <BookingForm
+                  staff={staff}
+                  value={assignForm}
+                  onChange={setAssignForm}
+                  showLocation={t.kind !== 'installation'}
+                  submitLabel="Confirm assignment"
+                  submittingLabel="Assigning…"
+                  submitting={assigning}
+                  compact
+                />
+              </form>
+            )}
+          </div>
+        ),
+      });
+    }
+
+    for (const e of data.newEnquiries) {
+      const urgency = enquiryUrgency(e.created_at, e.last_call_at);
+      const age = e.last_call_at ? daysAgo(e.last_call_at) : daysAgo(e.created_at);
+      const label = e.last_call_at ? `last called ${age}d ago` : urgency === 'red' ? `${age}d open` : `${age}d`;
+      const tone: Tone = urgency === 'red' ? 'danger' : urgency === 'yellow' ? 'warn' : 'neutral';
+      out.push({
+        key: `enquiry-${e.id}`,
+        group: 'enquiry',
+        kind: 'enquiry',
+        primary: toStartCase(e.customers.name),
+        secondary: e.enquiry_product_interest ? toStartCase(e.enquiry_product_interest) : e.customers.phone_number,
+        ageDays: age,
+        ageLabel: label,
+        ageTone: tone,
+        render: () => (
+          <div key={e.id} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                <TypeTag kind="enquiry" />
+                {toStartCase(e.customers.name)}
+              </p>
+              <p className="text-[13px] text-ink-2 truncate">{e.enquiry_product_interest ? toStartCase(e.enquiry_product_interest) : e.customers.phone_number}</p>
+            </div>
+            <span className={`text-[13px] font-medium shrink-0 ${tone === 'danger' ? 'text-danger' : tone === 'warn' ? 'text-warn' : 'text-ink-2'}`}>
+              {label}
+            </span>
+            <a href={`/admin/enquiries/${e.id}`} className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint">
+              Open
+            </a>
+          </div>
+        ),
+      });
+    }
+
+    for (const t of data.dueForMarkDone) {
+      const age = daysAgo(t.booked_date);
+      out.push({
+        key: `due-${t.id}`,
+        group: 'closeout',
+        kind: t.kind,
+        primary: toStartCase(t.customers.name),
+        secondary: t.customers.phone_number,
+        ageDays: age,
+        ageLabel: age >= 3 ? `${age}d overdue` : `${age}d`,
+        ageTone: age >= 3 ? 'danger' : 'neutral',
+        render: () => (
+          <div key={`due-${t.id}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                <TypeTag kind={t.kind} />
+                {toStartCase(t.customers.name)}
+              </p>
+              <p className="text-[13px] text-ink-2 truncate">{t.customers.phone_number}</p>
+            </div>
+            <span className={`text-[13px] font-medium shrink-0 ${age >= 3 ? 'text-danger' : 'text-ink-2'}`}>
+              {age >= 3 ? `${age}d overdue` : `${age}d`}
+            </span>
+            {t.kind === 'installation' ? (
+              <button
+                onClick={() => handleMarkDone(t.id, 'Installation')}
+                disabled={markingDoneId === t.id}
+                className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
+              >
+                {markingDoneId === t.id ? 'Saving…' : 'Installed'}
+              </button>
+            ) : (
+              <a href={sellSparePartHref(t)} className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint">
+                Service completed
+              </a>
+            )}
+          </div>
+        ),
+      });
+    }
+
+    for (const t of data.awaitingConfirmation) {
+      const age = daysAgo(t.actual_date);
+      out.push({
+        key: `job-${t.id}`,
+        group: 'closeout',
+        kind: t.kind,
+        primary: toStartCase(t.customers.name),
+        secondary: t.customers.phone_number,
+        ageDays: age,
+        ageLabel: age >= 7 ? `${age}d overdue` : `${age}d`,
+        ageTone: age >= 7 ? 'danger' : 'neutral',
+        render: () => (
+          <div key={`job-${t.id}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                <TypeTag kind={t.kind} />
+                {toStartCase(t.customers.name)}
+              </p>
+              <p className="text-[13px] text-ink-2 truncate">{t.customers.phone_number}</p>
+            </div>
+            <span className={`text-[13px] font-medium shrink-0 ${age >= 7 ? 'text-danger' : 'text-ink-2'}`}>
+              {age >= 7 ? `${age}d overdue` : `${age}d`}
+            </span>
+            <button
+              onClick={() => handleConfirmJob(t.id)}
+              disabled={confirmingJobId === t.id}
+              className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
+            >
+              {confirmingJobId === t.id ? 'Confirming…' : 'Called & confirmed'}
+            </button>
+          </div>
+        ),
+      });
+    }
+
+    for (const s of data.satisfactionCallsDue) {
+      const age = daysAgo(s.installationDate);
+      out.push({
+        key: `satisfaction-${s.orderId}`,
+        group: 'closeout',
+        kind: 'follow_up',
+        primary: toStartCase(s.customers.name),
+        secondary: s.customers.phone_number,
+        ageDays: age,
+        ageLabel: `installed ${age}d ago`,
+        ageTone: 'neutral',
+        render: () => (
+          <div key={`satisfaction-${s.orderId}`} className="py-3 border-b border-divider last:border-0">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                  <TypeTag kind="follow_up" />
+                  {toStartCase(s.customers.name)}
+                </p>
+                <p className="text-[13px] text-ink-2 truncate">{s.customers.phone_number}</p>
+              </div>
+              <span className="text-[13px] text-ink-2 shrink-0">installed {age}d ago</span>
+              <button
+                onClick={() => (satisfactionNoteFor === s.orderId ? setSatisfactionNoteFor(null) : startSatisfaction(s.orderId))}
+                className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint"
+              >
+                {satisfactionNoteFor === s.orderId ? 'Cancel' : 'Confirm'}
+              </button>
+            </div>
+            {satisfactionNoteFor === s.orderId && (
+              <form onSubmit={(e) => handleConfirmSatisfaction(e, s.orderId)} className="mt-3 pt-3 border-t border-divider flex gap-2">
+                {satisfactionError && <p className="w-full text-danger text-[13px]">{satisfactionError}</p>}
+                <input
+                  required
+                  placeholder="What did they say? (3+ words)"
+                  className="border border-rule rounded-xs px-2 py-1.5 text-[13px] flex-1 focus-visible:outline-2 focus-visible:outline-accent"
+                  value={satisfactionNote}
+                  onChange={(e) => setSatisfactionNote(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={confirmingSatisfaction}
+                  className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-[13px] font-semibold disabled:opacity-50"
+                >
+                  {confirmingSatisfaction ? 'Saving…' : 'Save'}
+                </button>
+              </form>
+            )}
+          </div>
+        ),
+      });
+    }
+
+    for (const s of data.serviceCallsDue) {
+      const ageDays = Math.round(s.monthsSinceInstall * 30);
+      out.push({
+        key: `yearly-${s.installationTicketId}`,
+        group: 'closeout',
+        kind: 'service_visit',
+        primary: toStartCase(s.customerName),
+        secondary: [s.productLabel, s.area].filter(Boolean).map((x) => toStartCase(x as string)).join(' · '),
+        ageDays,
+        ageLabel: `${(s.monthsSinceInstall / 12).toFixed(1)}y since install`,
+        ageTone: 'neutral',
+        render: () => (
+          <div key={`yearly-${s.installationTicketId}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                <TypeTag kind="service_visit" />
+                {toStartCase(s.customerName)}
+              </p>
+              <p className="text-[13px] text-ink-2 truncate">{[s.productLabel, s.area].filter(Boolean).map((x) => toStartCase(x as string)).join(' · ')}</p>
+            </div>
+            <span className="text-[13px] text-ink-2 shrink-0">{(s.monthsSinceInstall / 12).toFixed(1)}y since install</span>
+            <a
+              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
+              className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint"
+            >
+              View
+            </a>
+          </div>
+        ),
+      });
+    }
+
+    for (const o of data.paymentsOutstanding) {
+      const age = o.oldestInstallationDate ? daysAgo(o.oldestInstallationDate) : 0;
+      out.push({
+        key: `payment-${o.phoneNumber}`,
+        group: 'payment',
+        kind: 'payment',
+        primary: toStartCase(o.name),
+        secondary: o.orderCount > 1 ? `${o.orderCount} purchases` : o.phoneNumber,
+        ageDays: age,
+        ageLabel: `${formatINR(o.totalBalance)}${o.oldestInstallationDate ? ` · ${age}d` : ''}`,
+        ageTone: 'danger',
+        render: () => (
+          <div key={`payment-${o.phoneNumber}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                <TypeTag kind="payment" />
+                {toStartCase(o.name)}
+              </p>
+              <p className="text-[13px] text-ink-2 truncate">{o.orderCount > 1 ? `${o.orderCount} purchases` : o.phoneNumber}</p>
+            </div>
+            <span className="text-[13px] font-semibold text-danger tabular-nums shrink-0">
+              {formatINR(o.totalBalance)}
+              {o.oldestInstallationDate ? ` · ${age}d` : ''}
+            </span>
+            <a
+              href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
+              className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint"
+            >
+              Record payment
+            </a>
+          </div>
+        ),
+      });
+    }
+
+    out.sort((a, b) => b.ageDays - a.ageDays);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    data,
+    assigningId,
+    assignForm,
+    assignError,
+    assigning,
+    staff,
+    markingDoneId,
+    confirmingJobId,
+    satisfactionNoteFor,
+    satisfactionNote,
+    satisfactionError,
+    confirmingSatisfaction,
+  ]);
+
+  const visibleRows = filter === 'all' ? rows : rows.filter((r) => r.group === filter);
+
+  if (!data) return <p className="text-ink-2 text-[13px]">Loading…</p>;
 
   return (
-    <div>
+    <div className="flex flex-col gap-6">
       {confirmDialog}
-      <div className="mb-5">
-        <div className="grid grid-cols-7 gap-2 max-w-4xl">
-          {[
-            { href: '/admin/enquiries', label: 'Enquiries', newHref: '/admin/enquiries?new=1', newLabel: '+ New Enquiry', newColor: 'bg-blue-600 hover:bg-blue-700 text-white' },
-            { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase', newColor: 'bg-green-600 hover:bg-green-700 text-white' },
-            { href: '/admin/service-calls', label: 'Services', newHref: '/admin/service-calls?new=1', newLabel: '+ New Service', newColor: 'bg-sky-400 hover:bg-sky-500 text-gray-900' },
-            { href: '/admin/spare-parts', label: 'Spares', newHref: '/admin/spare-parts?new=1', newLabel: '+ Sell Spares', newColor: 'bg-orange-500 hover:bg-orange-600 text-white' },
-            { href: '/admin/customers', label: 'Customers' },
-            { href: '/admin/products', label: 'Products' },
-            { href: '/admin/leave', label: 'Time off', newHref: '/admin/leave', newLabel: '+ Request Time Off', newColor: 'bg-gray-700 hover:bg-gray-800 text-white', browseHidden: true },
-          ].map((item) => (
-            <div key={item.href} className="flex flex-col gap-2">
-              {item.newHref ? (
-                <Link href={item.newHref} className={`px-2 py-2 rounded-md text-sm text-center font-medium ${item.newColor}`}>
-                  {item.newLabel}
-                </Link>
-              ) : (
-                <div className="px-2 py-2 text-sm invisible">—</div>
-              )}
-              {item.browseHidden ? (
-                <div className="px-2 py-2 text-sm invisible">—</div>
-              ) : (
-                <Link
-                  href={item.href}
-                  className="px-2 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-900 text-center hover:bg-gray-50 hover:border-gray-400"
-                >
-                  {item.label}
-                </Link>
-              )}
-            </div>
-          ))}
-        </div>
+
+      {/* Attention strip — one bordered row of counters, each a filter
+          shortcut into the queue below. A zero renders in plain ink. */}
+      <div className="bg-surface border border-rule flex flex-wrap divide-x divide-rule">
+        {[
+          { label: 'Overdue dispatch', count: data.overdueDispatchCount, group: 'dispatch' as const },
+          { label: 'Enquiries over 14 days', count: data.oldEnquiryCount, group: 'enquiry' as const },
+          { label: 'Finished, not closed', count: data.overdueMarkDoneCount + data.overdueConfirmationCount, group: 'closeout' as const },
+          { label: 'Payments overdue', count: data.overdueCallCount, group: 'payment' as const },
+        ].map((s) => (
+          <button
+            key={s.label}
+            onClick={() => setFilter(s.group)}
+            className="flex-1 min-w-[160px] text-left px-4 py-3 hover:bg-accent-tint focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2"
+          >
+            <p className={`text-[24px] font-bold tabular-nums leading-none ${s.count > 0 ? 'text-danger' : 'text-ink'}`}>{s.count}</p>
+            <p className="text-[13px] text-ink-2 mt-1">{s.label}</p>
+          </button>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DashboardCard
-          title="Jobs to dispatch"
-          badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} over 3 days` : undefined}
-          badgeColor="bg-red-100 text-red-800"
-          emptyText="Nothing waiting on a technician."
-          viewAllLinks={[
-            { label: 'New Installation', href: '/admin/installations' },
-            { label: 'Services', href: '/admin/service-calls' },
-          ]}
-          shownCount={Math.min(5, data.jobsToDispatch.length)}
-          totalCount={data.jobsToDispatch.length}
-        >
-          {data.jobsToDispatch.slice(0, 5).map((t) => {
-            const age = daysAgo(t.created_at);
-            return (
-              <div key={t.id} className="py-2 border-b last:border-0">
-                <div className="flex justify-between items-center gap-2">
-                  <div>
-                    <p className="text-sm font-medium">{t.customers.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {t.enquiry_product_interest || t.customers.phone_number}
-                      {t.customers.area ? ` · ${t.customers.area}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs text-right leading-tight ${age >= 3 ? 'text-red-600' : 'text-gray-900'}`}>
-                      <span className="block">{t.kind === 'installation' ? 'Installation' : 'Service visit'}</span>
-                      <span className="block">
-                        {age}d{age >= 3 ? ' — overdue' : ''}
-                      </span>
-                    </span>
-                    <button
-                      onClick={() => (assigningId === t.id ? setAssigningId(null) : startAssigning(t.id))}
-                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap"
-                    >
-                      Assign
-                    </button>
-                  </div>
-                </div>
-
-                {assigningId === t.id && (
-                  <form onSubmit={(e) => handleAssign(e, t)} className="mt-2 pt-2 border-t space-y-2">
-                    {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
-                    {/* Installations always happen at the customer's home
-                        — only a service visit can be brought to the office. */}
-                    <BookingForm
-                      staff={staff}
-                      value={assignForm}
-                      onChange={setAssignForm}
-                      showLocation={t.kind !== 'installation'}
-                      submitLabel="Confirm assignment"
-                      submittingLabel="Assigning..."
-                      submitting={assigning}
-                      compact
-                    />
-                  </form>
-                )}
-              </div>
-            );
-          })}
+      {/* Needs you today — the merged work queue. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-1 flex-wrap">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 text-[13px] font-semibold border ${
+                filter === f.key ? 'bg-accent text-white border-accent' : 'border-rule text-ink-2 hover:bg-accent-tint'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <DashboardCard title="Needs you today" emptyText="Nothing needs attention right now.">
+          {visibleRows.length > 0 && (
+            <>
+              {markDoneError && <p className="text-danger text-[13px] pt-3">{markDoneError}</p>}
+              {confirmJobError && <p className="text-danger text-[13px] pt-3">{confirmJobError}</p>}
+              {visibleRows.map((r) => r.render())}
+            </>
+          )}
         </DashboardCard>
-
-        <WeekSchedule
-          days={data.scheduleDays}
-          weekJobs={data.weekJobs}
-          staff={staff}
-          onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
-          activeJobId={editingJobId}
-        />
       </div>
 
       {editingJobId &&
@@ -319,24 +571,24 @@ export default function AdminDashboard() {
           return (
             <form
               onSubmit={(e) => handleAssign(e, job)}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-3 space-y-2 max-w-md"
+              className="bg-surface border border-rule p-4 space-y-2 max-w-md"
             >
               <div className="flex justify-between items-center">
-                <p className="text-sm font-medium">
-                  Editing {job.customers.name}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
+                <p className="text-[13px] font-semibold">
+                  Editing {toStartCase(job.customers.name)}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
                 </p>
-                <button type="button" onClick={() => setEditingJobId(null)} className="text-xs text-gray-600 hover:underline">
+                <button type="button" onClick={() => setEditingJobId(null)} className="text-[13px] text-ink-2 hover:underline">
                   Cancel
                 </button>
               </div>
-              {assignError && <p className="text-red-600 text-xs">{assignError}</p>}
+              {assignError && <p className="text-danger text-[13px]">{assignError}</p>}
               <BookingForm
                 staff={staff}
                 value={assignForm}
                 onChange={setAssignForm}
                 showLocation={job.kind !== 'installation'}
                 submitLabel="Save changes"
-                submittingLabel="Saving..."
+                submittingLabel="Saving…"
                 submitting={assigning}
                 compact
               />
@@ -344,221 +596,13 @@ export default function AdminDashboard() {
           );
         })()}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-        <DashboardCard
-          title="New enquiries"
-          badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
-          badgeColor="bg-red-100 text-red-800"
-          emptyText="Nothing open."
-          viewAllHref="/admin/enquiries"
-          shownCount={Math.min(5, data.newEnquiries.length)}
-          totalCount={data.newEnquiries.length}
-        >
-          {data.newEnquiries.slice(0, 5).map((e) => {
-            // Still sorted oldest-created-first (unchanged) even once
-            // flagged again — only the label/color reflect the call.
-            const urgency = enquiryUrgency(e.created_at, e.last_call_at);
-            const tag = e.last_call_at
-              ? `Last called ${daysAgo(e.last_call_at)}d ago`
-              : urgency === 'red'
-                ? `${daysAgo(e.created_at)}d — decide now`
-                : `${daysAgo(e.created_at)}d`;
-            const tagColor = urgency === 'red' ? 'text-red-600' : urgency === 'yellow' ? 'text-yellow-700' : 'text-gray-900';
-            return (
-              <Row
-                key={e.id}
-                href={`/admin/enquiries/${e.id}`}
-                primary={e.customers.name}
-                secondary={e.enquiry_product_interest || e.customers.phone_number}
-                tag={tag}
-                tagColor={tagColor}
-              />
-            );
-          })}
-        </DashboardCard>
-
-        <DashboardCard
-          title="Finished Installation/Service"
-          badge={
-            data.overdueMarkDoneCount + data.overdueConfirmationCount > 0
-              ? `${data.overdueMarkDoneCount + data.overdueConfirmationCount} overdue`
-              : undefined
-          }
-          badgeColor="bg-red-100 text-red-800"
-          emptyText="Nothing waiting here."
-        >
-          {(() => {
-            const combined = [
-              ...data.dueForMarkDone.map((t) => ({ type: 'due' as const, t })),
-              ...data.awaitingConfirmation.map((t) => ({ type: 'job' as const, t })),
-              ...data.satisfactionCallsDue.map((s) => ({ type: 'satisfaction' as const, s })),
-            ];
-            const CONFIRM_LIMIT = 5;
-            const visible = showAllConfirm ? combined : combined.slice(0, CONFIRM_LIMIT);
-            return (
-              <>
-                {confirmJobError && <p className="text-red-600 text-xs mb-1">{confirmJobError}</p>}
-                {markDoneError && <p className="text-red-600 text-xs mb-1">{markDoneError}</p>}
-                {visible.map((item) =>
-                  item.type === 'due' ? (
-                    // Installation: mark done directly, no spares step.
-                    // Service visit: "Service completed" sends the admin to
-                    // Sell Spare Part instead — recording a sale (or saying
-                    // none were needed) there is what actually marks the
-                    // job done now, not a separate click here.
-                    <div key={`due-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
-                      <div>
-                        <p className="text-sm font-medium">{item.t.customers.name}</p>
-                        <p className="text-xs text-gray-500">{item.t.customers.phone_number}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs text-right leading-tight ${daysAgo(item.t.booked_date) >= 3 ? 'text-red-600' : 'text-gray-500'}`}>
-                          <span className="block">{item.t.kind === 'installation' ? 'Installation' : 'Service visit'}</span>
-                          <span className="block">
-                            {daysAgo(item.t.booked_date)}d{daysAgo(item.t.booked_date) >= 3 ? ' — overdue' : ''}
-                          </span>
-                        </span>
-                        {item.t.kind === 'installation' ? (
-                          <button
-                            onClick={() => handleMarkDone(item.t.id, 'Installation')}
-                            disabled={markingDoneId === item.t.id}
-                            className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
-                          >
-                            {markingDoneId === item.t.id ? 'Saving...' : 'Installed'}
-                          </button>
-                        ) : (
-                          <Link
-                            href={sellSparePartHref(item.t)}
-                            className="px-2 py-1 bg-sky-400 hover:bg-sky-500 text-gray-900 rounded text-xs whitespace-nowrap"
-                          >
-                            Service completed
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  ) : item.type === 'job' ? (
-                    // Spares (for a service visit) are already handled by
-                    // this point — nothing left but the confirmation call.
-                    <div key={`job-${item.t.id}`} className="py-2 border-b last:border-0 flex justify-between items-center gap-2">
-                      <div>
-                        <p className="text-sm font-medium">{item.t.customers.name}</p>
-                        <p className="text-xs text-gray-500">{item.t.customers.phone_number}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs text-right leading-tight ${daysAgo(item.t.actual_date) >= 7 ? 'text-red-600' : 'text-gray-500'}`}>
-                          <span className="block">{item.t.kind === 'installation' ? 'Installation' : 'Service visit'}</span>
-                          <span className="block">
-                            {daysAgo(item.t.actual_date)}d{daysAgo(item.t.actual_date) >= 7 ? ' — overdue' : ''}
-                          </span>
-                        </span>
-                        <button
-                          onClick={() => handleConfirmJob(item.t.id)}
-                          disabled={confirmingJobId === item.t.id}
-                          className={`px-2 py-1 rounded text-xs disabled:opacity-50 whitespace-nowrap ${
-                            item.t.kind === 'installation'
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                              : 'bg-sky-400 hover:bg-sky-500 text-gray-900'
-                          }`}
-                        >
-                          {confirmingJobId === item.t.id ? 'Confirming...' : 'Called & Confirmed'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={`satisfaction-${item.s.orderId}`} className="py-2 border-b last:border-0">
-                      <div className="flex justify-between items-center gap-2">
-                        <div>
-                          <p className="text-sm font-medium">{item.s.customers.name}</p>
-                          <p className="text-xs text-gray-500">{item.s.customers.phone_number}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-right leading-tight text-gray-500">
-                            <span className="block">Follow-up</span>
-                            <span className="block">installed {daysAgo(item.s.installationDate)}d ago</span>
-                          </span>
-                          <button
-                            onClick={() => (satisfactionNoteFor === item.s.orderId ? setSatisfactionNoteFor(null) : startSatisfaction(item.s.orderId))}
-                            className="px-2 py-1 border rounded text-xs hover:bg-gray-50 whitespace-nowrap"
-                          >
-                            {satisfactionNoteFor === item.s.orderId ? 'Cancel' : 'Confirm'}
-                          </button>
-                        </div>
-                      </div>
-                      {satisfactionNoteFor === item.s.orderId && (
-                        <form onSubmit={(e) => handleConfirmSatisfaction(e, item.s.orderId)} className="mt-2 pt-2 border-t flex gap-2">
-                          {satisfactionError && <p className="w-full text-red-600 text-xs">{satisfactionError}</p>}
-                          <input
-                            required
-                            placeholder="What did they say? (3+ words)"
-                            className="border rounded px-2 py-1.5 text-xs flex-1"
-                            value={satisfactionNote}
-                            onChange={(e) => setSatisfactionNote(e.target.value)}
-                          />
-                          <button
-                            type="submit"
-                            disabled={confirmingSatisfaction}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {confirmingSatisfaction ? 'Saving...' : 'Save'}
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  )
-                )}
-                {combined.length > CONFIRM_LIMIT && (
-                  <button onClick={() => setShowAllConfirm((s) => !s)} className="block text-sm text-blue-600 hover:underline mt-2">
-                    {showAllConfirm ? 'Show less ▲' : `View all (${combined.length}) →`}
-                  </button>
-                )}
-              </>
-            );
-          })()}
-        </DashboardCard>
-
-        <DashboardCard
-          title="Payments outstanding"
-          badge={data.overdueCallCount > 0 ? `${data.overdueCallCount} overdue for a call` : undefined}
-          badgeColor="bg-orange-100 text-orange-800"
-          emptyText="Nothing owed. Nice."
-          viewAllHref="/admin/orders"
-          shownCount={Math.min(5, data.paymentsOutstanding.length)}
-          totalCount={data.paymentsOutstanding.length}
-        >
-          {data.paymentsOutstanding.slice(0, 5).map((o) => (
-            <Row
-              key={o.phoneNumber}
-              href={`/admin/customers?phone=${encodeURIComponent(o.phoneNumber)}`}
-              primary={o.name}
-              secondary={o.orderCount > 1 ? `${o.orderCount} purchases` : o.phoneNumber}
-              tag={`₹${o.totalBalance} owed${o.oldestInstallationDate ? ` · ${daysAgo(o.oldestInstallationDate)}d` : ''}`}
-              tagColor="text-red-600"
-            />
-          ))}
-        </DashboardCard>
-      </div>
-
-      <div className="mt-4">
-        <DashboardCard
-          title="Yearly service calls due"
-          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
-          badgeColor="bg-blue-100 text-blue-800"
-          emptyText="None due this month."
-          viewAllHref="/admin/service-calls"
-          shownCount={Math.min(5, data.serviceCallsDue.length)}
-          totalCount={data.serviceCallsDue.length}
-        >
-          {data.serviceCallsDue.slice(0, 5).map((s) => (
-            <Row
-              key={s.installationTicketId}
-              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
-              primary={s.customerName}
-              secondary={`${s.phoneNumber} · ${s.area}`}
-              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
-            />
-          ))}
-        </DashboardCard>
-      </div>
+      <WeekSchedule
+        days={data.scheduleDays}
+        weekJobs={data.weekJobs}
+        staff={staff}
+        onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
+        activeJobId={editingJobId}
+      />
     </div>
   );
 }

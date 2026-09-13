@@ -9,3 +9,10 @@ export function toStartCase(s: string): string {
     .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w))
     .join(' ');
 }
+
+// Every ₹ figure in the app goes through this — Indian digit grouping
+// (₹1,39,000, not ₹139000), no decimals (this app never handles paise).
+const inrFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+export function formatINR(n: number): string {
+  return `₹${inrFormatter.format(n)}`;
+}

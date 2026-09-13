@@ -65,65 +65,79 @@ export default function WeekSchedule<T extends WeekJobBase>({
     }
   }
 
+  const rangeLabel = days.length > 1 ? `${dayLabel(days[0])} – ${dayLabel(days[days.length - 1])}` : dayLabel(days[0]);
+  const isEmpty = weekJobs.length === 0;
+
   return (
-    <div>
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">
-        Staff Schedule ({days.length > 1 ? `${dayLabel(days[0])} – ${dayLabel(days[days.length - 1])}` : dayLabel(days[0])})
-      </h2>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-2 pr-3 whitespace-nowrap">Staff</th>
-              {days.map((d) => (
-                <th key={d} className="text-left py-2 px-2 whitespace-nowrap">
-                  {dayLabel(d)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {staff.map((s) => (
-              <tr key={s.id} className="border-b last:border-0 align-top">
-                <td className="py-2 pr-3 font-medium whitespace-nowrap">{s.name}</td>
-                {days.map((d) => {
-                  const jobs = jobsByStaffAndDay.get(s.id)?.get(d) ?? [];
-                  return (
-                    <td key={d} className="py-2 px-2">
-                      {jobs.map((j) =>
-                        onJobClick ? (
-                          <button
-                            key={j.id}
-                            onClick={() => onJobClick(j)}
-                            disabled={j.status !== 'booked'}
-                            className={`block text-xs mb-1 whitespace-nowrap text-left ${
-                              j.status === 'booked' ? 'hover:underline cursor-pointer' : 'cursor-default'
-                            } ${activeJobId === j.id ? 'font-semibold underline' : ''}`}
-                          >
-                            <span className={j.kind === 'installation' ? 'text-blue-700' : 'text-orange-700'}>
-                              {j.kind === 'installation' ? 'I' : 'S'}
-                            </span>{' '}
-                            {j.customers.name}
-                            <span className="text-gray-900"> ({j.booked_half_day[0].toUpperCase()})</span>
-                          </button>
-                        ) : (
-                          <div key={j.id} className="text-xs mb-1 whitespace-nowrap">
-                            <span className={j.kind === 'installation' ? 'text-blue-700' : 'text-orange-700'}>
-                              {j.kind === 'installation' ? 'I' : 'S'}
-                            </span>{' '}
-                            {j.customers.name}
-                            <span className="text-gray-900"> ({j.booked_half_day[0].toUpperCase()})</span>
-                          </div>
-                        )
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="bg-surface border border-rule">
+      <div className="px-4 py-3 border-b border-rule">
+        <h3 className="font-condensed text-[15px] uppercase tracking-[0.06em]">Staff schedule ({rangeLabel})</h3>
       </div>
+      {isEmpty ? (
+        <p className="px-4 py-3 text-[13px] text-ink-2">No jobs scheduled — assign from the queue above.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="bg-inset">
+                <th className="text-left py-2 px-4 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Staff</th>
+                {days.map((d) => (
+                  <th key={d} className="text-left py-2 px-3 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">
+                    {dayLabel(d)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => (
+                <tr key={s.id} className="border-t border-divider align-top">
+                  <td className="py-2.5 px-4 font-semibold whitespace-nowrap">{s.name}</td>
+                  {days.map((d) => {
+                    const jobs = jobsByStaffAndDay.get(s.id)?.get(d) ?? [];
+                    if (jobs.length === 0) {
+                      return (
+                        <td key={d} className="py-2.5 px-3 text-ink-3">
+                          –
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={d} className="py-2.5 px-3">
+                        {jobs.map((j) => {
+                          const tagCls = j.kind === 'installation' ? 'bg-accent text-white' : 'bg-ink text-white';
+                          const content = (
+                            <>
+                              <span className={`text-[10px] font-semibold px-1 py-0.5 ${tagCls}`}>{j.kind === 'installation' ? 'I' : 'S'}</span>{' '}
+                              {j.customers.name}
+                              <span className="text-ink-2"> ({j.booked_half_day[0].toUpperCase()})</span>
+                            </>
+                          );
+                          return onJobClick ? (
+                            <button
+                              key={j.id}
+                              onClick={() => onJobClick(j)}
+                              disabled={j.status !== 'booked'}
+                              className={`block mb-1 whitespace-nowrap text-left focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                                j.status === 'booked' ? 'hover:underline cursor-pointer' : 'cursor-default'
+                              } ${activeJobId === j.id ? 'font-semibold underline' : ''}`}
+                            >
+                              {content}
+                            </button>
+                          ) : (
+                            <div key={j.id} className="mb-1 whitespace-nowrap">
+                              {content}
+                            </div>
+                          );
+                        })}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

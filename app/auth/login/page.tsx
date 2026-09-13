@@ -30,22 +30,22 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="text-center font-condensed text-[28px] uppercase tracking-[0.04em]">
             Noon Enterprises
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-500">
+          <p className="mt-2 text-center text-[13px] text-ink-2">
             Sign in to your account
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm font-medium text-red-800">{error}</p>
+            <div className="border border-rule border-l-2 border-l-danger bg-danger-tint p-3">
+              <p className="text-[13px] font-medium text-danger">{error}</p>
             </div>
           )}
 
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="space-y-3">
             <div>
               <label htmlFor="phone" className="sr-only">
                 Phone number
@@ -56,7 +56,7 @@ export default function LoginPage() {
                 type="tel"
                 autoComplete="tel"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="block w-full h-11 px-3 border border-rule rounded-xs placeholder-ink-3 text-ink focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 text-[15px]"
                 placeholder="Phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -72,7 +72,7 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="block w-full h-11 px-3 border border-rule rounded-xs placeholder-ink-3 text-ink focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 text-[15px]"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -84,18 +84,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center h-11 items-center text-[15px] font-semibold text-white bg-accent hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </div>
         </form>
 
-        <p className="mt-2 text-center text-sm text-gray-500">
-          Contact the admin to create an account
+        <p className="mt-2 text-center text-[13px] text-ink-2">
+          Contact the admin to create an account.
         </p>
-        <p className="text-center text-xs text-gray-500">
-          Forgot your password? There's no self-service reset — ask the app's developer to reset it for you.
+        <p className="text-center text-[12px] text-ink-3">
+          Forgot your password? There is no self-service reset — ask the app&apos;s developer to reset it for you.
         </p>
       </div>
     </div>

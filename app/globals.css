@@ -1,34 +1,43 @@
 @import "tailwindcss";
 
-/* This app has no dark theme — every screen was built with explicit
- * light-mode Tailwind classes (bg-white cards, text-gray-900, etc). The
- * create-next-app scaffold's leftover `prefers-color-scheme: dark` block
- * used to flip the page background near-black and the default text color
- * near-white whenever a phone/browser was in dark mode, which fought with
- * every explicit light-background card and made unstyled text unreadable.
- * `color-scheme: light` tells the browser this site is light-only, so it
- * stops applying its own dark-mode heuristics to native form controls too. */
-:root {
-  color-scheme: light;
-  /* A light, muted slate-blue tint for the page canvas — cooler and more
-     "industrial" than a soft pastel blue, closer to a steel-blue/enterprise
-     tone. White cards (every screen already uses bg-white + a border/
-     shadow, see the 2026-09-05 "White Background" note) sit on top of
-     this instead of on plain white, giving the app some visual identity
-     instead of looking flat. */
-  --background: #eef1f5;
-  --foreground: #171717;
-}
+/* Instrument-panel palette: light neutral ground, one steel-blue accent,
+ * muted status colors. Every color/radius the app uses comes from this
+ * block — no raw Tailwind palette classes (blue-600, gray-200, red-50...)
+ * and no ad-hoc hex anywhere else. `color-scheme: light` keeps native
+ * form controls (date pickers, checkboxes) from following the OS's dark
+ * mode — this app has no dark theme. */
+:root { color-scheme: light; }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  /* ground + ink */
+  --color-canvas:   #f2f2f3;  /* page */
+  --color-surface:  #ffffff;  /* cards, table bodies */
+  --color-inset:    #e9e9ea;  /* table headers, inset rows */
+  --color-ink:      #1d1f20;  /* primary text */
+  --color-ink-2:    #5d5d60;  /* secondary / metadata */
+  --color-ink-3:    #7a7a7d;  /* tertiary / placeholder */
+  --color-rule:     #d4d4d7;  /* hairline borders */
+  --color-divider:  #e7e7ea;  /* row rules */
+
+  /* one accent — steel blue */
+  --color-accent:       #5980a6;
+  --color-accent-hover: #416180;
+  --color-accent-tint:  #eef6ff;
+  --color-accent-deep:  #2c455d;  /* accent text on light ground */
+
+  /* status — muted to sit with the accent, deep enough for body text */
+  --color-danger: #a1332b;  --color-danger-tint: #f7e7e4;
+  --color-warn:   #8a5a12;  --color-warn-tint:   #f7edd9;
+  --color-ok:     #2f6b4f;  --color-ok-tint:     #e3efe7;
+
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+  --font-condensed: var(--font-barlow-condensed), system-ui, sans-serif;
+
+  --radius-none: 0px;   /* default for cards, buttons, badges */
+  --radius-xs: 2px;     /* inputs and chips only */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
 }
