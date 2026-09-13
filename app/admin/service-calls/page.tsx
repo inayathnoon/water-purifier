@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import CustomerFields from '@/components/CustomerFields';
 import AreaSelect from '@/components/AreaSelect';
 import { useConfirm } from '@/components/useConfirm';
@@ -13,9 +13,9 @@ import { todayIST } from '@/lib/dates';
 function FormRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">
+      <label className="w-40 shrink-0 text-sm font-medium text-ink">
         {label}
-        {required && <span className="text-red-600"> *</span>}
+        {required && <span className="text-danger"> *</span>}
       </label>
       {children}
     </div>
@@ -336,11 +336,10 @@ function ServiceCallsPageInner() {
 
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
+    <AppShell title="Services">
+    <div className="max-w-5xl mx-auto">
       {confirmDialog}
-      <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
-        <h1 className="text-2xl font-bold">Services</h1>
         <div className="flex gap-2">
           <button
             onClick={() => setShowNewForm((s) => !s)}
@@ -350,16 +349,16 @@ function ServiceCallsPageInner() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-ink-2 mb-6">
         Yearly service is due every 18 months, then every 12 after that (§8.2) — newest
         installation first. "+ New Service" is for a customer calling in with a problem any
         time, not tied to that schedule.
       </p>
-      {error && !showNewForm && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+      {error && !showNewForm && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
 
       {showNewForm && (
-        <form onSubmit={handleNewServiceSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-3">
-          {newServiceError && <p className="text-red-600 text-sm">{newServiceError}</p>}
+        <form onSubmit={handleNewServiceSubmit} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-8 space-y-3">
+          {newServiceError && <p className="text-danger text-sm">{newServiceError}</p>}
           <CustomerFields
             value={{
               phoneNumber: newService.phoneNumber,
@@ -373,7 +372,7 @@ function ServiceCallsPageInner() {
           />
           <FormRow label="Product">
             <select
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={newService.productInterest}
               onChange={(e) => setNewService({ ...newService, productInterest: e.target.value })}
             >
@@ -387,14 +386,14 @@ function ServiceCallsPageInner() {
             <input
               required
               placeholder="e.g. 'Water not working'"
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={newService.issueNote}
               onChange={(e) => setNewService({ ...newService, issueNote: e.target.value })}
             />
           </FormRow>
           <FormRow label="Assign to Staff">
             <select
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={newService.staffAttendedId}
               onChange={(e) => {
                 const staffAttendedId = e.target.value;
@@ -423,12 +422,12 @@ function ServiceCallsPageInner() {
                 <input
                   type="date"
                   required
-                  className="flex-1 border rounded px-3 py-2 text-gray-900"
+                  className="flex-1 border rounded px-3 py-2 text-ink"
                   value={newService.bookedDate}
                   onChange={(e) => setNewService({ ...newService, bookedDate: e.target.value })}
                 />
                 <select
-                  className="border rounded px-3 py-2 text-gray-900"
+                  className="border rounded px-3 py-2 text-ink"
                   value={newService.bookedHalfDay}
                   onChange={(e) => setNewService({ ...newService, bookedHalfDay: e.target.value })}
                 >
@@ -441,7 +440,7 @@ function ServiceCallsPageInner() {
           )}
           <FormRow label="Location">
             <select
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={newService.location}
               onChange={(e) => setNewService({ ...newService, location: e.target.value })}
             >
@@ -463,22 +462,22 @@ function ServiceCallsPageInner() {
       {loading ? (
         <p className="mb-6">Loading...</p>
       ) : due.length === 0 ? (
-        <p className="text-gray-900 mb-6">Nothing due this month.</p>
+        <p className="text-ink mb-6">Nothing due this month.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y mb-8">
+        <div className="bg-surface rounded-lg shadow-sm border border-rule divide-y mb-8">
           {due.map((d) => (
             <div
               key={d.installationTicketId}
               id={`due-${d.installationTicketId}`}
               className={`p-4 flex justify-between items-center ${
-                highlightInstallation === d.installationTicketId ? 'bg-yellow-50 ring-2 ring-inset ring-yellow-400' : ''
+                highlightInstallation === d.installationTicketId ? 'bg-warn-tint ring-2 ring-inset ring-warn' : ''
               }`}
             >
               <div>
                 <p className="font-medium">
                   {d.customerName} — {d.phoneNumber}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-2">
                   {d.area} · {d.productLabel || 'No product noted'} · installed{' '}
                   {(d.monthsSinceInstall / 12).toFixed(1)} years ago
                 </p>
@@ -499,21 +498,21 @@ function ServiceCallsPageInner() {
       {loading ? (
         <p>Loading...</p>
       ) : calls.length === 0 ? (
-        <p className="text-gray-900">No yearly service calls due right now.</p>
+        <p className="text-ink">No yearly service calls due right now.</p>
       ) : (
         <div className="space-y-4">
           {calls.map((c) => (
             <div
               key={c.id}
               id={`call-${c.id}`}
-              className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${
-                highlightTicket === c.id ? 'ring-2 ring-yellow-400' : ''
+              className={`bg-surface rounded-lg shadow-sm border border-rule p-4 ${
+                highlightTicket === c.id ? 'ring-2 ring-warn' : ''
               }`}
             >
               <p className="font-medium">
                 {c.customers.name} — {c.customers.phone_number}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-2">
                 {c.customers.address}, {c.customers.area}
               </p>
               <p className="text-sm mt-1">
@@ -527,7 +526,7 @@ function ServiceCallsPageInner() {
                 {!c.parent_installation_id && ['open', 'booked'].includes(c.status) && (
                   <button
                     onClick={() => (editingRequestId === c.id ? setEditingRequestId(null) : startEditingRequest(c))}
-                    className="ml-2 text-blue-600 hover:underline"
+                    className="ml-2 text-accent-deep hover:underline"
                   >
                     {editingRequestId === c.id ? 'Cancel edit' : 'Edit request'}
                   </button>
@@ -536,7 +535,7 @@ function ServiceCallsPageInner() {
 
               {editingRequestId === c.id && (
                 <div className="mt-2 pt-2 border-t space-y-2">
-                  {requestEditError && <p className="text-red-600 text-xs">{requestEditError}</p>}
+                  {requestEditError && <p className="text-danger text-xs">{requestEditError}</p>}
                   <input
                     type="date"
                     required
@@ -571,7 +570,7 @@ function ServiceCallsPageInner() {
                     <option value="office">Office</option>
                   </select>
 
-                  <p className="text-xs text-gray-600 pt-1">Customer details</p>
+                  <p className="text-xs text-ink-2 pt-1">Customer details</p>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       required
@@ -610,7 +609,7 @@ function ServiceCallsPageInner() {
                   <button
                     onClick={() => handleSaveRequestEdit(c.id)}
                     disabled={savingRequestEdit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm hover:bg-accent-hover disabled:opacity-50"
                   >
                     {savingRequestEdit ? 'Saving...' : 'Save changes'}
                   </button>
@@ -637,7 +636,7 @@ function ServiceCallsPageInner() {
                   <div className="flex gap-2 items-center">
                     <button
                       onClick={() => setBookingId(bookingId === c.id ? null : c.id)}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                      className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
                     >
                       Needs service — book it
                     </button>
@@ -668,19 +667,19 @@ function ServiceCallsPageInner() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => (bookingId === c.id ? setBookingId(null) : startEditBooking(c))}
-                      className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                      className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleUnassign(c.id)}
-                      className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                      className="px-3 py-1.5 border border-danger text-danger rounded-md text-sm hover:bg-danger-tint"
                     >
                       Put back to dispatch
                     </button>
                     <a
                       href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
-                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-gray-900 rounded-md text-sm"
+                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-ink rounded-md text-sm"
                     >
                       Service completed
                     </a>
@@ -700,9 +699,9 @@ function ServiceCallsPageInner() {
                       since confirming here can create an order. Spare
                       parts are recorded separately (Sell Spare Part,
                       linked to this ticket), not on the ticket itself. */}
-                  <div className="bg-gray-50 rounded-md p-3 text-sm space-y-1">
+                  <div className="bg-inset rounded-md p-3 text-sm space-y-1">
                     <p>
-                      <span className="text-gray-600">Spare parts:</span>{' '}
+                      <span className="text-ink-2">Spare parts:</span>{' '}
                       {(sparePartSalesByTicket[c.id] ?? []).length === 0
                         ? '—'
                         : sparePartSalesByTicket[c.id]
@@ -710,14 +709,14 @@ function ServiceCallsPageInner() {
                             .join(', ')}
                     </p>
                     <p>
-                      <span className="text-gray-600">Notes:</span> {c.actual_notes || '—'}
+                      <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleConfirmClose(c.id)}
                       disabled={confirmingId === c.id}
-                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-gray-900 rounded-md text-sm disabled:opacity-50"
+                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-ink rounded-md text-sm disabled:opacity-50"
                     >
                       {confirmingId === c.id ? 'Confirming...' : 'Called & Confirmed'}
                     </button>
@@ -729,5 +728,6 @@ function ServiceCallsPageInner() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

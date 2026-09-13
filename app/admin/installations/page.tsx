@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProductPicker from '@/components/ProductPicker';
 import CustomerFields from '@/components/CustomerFields';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
 import BookingForm from '@/components/BookingForm';
 import { todayIST } from '@/lib/dates';
@@ -22,9 +22,9 @@ function FormRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">
+      <label className="w-40 shrink-0 text-sm font-medium text-ink">
         {label}
-        {required && <span className="text-red-600"> *</span>}
+        {required && <span className="text-danger"> *</span>}
       </label>
       {children}
     </div>
@@ -315,11 +315,10 @@ function InstallationsPageInner() {
     ).length;
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
+    <AppShell title="New purchase">
+    <div className="max-w-5xl mx-auto">
       {confirmDialog}
-      <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
-        <h1 className="text-2xl font-bold">New Purchase</h1>
         <button
           onClick={() => {
             // Cancelling out of a purchase that only exists because Convert
@@ -338,13 +337,13 @@ function InstallationsPageInner() {
       </div>
 
       {showPurchaseForm && (
-        <form onSubmit={handleCreatePurchase} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 space-y-3">
-          <p className="text-sm text-gray-500">
+        <form onSubmit={handleCreatePurchase} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-6 space-y-3">
+          <p className="text-sm text-ink-2">
             {fromEnquiryId
               ? "Converting this enquiry — it stays in Enquiries until you submit this purchase, then moves out for real."
               : "For a sale that's already decided — skips the enquiry/call steps and goes straight to booking a tech."}
           </p>
-          {purchaseError && <p className="text-red-600 text-sm">{purchaseError}</p>}
+          {purchaseError && <p className="text-danger text-sm">{purchaseError}</p>}
           <CustomerFields
             value={{
               phoneNumber: purchaseForm.phoneNumber,
@@ -361,11 +360,11 @@ function InstallationsPageInner() {
               <div key={item.id} className={purchaseItems.length > 1 ? 'border rounded-md p-3 space-y-3' : 'space-y-3'}>
                 {purchaseItems.length > 1 && (
                   <div className="flex justify-between items-center">
-                    <p className="text-xs font-medium text-gray-600">Product {idx + 1}</p>
+                    <p className="text-xs font-medium text-ink-2">Product {idx + 1}</p>
                     <button
                       type="button"
                       onClick={() => removePurchaseItem(item.id)}
-                      className="text-xs text-red-600 hover:underline"
+                      className="text-xs text-danger hover:underline"
                     >
                       Remove
                     </button>
@@ -385,11 +384,11 @@ function InstallationsPageInner() {
                       }
                     />
                     {item.listPrice != null && (
-                      <p className="text-xs text-gray-500 mt-1">List price: ₹{item.listPrice}</p>
+                      <p className="text-xs text-ink-2 mt-1">List price: ₹{item.listPrice}</p>
                     )}
                     <input
                       placeholder="Extra details (optional — e.g. 'and Prefilter')"
-                      className="w-full border rounded px-3 py-2 text-gray-900 mt-2 text-sm"
+                      className="w-full border rounded px-3 py-2 text-ink mt-2 text-sm"
                       value={item.extraDetails}
                       onChange={(e) => updatePurchaseItem(item.id, { extraDetails: e.target.value })}
                     />
@@ -403,11 +402,11 @@ function InstallationsPageInner() {
                       type="number"
                       step="0.01"
                       min="0"
-                      className="w-full border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
+                      className="w-full border rounded px-3 py-2 text-ink disabled:bg-inset"
                       value={item.isFree ? '0' : item.price}
                       onChange={(e) => updatePurchaseItem(item.id, { price: e.target.value })}
                     />
-                    <label className="flex items-center gap-1 text-sm text-gray-900 whitespace-nowrap">
+                    <label className="flex items-center gap-1 text-sm text-ink whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={item.isFree}
@@ -426,7 +425,7 @@ function InstallationsPageInner() {
                     step="0.01"
                     min="0"
                     disabled={item.isFree}
-                    className="w-full border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
+                    className="w-full border rounded px-3 py-2 text-ink disabled:bg-inset"
                     value={item.isFree ? '0' : item.paidAmount}
                     onChange={(e) => updatePurchaseItem(item.id, { paidAmount: e.target.value })}
                   />
@@ -436,11 +435,11 @@ function InstallationsPageInner() {
             <button
               type="button"
               onClick={addPurchaseItem}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-accent-deep hover:underline"
             >
               + Add another product
             </button>
-            <p className="text-xs text-gray-600 -mt-2">
+            <p className="text-xs text-ink-2 -mt-2">
               Use "Free" for a product thrown in with another sale (e.g. a free Kitchen unit with
               a Vessel purchase) — it still gets its own installation ticket and shows as its own
               row in Orders, just with nothing owed.
@@ -450,7 +449,7 @@ function InstallationsPageInner() {
             <input
               required
               type="date"
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={purchaseForm.billDate}
               onChange={(e) => setPurchaseForm({ ...purchaseForm, billDate: e.target.value })}
             />
@@ -458,7 +457,7 @@ function InstallationsPageInner() {
           <FormRow label="Planned installation">
             <input
               type="date"
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={purchaseForm.plannedInstallationDate}
               onChange={(e) => setPurchaseForm({ ...purchaseForm, plannedInstallationDate: e.target.value })}
             />
@@ -467,7 +466,7 @@ function InstallationsPageInner() {
             <FormRow label="Assign to Staff">
               <div className="flex-1 flex gap-2">
                 <select
-                  className="flex-1 border rounded px-3 py-2 text-gray-900"
+                  className="flex-1 border rounded px-3 py-2 text-ink"
                   value={purchaseForm.assignedToId}
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, assignedToId: e.target.value })}
                 >
@@ -479,7 +478,7 @@ function InstallationsPageInner() {
                   ))}
                 </select>
                 <select
-                  className="border rounded px-3 py-2 text-gray-900"
+                  className="border rounded px-3 py-2 text-ink"
                   value={purchaseForm.bookedHalfDay}
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, bookedHalfDay: e.target.value })}
                 >
@@ -500,33 +499,33 @@ function InstallationsPageInner() {
         </form>
       )}
 
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+      {error && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
         <p>Loading...</p>
       ) : installations.length === 0 ? (
-        <p className="text-gray-900">No installations in progress.</p>
+        <p className="text-ink">No installations in progress.</p>
       ) : (
         <div className="space-y-4">
           {installations.map((inst) => (
-            <div key={inst.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div key={inst.id} className="bg-surface rounded-lg shadow-sm border border-rule p-4">
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-medium">
                     {inst.customers.name} — {inst.customers.phone_number}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-2">
                     {inst.customers.address}, {inst.customers.area}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">Agreed price: ₹{inst.agreed_price}</p>
+                  <p className="text-sm text-ink-2 mt-1">Agreed price: ₹{inst.agreed_price}</p>
                   {inst.planned_installation_date && !inst.booked_date && (
-                    <p className="text-sm text-blue-700">Planned for: {inst.planned_installation_date}</p>
+                    <p className="text-sm text-accent-deep">Planned for: {inst.planned_installation_date}</p>
                   )}
                   {firstOrder(inst.orders) && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-ink-2">
                       Paid: ₹{firstOrder(inst.orders)!.paid_amount}
                       {firstOrder(inst.orders)!.balance_owed > 0 && (
-                        <span className="text-red-600"> · ₹{firstOrder(inst.orders)!.balance_owed} owed</span>
+                        <span className="text-danger"> · ₹{firstOrder(inst.orders)!.balance_owed} owed</span>
                       )}
                     </p>
                   )}
@@ -544,8 +543,8 @@ function InstallationsPageInner() {
                       whether to confirm it — confirming here stamps
                       installation_date and starts the warranty clock. */}
                   {inst.status === 'completed' && (
-                    <p className="text-sm bg-gray-50 rounded-md p-2 mt-2">
-                      <span className="text-gray-600">Tech&apos;s notes:</span> {inst.actual_notes || '—'}
+                    <p className="text-sm bg-inset rounded-md p-2 mt-2">
+                      <span className="text-ink-2">Tech&apos;s notes:</span> {inst.actual_notes || '—'}
                     </p>
                   )}
                 </div>
@@ -554,7 +553,7 @@ function InstallationsPageInner() {
                   {inst.status === 'open' && (
                     <button
                       onClick={() => setBookingId(bookingId === inst.id ? null : inst.id)}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                      className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
                     >
                       Book
                     </button>
@@ -563,19 +562,19 @@ function InstallationsPageInner() {
                     <>
                       <button
                         onClick={() => (bookingId === inst.id ? setBookingId(null) : startEditBooking(inst))}
-                        className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                        className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleUnassign(inst.id)}
-                        className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                        className="px-3 py-1.5 border border-danger text-danger rounded-md text-sm hover:bg-danger-tint"
                       >
                         Put back to dispatch
                       </button>
                       <button
                         onClick={() => handleMarkDone(inst.id)}
-                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                        className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
                       >
                         Installed
                       </button>
@@ -607,7 +606,7 @@ function InstallationsPageInner() {
                     extra={
                       bookForm.assignedToId &&
                       bookForm.bookedDate && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-ink-2">
                           This person already has {loadFor(bookForm.assignedToId, bookForm.bookedDate, bookForm.bookedHalfDay)} job(s)
                           in this half-day.
                         </p>
@@ -621,5 +620,6 @@ function InstallationsPageInner() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

@@ -2,9 +2,10 @@
 
 import { useEffect, useState, use as usePromise } from 'react';
 import { useRouter } from 'next/navigation';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
 import { todayIST } from '@/lib/dates';
+import { toStartCase } from '@/lib/format';
 
 interface Call {
   id: string;
@@ -52,7 +53,7 @@ const ACTION_LABEL: Record<string, string> = {
 // for the lost sale, green for a sale (convert / link to an existing
 // purchase).
 const ACTION_STYLE: Record<string, string> = {
-  pass_to_owner: 'bg-yellow-500 text-white border-yellow-500',
+  pass_to_owner: 'bg-warn-tint0 text-white border-yellow-500',
   mark_inactive: 'bg-red-600 text-white border-red-600',
   convert: 'bg-green-600 text-white border-green-600',
   link_existing: 'bg-green-600 text-white border-green-600',
@@ -242,34 +243,33 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   if (loading || !ticket) return <p className="p-8">Loading...</p>;
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+    <AppShell title={toStartCase(ticket.customers.name)}>
+    <div className="max-w-3xl mx-auto space-y-6">
       {confirmDialog}
-      <HomeLink />
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold">{ticket.customers.name}</h1>
-          <p className="text-gray-900">
+          <p className="text-ink">
             {ticket.customers.phone_number} · {ticket.customers.address}, {ticket.customers.area}
           </p>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-2 mt-1">
             Interested in: {ticket.enquiry_product_interest || '—'} · {SOURCE_LABEL[ticket.enquiry_source] ?? ticket.enquiry_source}
             {ticket.enquiry_source === 'referral' && ticket.referrer_name && ` (via ${ticket.referrer_name})`}
             {ticket.enquiry_source === 'other' && ticket.source_other_note && ` (${ticket.source_other_note})`}
           </p>
-          <p className="text-sm text-gray-500">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
+          <p className="text-sm text-ink-2">Status: {ticket.status} · {ticket.call_count} call(s) made</p>
         </div>
         <div className="flex gap-2">
           {ticket.status === 'open' && (
             <button
               onClick={() => (editingTicket ? setEditingTicket(false) : startEditingTicket())}
-              className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm border rounded-md hover:bg-accent-tint"
             >
               {editingTicket ? 'Cancel' : 'Edit'}
             </button>
           )}
           <button
             onClick={handleDelete}
-            className="px-3 py-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+            className="px-3 py-1.5 text-sm text-danger bg-danger-tint border border-danger rounded-md hover:bg-danger-tint"
           >
             Delete enquiry
           </button>
@@ -277,8 +277,8 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {editingTicket && (
-        <form onSubmit={handleSaveTicketEdit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
-          {editError && <p className="text-red-600 text-sm">{editError}</p>}
+        <form onSubmit={handleSaveTicketEdit} className="bg-surface rounded-lg shadow-sm border border-rule p-4 space-y-3">
+          {editError && <p className="text-danger text-sm">{editError}</p>}
           <input
             type="date"
             required
@@ -333,18 +333,18 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
           <button
             type="submit"
             disabled={savingEdit}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50"
           >
             {savingEdit ? 'Saving...' : 'Save changes'}
           </button>
         </form>
       )}
 
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded">{error}</p>}
+      {error && <p className="text-danger bg-danger-tint p-3 rounded">{error}</p>}
 
       {ticket.status === 'open' && (
         <>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-surface rounded-lg shadow-sm border border-rule p-4">
             <h2 className="font-semibold mb-2">Log a call</h2>
             <form onSubmit={handleLogCall} className="flex gap-2">
               <input
@@ -354,11 +354,11 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                 value={callNote}
                 onChange={(e) => setCallNote(e.target.value)}
               />
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Log</button>
+              <button className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover">Log</button>
             </form>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-surface rounded-lg shadow-sm border border-rule p-4">
             <h2 className="font-semibold mb-3">Close this enquiry</h2>
 
             {/* Mark Inactive and Convert are the two outcomes that actually
@@ -387,7 +387,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
             {hasRecentMatchingPurchase && (
               <button
                 onClick={handleToggleLinkPicker}
-                className="text-xs text-green-700 hover:underline mb-3"
+                className="text-xs text-ok hover:underline mb-3"
               >
                 {showLinkPicker ? 'Hide' : 'This turned out to already be a purchase — link to it instead'}
               </button>
@@ -396,7 +396,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
             <div className="border-t pt-3">
               <button
                 onClick={() => setShowOther((s) => !s)}
-                className="text-sm text-gray-500 hover:underline flex items-center gap-1"
+                className="text-sm text-ink-2 hover:underline flex items-center gap-1"
               >
                 Other {showOther ? '▾' : '▸'}
               </button>
@@ -419,25 +419,25 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
 
             {showLinkPicker && (
               <div className="border rounded-md">
-                <p className="text-xs text-gray-600 p-2 border-b bg-gray-50">
+                <p className="text-xs text-ink-2 p-2 border-b bg-inset">
                   This turned out to already be a purchase recorded separately — pick it below instead of creating a new one.
                 </p>
                 <div className="max-h-72 overflow-y-auto divide-y">
                   {recentPurchases.length === 0 ? (
-                    <p className="text-sm text-gray-600 p-3">No recent purchases yet.</p>
+                    <p className="text-sm text-ink-2 p-3">No recent purchases yet.</p>
                   ) : (
                     recentPurchases.map((p) => (
                       <button
                         key={p.id}
                         disabled={linking}
                         onClick={() => handleLinkToPurchase(p)}
-                        className="w-full text-left p-3 hover:bg-gray-50 flex justify-between items-center disabled:opacity-50"
+                        className="w-full text-left p-3 hover:bg-accent-tint flex justify-between items-center disabled:opacity-50"
                       >
                         <div>
                           <p className="font-medium text-sm">{p.customers.name}</p>
-                          <p className="text-xs text-gray-600">{p.customers.phone_number} · ₹{p.agreed_price}</p>
+                          <p className="text-xs text-ink-2">{p.customers.phone_number} · ₹{p.agreed_price}</p>
                         </div>
-                        <p className="text-xs text-gray-600">{new Date(p.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-ink-2">{new Date(p.created_at).toLocaleDateString()}</p>
                       </button>
                     ))
                   )}
@@ -458,19 +458,19 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                       onChange={(e) => setExplanation(e.target.value)}
                     />
                     <p
-                      className={`text-xs mt-1 ${wordCount(explanation) < 5 ? 'text-red-600' : 'text-green-600'}`}
+                      className={`text-xs mt-1 ${wordCount(explanation) < 5 ? 'text-danger' : 'text-green-600'}`}
                     >
                       {wordCount(explanation)} / 5 words minimum
                     </p>
                     {action === 'pass_to_owner' && ticket.call_count < 1 && (
-                      <p className="text-xs text-red-600 mt-1">
+                      <p className="text-xs text-danger mt-1">
                         This enquiry has never been called — try calling first.
                       </p>
                     )}
                   </div>
                 )}
 
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                <button className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover">
                   Confirm: {ACTION_LABEL[action]}
                 </button>
               </form>
@@ -479,21 +479,22 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
         </>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-surface rounded-lg shadow-sm border border-rule p-4">
         <h2 className="font-semibold mb-2">Call history</h2>
         {calls.length === 0 ? (
-          <p className="text-sm text-gray-500">No calls logged yet.</p>
+          <p className="text-sm text-ink-2">No calls logged yet.</p>
         ) : (
           <ul className="space-y-2">
             {calls.map((c) => (
               <li key={c.id} className="text-sm border-b pb-2">
                 <p>{c.note}</p>
-                <p className="text-xs text-gray-500">{new Date(c.created_at).toLocaleString()}</p>
+                <p className="text-xs text-ink-2">{new Date(c.created_at).toLocaleString()}</p>
               </li>
             ))}
           </ul>
         )}
       </div>
     </div>
+    </AppShell>
   );
 }

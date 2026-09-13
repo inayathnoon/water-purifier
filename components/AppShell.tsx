@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getCurrentUser, signOut, type User, type UserRole } from '@/lib/auth';
@@ -37,7 +37,9 @@ const NEW_MENU = [
 
 export default function AppShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <ShellInner title={title}>{children}</ShellInner>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-ink-2 text-[13px]">Loading…</div>}>
+      <ShellInner title={title}>{children}</ShellInner>
+    </Suspense>
   );
 }
 

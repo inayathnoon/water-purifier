@@ -33,10 +33,10 @@ export function useConfirm(): [(message: string) => Promise<boolean>, ReactNode]
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
       onClick={() => respond(false)}
     >
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5">
-        <p className="text-sm text-gray-900 whitespace-pre-line">{message}</p>
+      <div onClick={(e) => e.stopPropagation()} className="bg-surface rounded-lg shadow-xl max-w-sm w-full p-5">
+        <p className="text-sm text-ink whitespace-pre-line">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={() => respond(false)} className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
+          <button onClick={() => respond(false)} className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint">
             Cancel
           </button>
           <button

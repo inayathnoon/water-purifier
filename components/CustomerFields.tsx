@@ -42,9 +42,9 @@ function Row({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">
+      <label className="w-40 shrink-0 text-sm font-medium text-ink">
         {label}
-        {required && <span className="text-red-600"> *</span>}
+        {required && <span className="text-danger"> *</span>}
       </label>
       {children}
     </div>
@@ -119,12 +119,12 @@ export default function CustomerFields({
         <div className="flex-1">
           <input
             required
-            className="w-full border rounded px-3 py-2 text-gray-900"
+            className="w-full border rounded px-3 py-2 text-ink"
             value={value.phoneNumber}
             onChange={(e) => onChange({ ...value, phoneNumber: e.target.value, customerId: null, forceNewAddress: false })}
           />
           {matches.length === 1 && value.customerId && !value.forceNewAddress && (
-            <p className="text-xs text-green-700 mt-1">
+            <p className="text-xs text-ok mt-1">
               Known customer — details filled in below.{' '}
               <button type="button" onClick={useNewAddress} className="underline">
                 Use a different address for this number
@@ -132,7 +132,7 @@ export default function CustomerFields({
             </p>
           )}
           {matches.length > 1 && !showPicker && (
-            <p className="text-xs text-blue-700 mt-1">
+            <p className="text-xs text-accent-deep mt-1">
               {matches.length} addresses on file for this number.{' '}
               <button type="button" onClick={() => setShowPicker(true)} className="underline">
                 Choose one
@@ -163,22 +163,22 @@ export default function CustomerFields({
 
       {showPicker && matches.length > 1 && (
         <div className="border rounded-md ml-[calc(10rem+0.75rem)]">
-          <p className="text-xs text-gray-600 p-2 border-b bg-gray-50">Which address is this?</p>
+          <p className="text-xs text-ink-2 p-2 border-b bg-inset">Which address is this?</p>
           <div className="max-h-56 overflow-y-auto divide-y">
             {matches.map((m) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => pickAddress(m)}
-                className="w-full text-left p-2.5 hover:bg-gray-50 text-sm"
+                className="w-full text-left p-2.5 hover:bg-accent-tint text-sm"
               >
                 <p className="font-medium">{m.name}</p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-ink-2">
                   {m.address}, {m.area}
                 </p>
               </button>
             ))}
-            <button type="button" onClick={useNewAddress} className="w-full text-left p-2.5 hover:bg-gray-50 text-sm text-blue-700">
+            <button type="button" onClick={useNewAddress} className="w-full text-left p-2.5 hover:bg-accent-tint text-sm text-accent-deep">
               + Add a new address for this number
             </button>
           </div>
@@ -188,7 +188,7 @@ export default function CustomerFields({
       <Row label="Name" required>
         <input
           required
-          className="w-full border rounded px-3 py-2 text-gray-900 uppercase"
+          className="w-full border rounded px-3 py-2 text-ink uppercase"
           value={value.name}
           // Forced uppercase as you type, not just display — the DB
           // trigger normalizes this anyway, but matching it live avoids
@@ -199,7 +199,7 @@ export default function CustomerFields({
       <Row label="Address" required>
         <input
           required
-          className="w-full border rounded px-3 py-2 text-gray-900"
+          className="w-full border rounded px-3 py-2 text-ink"
           value={value.address}
           onChange={(e) => onChange({ ...value, address: e.target.value })}
         />

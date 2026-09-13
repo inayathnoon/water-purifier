@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import { todayIST } from '@/lib/dates';
 
 interface StaffMember {
@@ -48,61 +48,75 @@ export default function AdminLeavePage() {
   };
 
   return (
-    <div className="max-w-md mx-auto py-8 px-4">
-      <HomeLink />
-      <h1 className="text-2xl font-bold mb-1 mt-2">Request time off</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        On a technician's behalf — they let you know by phone/Telegram, you log it here. The owner decides.
-      </p>
+    <AppShell title="Time off">
+      <div className="max-w-[640px]">
+        <p className="text-[13px] text-ink-2 mb-4">
+          On a technician&apos;s behalf — they let you know by phone/Telegram, you log it here. The owner decides.
+        </p>
 
-      <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        {submitted && <p className="text-green-700 text-sm">Requested — waiting on the owner's decision.</p>}
+        <form onSubmit={handleSubmit} className="bg-surface p-4 border border-rule space-y-3">
+          {error && <p className="text-danger text-[13px]">{error}</p>}
+          {submitted && <p className="text-ok text-[13px]">Requested — waiting on the owner&apos;s decision.</p>}
 
-        <select
-          required
-          className="w-full border rounded px-3 py-2 text-gray-900"
-          value={form.staffId}
-          onChange={(e) => setForm({ ...form, staffId: e.target.value })}
-        >
-          <option value="">Staff member...</option>
-          {staff.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <div className="grid grid-cols-2 gap-3">
-          <input
-            type="date"
-            required
-            className="border rounded px-3 py-2"
-            value={form.startDate}
-            onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-          />
-          <input
-            type="date"
-            required
-            className="border rounded px-3 py-2"
-            value={form.endDate}
-            onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-          />
-        </div>
-        <textarea
-          required
-          placeholder="Reason"
-          className="w-full border rounded px-3 py-2"
-          value={form.reason}
-          onChange={(e) => setForm({ ...form, reason: e.target.value })}
-        />
-        <button
-          type="submit"
-          disabled={submitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-          {submitting ? 'Requesting...' : 'Request leave'}
-        </button>
-      </form>
-    </div>
+          <div>
+            <label className="block text-[13px] font-medium mb-1">Staff member</label>
+            <select
+              required
+              className="w-full h-11 border border-rule rounded-xs px-3 text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              value={form.staffId}
+              onChange={(e) => setForm({ ...form, staffId: e.target.value })}
+            >
+              <option value="">Select…</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[13px] font-medium mb-1">Start date</label>
+              <input
+                type="date"
+                required
+                className="w-full h-11 border border-rule rounded-xs px-3 focus-visible:outline-2 focus-visible:outline-accent"
+                value={form.startDate}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-medium mb-1">End date</label>
+              <input
+                type="date"
+                required
+                className="w-full h-11 border border-rule rounded-xs px-3 focus-visible:outline-2 focus-visible:outline-accent"
+                value={form.endDate}
+                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium mb-1">Reason</label>
+            <textarea
+              required
+              placeholder="Reason"
+              className="w-full border border-rule rounded-xs px-3 py-2 focus-visible:outline-2 focus-visible:outline-accent"
+              value={form.reason}
+              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-[13px] font-semibold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            >
+              {submitting ? 'Requesting…' : 'Request leave'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </AppShell>
   );
 }

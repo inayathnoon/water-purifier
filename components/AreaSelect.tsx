@@ -44,7 +44,7 @@ export default function AreaSelect({
         required={required}
         list="area-suggestions"
         placeholder="Type or pick an area"
-        className="w-full border rounded px-3 py-2 text-gray-900"
+        className="w-full border rounded px-3 py-2 text-ink"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

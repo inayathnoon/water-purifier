@@ -111,8 +111,8 @@ export default function BookingForm({
         disabled={submitting}
         className={
           compact
-            ? 'w-full py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50'
-            : 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
+            ? 'w-full py-1.5 bg-accent text-white rounded text-sm hover:bg-accent-hover disabled:opacity-50'
+            : 'px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50'
         }
       >
         {submitting ? (submittingLabel ?? submitLabel) : submitLabel}

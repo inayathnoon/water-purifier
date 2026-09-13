@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import CustomerFields from '@/components/CustomerFields';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
 import { daysAgoIST, enquiryUrgency, todayIST } from '@/lib/dates';
 import { useSearchParams } from 'next/navigation';
@@ -27,10 +27,10 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const SOURCE_BADGE: Record<string, string> = {
-  general: 'bg-gray-100 text-gray-900',
-  water_test: 'bg-yellow-100 text-yellow-800',
-  ready_to_buy: 'bg-green-100 text-green-800',
-  referral: 'bg-blue-100 text-blue-800',
+  general: 'bg-inset text-ink',
+  water_test: 'bg-warn-tint text-warn',
+  ready_to_buy: 'bg-ok-tint text-ok',
+  referral: 'bg-accent-tint text-accent-deep',
   other: 'bg-purple-100 text-purple-800',
 };
 
@@ -39,7 +39,7 @@ const SOURCE_BADGE: Record<string, string> = {
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="w-40 shrink-0 text-sm font-medium text-gray-900">{label}</label>
+      <label className="w-40 shrink-0 text-sm font-medium text-ink">{label}</label>
       {children}
     </div>
   );
@@ -169,24 +169,23 @@ function EnquiriesPageInner() {
   const sorted = [...enquiries].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
+    <AppShell title="Enquiries">
+    <div className="max-w-5xl mx-auto">
       {confirmDialog}
-      <HomeLink />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-6 mt-2">
-        <h1 className="text-2xl font-bold">Enquiries</h1>
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover"
         >
           {showForm ? 'Cancel' : '+ New Enquiry'}
         </button>
       </div>
 
-      {error && !showForm && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+      {error && !showForm && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
 
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 space-y-3">
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+        <form onSubmit={handleCreate} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-6 space-y-3">
+          {error && <p className="text-danger text-sm">{error}</p>}
           <CustomerFields
             value={{
               phoneNumber: form.phoneNumber,
@@ -203,14 +202,14 @@ function EnquiriesPageInner() {
               required
               type="date"
               max={todayIST()}
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={form.enquiryDate}
               onChange={(e) => setForm({ ...form, enquiryDate: e.target.value })}
             />
           </FormRow>
           <FormRow label="Interested in">
             <select
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={form.productInterest}
               onChange={(e) => setForm({ ...form, productInterest: e.target.value })}
             >
@@ -222,7 +221,7 @@ function EnquiriesPageInner() {
           </FormRow>
           <FormRow label="How did this come in?">
             <select
-              className="w-full border rounded px-3 py-2 text-gray-900"
+              className="w-full border rounded px-3 py-2 text-ink"
               value={form.source}
               onChange={(e) => setForm({ ...form, source: e.target.value as typeof form.source })}
             >
@@ -238,7 +237,7 @@ function EnquiriesPageInner() {
               <FormRow label="Referrer's phone">
                 <input
                   required
-                  className="w-full border rounded px-3 py-2 text-gray-900"
+                  className="w-full border rounded px-3 py-2 text-ink"
                   value={form.referrerPhone}
                   onChange={(e) => setForm({ ...form, referrerPhone: e.target.value })}
                 />
@@ -246,12 +245,12 @@ function EnquiriesPageInner() {
               <FormRow label="Referrer's name">
                 <input
                   required
-                  className="w-full border rounded px-3 py-2 text-gray-900"
+                  className="w-full border rounded px-3 py-2 text-ink"
                   value={form.referrerName}
                   onChange={(e) => setForm({ ...form, referrerName: e.target.value })}
                 />
               </FormRow>
-              <p className="text-xs text-gray-600 -mt-2">
+              <p className="text-xs text-ink-2 -mt-2">
                 A referrer's phone number that's referred before fills in their name automatically.
               </p>
             </>
@@ -261,19 +260,19 @@ function EnquiriesPageInner() {
               <input
                 required
                 placeholder="How did this enquiry come in?"
-                className="w-full border rounded px-3 py-2 text-gray-900"
+                className="w-full border rounded px-3 py-2 text-ink"
                 value={form.sourceOtherNote}
                 onChange={(e) => setForm({ ...form, sourceOtherNote: e.target.value })}
               />
             </FormRow>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-2">
             Typing a phone number that already exists attaches this to that customer automatically.
           </p>
           <button
             type="submit"
             disabled={submitting}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50"
           >
             {submitting ? 'Creating...' : 'Create'}
           </button>
@@ -283,9 +282,9 @@ function EnquiriesPageInner() {
       {loading ? (
         <p>Loading...</p>
       ) : sorted.length === 0 ? (
-        <p className="text-gray-900">No open enquiries.</p>
+        <p className="text-ink">No open enquiries.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
+        <div className="bg-surface rounded-lg shadow-sm border border-rule divide-y">
           {sorted.map((e) => {
             const age = daysOld(e.created_at);
             // §5.6 revised — urgency tracks days since the last real
@@ -293,14 +292,14 @@ function EnquiriesPageInner() {
             // yellow, 14+ days red. A call resets the clock either way.
             const urgency = enquiryUrgency(e.created_at, e.last_call_at);
             const borderClass =
-              urgency === 'red' ? 'border-l-4 border-red-500' : urgency === 'yellow' ? 'border-l-4 border-yellow-400' : '';
+              urgency === 'red' ? 'border-l-4 border-red-500' : urgency === 'yellow' ? 'border-l-4 border-warn' : '';
             const textClass =
-              urgency === 'red' ? 'text-red-600 font-semibold' : urgency === 'yellow' ? 'text-yellow-700 font-medium' : 'text-gray-900';
+              urgency === 'red' ? 'text-danger font-semibold' : urgency === 'yellow' ? 'text-warn font-medium' : 'text-ink';
             return (
               <Link
                 key={e.id}
                 href={`/admin/enquiries/${e.id}`}
-                className={`block p-4 hover:bg-gray-50 ${borderClass}`}
+                className={`block p-4 hover:bg-accent-tint ${borderClass}`}
               >
                 <div className="flex justify-between">
                   <div>
@@ -314,7 +313,7 @@ function EnquiriesPageInner() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-ink-2">
                       {e.customers?.area} · {e.enquiry_product_interest || 'No product noted'}
                     </p>
                   </div>
@@ -328,10 +327,10 @@ function EnquiriesPageInner() {
                         {age} day{age === 1 ? '' : 's'} old {urgency === 'red' ? '— decide now' : ''}
                       </p>
                     )}
-                    <p className="text-gray-900">{e.call_count} call(s) made</p>
+                    <p className="text-ink">{e.call_count} call(s) made</p>
                     <button
                       onClick={(ev) => handleDelete(ev, e)}
-                      className="text-xs text-red-600 hover:underline mt-1"
+                      className="text-xs text-danger hover:underline mt-1"
                     >
                       Delete
                     </button>
@@ -343,5 +342,6 @@ function EnquiriesPageInner() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

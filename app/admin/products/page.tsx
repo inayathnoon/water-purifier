@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import { toStartCase } from '@/lib/format';
 
 interface Product {
@@ -63,19 +63,18 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
-      <HomeLink />
+    <AppShell title="Products">
+    <div className="max-w-5xl mx-auto">
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
-        <h1 className="text-2xl font-bold">Products</h1>
       </div>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-ink-2 mb-6">
         The spreadsheet is the source of truth — new products are added there, and pulled in via
         the Developer panel's sync. Editing a price here writes into the sheet directly, so the
         two never drift apart.
       </p>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-4">
+        <div className="bg-danger-tint border border-danger text-danger p-4 rounded-lg mb-4">
           <p className="font-medium">Failed to save</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
@@ -84,11 +83,11 @@ export default function ProductsPage() {
       {loading ? (
         <p>Loading...</p>
       ) : products.length === 0 ? (
-        <p className="text-gray-900">No products yet — ask the developer to sync from the spreadsheet.</p>
+        <p className="text-ink">No products yet — ask the developer to sync from the spreadsheet.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+        <div className="bg-surface rounded-lg shadow-sm border border-rule overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left">
+            <thead className="bg-inset text-left">
               <tr>
                 <th className="p-3">Code (SKU)</th>
                 <th className="p-3">Category</th>
@@ -101,7 +100,7 @@ export default function ProductsPage() {
             </thead>
             <tbody>
               {products.map((p) => (
-                <tr key={p.id} className={`border-t ${!p.active ? 'text-gray-900' : ''}`}>
+                <tr key={p.id} className={`border-t ${!p.active ? 'text-ink' : ''}`}>
                   <td className="p-3 font-mono">{p.code}</td>
                   <td className="p-3">{toStartCase(p.category)}</td>
                   <td className="p-3">{toStartCase(p.brand)}</td>
@@ -115,7 +114,7 @@ export default function ProductsPage() {
                           type="number"
                           step="0.01"
                           min="0"
-                          className="w-24 border rounded px-2 py-1 text-right text-gray-900"
+                          className="w-24 border rounded px-2 py-1 text-right text-ink"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
                           onKeyDown={(e) => {
@@ -126,11 +125,11 @@ export default function ProductsPage() {
                         <button
                           onClick={() => handleSavePrice(p.code)}
                           disabled={savingPrice}
-                          className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                          className="text-xs text-ok hover:underline disabled:opacity-50"
                         >
                           {savingPrice ? '...' : 'Save'}
                         </button>
-                        <button onClick={() => setEditingSku(null)} className="text-xs text-gray-600 hover:underline">
+                        <button onClick={() => setEditingSku(null)} className="text-xs text-ink-2 hover:underline">
                           Cancel
                         </button>
                       </div>
@@ -148,5 +147,6 @@ export default function ProductsPage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import AreaSelect from '@/components/AreaSelect';
 import { daysAgoIST, todayIST } from '@/lib/dates';
 import { toStartCase } from '@/lib/format';
@@ -332,10 +332,9 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <HomeLink />
+    <AppShell title="Purchases & payments">
+    <div className="max-w-6xl mx-auto">
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4 mt-2">
-        <h1 className="text-2xl font-bold">Purchases & Payments</h1>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {user?.role === 'owner' ? (
             <button
@@ -359,30 +358,30 @@ export default function OrdersPage() {
       <div className="relative mb-4 max-w-sm">
         <input
           placeholder="Find a customer — phone number or name"
-          className="w-full border rounded px-3 py-2 text-gray-900"
+          className="w-full border rounded px-3 py-2 text-ink"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         {query && (
           <button
             onClick={() => setQuery('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 text-sm"
           >
             ✕
           </button>
         )}
       </div>
 
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+      {error && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
         <p>Loading...</p>
       ) : visibleOrders.length === 0 ? (
-        <p className="text-gray-900">{query ? `No purchases match "${query}".` : 'No purchases yet.'}</p>
+        <p className="text-ink">{query ? `No purchases match "${query}".` : 'No purchases yet.'}</p>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
+        <div className="bg-surface rounded-lg shadow-sm border border-rule overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left">
+            <thead className="bg-inset text-left">
               <tr>
                 <th className="p-3">Bill Date</th>
                 <th className="p-3">Completed</th>
@@ -408,13 +407,13 @@ export default function OrdersPage() {
                   <Fragment key={o.id}>
                     <tr
                       onClick={() => setExpandedId(isExpanded ? null : o.id)}
-                      className={`border-t cursor-pointer hover:bg-gray-50 ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
+                      className={`border-t cursor-pointer hover:bg-accent-tint ${overdueCall ? 'border-l-4 border-orange-500' : ''}`}
                     >
                       <td className="p-3 whitespace-nowrap">{billDate(o)}</td>
                       <td className="p-3 whitespace-nowrap">{o.tickets.installation_date ?? '—'}</td>
                       <td className="p-3">
                         <p className="font-medium">{o.tickets.customers.name}</p>
-                        <p className="text-xs text-gray-600">{o.tickets.customers.phone_number}</p>
+                        <p className="text-xs text-ink-2">{o.tickets.customers.phone_number}</p>
                       </td>
                       <td className="p-3 whitespace-nowrap">{p.brand || '—'}</td>
                       <td className="p-3 max-w-xs truncate">{p.name || '—'}</td>
@@ -422,12 +421,12 @@ export default function OrdersPage() {
                       <td className="p-3 text-right">₹{o.sold_price}</td>
                       <td className="p-3 text-right">₹{o.paid_amount}</td>
                       <td className="p-3 text-right">
-                        <span className={o.balance_owed > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                        <span className={o.balance_owed > 0 ? 'text-danger font-semibold' : 'text-green-600'}>
                           ₹{o.balance_owed}
                         </span>
                       </td>
                       <td className="p-3 whitespace-nowrap">
-                        <span className={o.balance_owed > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                        <span className={o.balance_owed > 0 ? 'text-danger font-medium' : 'text-green-600'}>
                           {o.balance_owed > 0 ? 'Pending' : 'Completed'}
                         </span>
                       </td>
@@ -438,58 +437,58 @@ export default function OrdersPage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); handleConfirmInstallation(o.ticket_id); }}
                             disabled={confirmingId === o.ticket_id}
-                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                            className="px-2 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover disabled:opacity-50"
                           >
                             {confirmingId === o.ticket_id ? 'Confirming...' : 'Confirm date'}
                           </button>
                         ) : (
-                          <span className="text-gray-600">Pending</span>
+                          <span className="text-ink-2">Pending</span>
                         )}
                       </td>
                       <td className="p-3 whitespace-nowrap">
                         {o.confirmation_status === 'completed' ? (
                           <span className="text-green-600">Completed</span>
                         ) : (
-                          <span className="text-gray-600">Pending</span>
+                          <span className="text-ink-2">Pending</span>
                         )}
                       </td>
-                      <td className="p-3 text-blue-600 whitespace-nowrap">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
+                      <td className="p-3 text-accent-deep whitespace-nowrap">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
                     </tr>
                     {isExpanded && (
-                      <tr className="border-t bg-gray-50">
+                      <tr className="border-t bg-inset">
                         <td colSpan={13} className="p-4">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
                             <div>
-                              <p className="text-gray-600 text-xs">Address</p>
+                              <p className="text-ink-2 text-xs">Address</p>
                               <p>{o.tickets.customers.address}, {o.tickets.customers.area}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600 text-xs">Discount</p>
+                              <p className="text-ink-2 text-xs">Discount</p>
                               <p>₹{o.discount}</p>
                             </div>
                             {o.tickets.planned_installation_date && (
                               <div>
-                                <p className="text-gray-600 text-xs">Planned installation</p>
+                                <p className="text-ink-2 text-xs">Planned installation</p>
                                 <p>{o.tickets.planned_installation_date}</p>
                               </div>
                             )}
                             <div>
-                              <p className="text-gray-600 text-xs">Installation completed</p>
+                              <p className="text-ink-2 text-xs">Installation completed</p>
                               <p>{o.tickets.installation_date ?? '—'}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600 text-xs">Warranty until</p>
+                              <p className="text-ink-2 text-xs">Warranty until</p>
                               <p>{o.tickets.warranty_expires_at ?? '—'}</p>
                             </div>
                             {o.confirmation_status === 'completed' && o.confirmation_note && (
                               <div className="col-span-2 sm:col-span-4">
-                                <p className="text-gray-600 text-xs">Follow-up call</p>
+                                <p className="text-ink-2 text-xs">Follow-up call</p>
                                 <p>{o.confirmation_note}</p>
                               </div>
                             )}
                             {o.tickets.actual_notes && (
                               <div className="col-span-2 sm:col-span-4">
-                                <p className="text-gray-600 text-xs">Notes</p>
+                                <p className="text-ink-2 text-xs">Notes</p>
                                 <p>{o.tickets.actual_notes}</p>
                               </div>
                             )}
@@ -505,13 +504,13 @@ export default function OrdersPage() {
                             <div className="flex flex-wrap gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setCallingId(callingId === o.id ? null : o.id); }}
-                                className="px-3 py-1.5 border rounded-md text-sm bg-white"
+                                className="px-3 py-1.5 border rounded-md text-sm bg-surface"
                               >
                                 Log call
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setPayingId(payingId === o.id ? null : o.id); }}
-                                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                                className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
                               >
                                 Record payment
                               </button>
@@ -534,7 +533,7 @@ export default function OrdersPage() {
                                     e.stopPropagation();
                                     editingPurchaseId === o.ticket_id ? setEditingPurchaseId(null) : startEditingPurchase(o);
                                   }}
-                                  className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50"
+                                  className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint"
                                 >
                                   {editingPurchaseId === o.ticket_id ? 'Cancel edit' : 'Edit'}
                                 </button>
@@ -547,7 +546,7 @@ export default function OrdersPage() {
                                     setVoidReason('');
                                     setError('');
                                   }}
-                                  className="px-3 py-1.5 border border-red-300 text-red-700 rounded-md text-sm hover:bg-red-50"
+                                  className="px-3 py-1.5 border border-danger text-danger rounded-md text-sm hover:bg-danger-tint"
                                 >
                                   Void — wrong entry
                                 </button>
@@ -557,10 +556,10 @@ export default function OrdersPage() {
 
                           {editingPurchaseId === o.ticket_id && (
                             <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-3">
-                              {purchaseEditError && <p className="text-red-600 text-xs">{purchaseEditError}</p>}
+                              {purchaseEditError && <p className="text-danger text-xs">{purchaseEditError}</p>}
                               <input
                                 placeholder="Product details"
-                                className="border rounded px-3 py-2 w-full bg-white"
+                                className="border rounded px-3 py-2 w-full bg-surface"
                                 value={purchaseEditForm.productDetails}
                                 onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, productDetails: e.target.value })}
                               />
@@ -569,7 +568,7 @@ export default function OrdersPage() {
                                   type="date"
                                   required
                                   max={todayIST()}
-                                  className="border rounded px-3 py-2 bg-white"
+                                  className="border rounded px-3 py-2 bg-surface"
                                   value={purchaseEditForm.billDate}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, billDate: e.target.value })}
                                 />
@@ -577,7 +576,7 @@ export default function OrdersPage() {
                                   type="number"
                                   step="0.01"
                                   placeholder="List price"
-                                  className="border rounded px-3 py-2 flex-1 bg-white"
+                                  className="border rounded px-3 py-2 flex-1 bg-surface"
                                   value={purchaseEditForm.listPrice}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, listPrice: e.target.value })}
                                 />
@@ -585,32 +584,32 @@ export default function OrdersPage() {
                                   type="number"
                                   step="0.01"
                                   placeholder="Sold price"
-                                  className="border rounded px-3 py-2 flex-1 bg-white"
+                                  className="border rounded px-3 py-2 flex-1 bg-surface"
                                   value={purchaseEditForm.soldPrice}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, soldPrice: e.target.value })}
                                 />
                               </div>
 
-                              <p className="text-xs text-gray-600 pt-1">Customer details</p>
+                              <p className="text-xs text-ink-2 pt-1">Customer details</p>
                               <div className="grid grid-cols-2 gap-2">
                                 <input
                                   required
                                   placeholder="Phone number"
-                                  className="border rounded px-3 py-2 bg-white"
+                                  className="border rounded px-3 py-2 bg-surface"
                                   value={purchaseEditForm.customerPhone}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, customerPhone: e.target.value })}
                                 />
                                 <input
                                   required
                                   placeholder="Name"
-                                  className="border rounded px-3 py-2 bg-white"
+                                  className="border rounded px-3 py-2 bg-surface"
                                   value={purchaseEditForm.customerName}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, customerName: e.target.value.toUpperCase() })}
                                 />
                                 <input
                                   required
                                   placeholder="Address"
-                                  className="border rounded px-3 py-2 bg-white"
+                                  className="border rounded px-3 py-2 bg-surface"
                                   value={purchaseEditForm.customerAddress}
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, customerAddress: e.target.value })}
                                 />
@@ -630,7 +629,7 @@ export default function OrdersPage() {
                               <button
                                 onClick={() => handleSavePurchaseEdit(o.ticket_id)}
                                 disabled={savingPurchaseEdit}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50"
+                                className="px-4 py-2 bg-accent text-white rounded-md disabled:opacity-50"
                               >
                                 {savingPurchaseEdit ? 'Saving...' : 'Save'}
                               </button>
@@ -639,14 +638,14 @@ export default function OrdersPage() {
 
                           {voidingId === o.ticket_id && (
                             <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-2">
-                              <p className="text-xs text-gray-600">
+                              <p className="text-xs text-ink-2">
                                 Deletes this purchase and its Sales sheet row — for the wrong customer or wrong
                                 product, caught before any payment or visit. Cannot be undone.
                               </p>
                               <div className="flex gap-2">
                                 <input
                                   placeholder="Why is this being voided?"
-                                  className="border rounded px-3 py-2 flex-1 bg-white"
+                                  className="border rounded px-3 py-2 flex-1 bg-surface"
                                   value={voidReason}
                                   onChange={(e) => setVoidReason(e.target.value)}
                                 />
@@ -669,7 +668,7 @@ export default function OrdersPage() {
                                   setSatisfactionNoteFor(satisfactionNoteFor === o.id ? null : o.id);
                                   setSatisfactionNote('');
                                 }}
-                                className="px-3 py-1.5 border rounded-md text-sm bg-white"
+                                className="px-3 py-1.5 border rounded-md text-sm bg-surface"
                               >
                                 Log follow-up call
                               </button>
@@ -680,14 +679,14 @@ export default function OrdersPage() {
                             <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t flex gap-2">
                               <input
                                 placeholder="What did they say? (3+ words)"
-                                className="border rounded px-3 py-2 flex-1 bg-white"
+                                className="border rounded px-3 py-2 flex-1 bg-surface"
                                 value={satisfactionNote}
                                 onChange={(e) => setSatisfactionNote(e.target.value)}
                               />
                               <button
                                 onClick={() => handleConfirmSatisfaction(o.id)}
                                 disabled={confirmingSatisfaction}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50"
+                                className="px-4 py-2 bg-accent text-white rounded-md disabled:opacity-50"
                               >
                                 {confirmingSatisfaction ? 'Saving...' : 'Confirm'}
                               </button>
@@ -700,11 +699,11 @@ export default function OrdersPage() {
                                 type="number"
                                 step="0.01"
                                 placeholder="Amount"
-                                className="border rounded px-3 py-2 flex-1 bg-white"
+                                className="border rounded px-3 py-2 flex-1 bg-surface"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
                               />
-                              <button onClick={() => handlePay(o.id)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
+                              <button onClick={() => handlePay(o.id)} className="px-4 py-2 bg-accent text-white rounded-md">
                                 Submit
                               </button>
                             </div>
@@ -714,11 +713,11 @@ export default function OrdersPage() {
                             <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t flex gap-2">
                               <input
                                 placeholder="What did they say?"
-                                className="border rounded px-3 py-2 flex-1 bg-white"
+                                className="border rounded px-3 py-2 flex-1 bg-surface"
                                 value={callNote}
                                 onChange={(e) => setCallNote(e.target.value)}
                               />
-                              <button onClick={() => handleCall(o.id)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
+                              <button onClick={() => handleCall(o.id)} className="px-4 py-2 bg-accent text-white rounded-md">
                                 Log
                               </button>
                             </div>
@@ -734,5 +733,6 @@ export default function OrdersPage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

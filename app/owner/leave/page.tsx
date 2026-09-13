@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 
 interface LeaveRequest {
   id: string;
@@ -52,10 +52,9 @@ export default function OwnerLeavePage() {
   const decided = requests.filter((r) => r.status !== 'pending');
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4">
-      <HomeLink />
-      <h1 className="text-2xl font-bold mb-6 mt-2">Leave Requests</h1>
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+    <AppShell title="Time off">
+    <div className="max-w-3xl mx-auto">
+      {error && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
 
       {loading ? (
         <p>Loading...</p>
@@ -63,16 +62,16 @@ export default function OwnerLeavePage() {
         <>
           <h2 className="font-semibold mb-3">Pending ({pending.length})</h2>
           {pending.length === 0 ? (
-            <p className="text-gray-900 mb-6">Nothing waiting on you.</p>
+            <p className="text-ink mb-6">Nothing waiting on you.</p>
           ) : (
             <div className="space-y-3 mb-8">
               {pending.map((r) => (
-                <div key={r.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div key={r.id} className="bg-surface rounded-lg shadow-sm border border-rule p-4">
                   <p className="font-medium">{r.users.name}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-2">
                     {r.start_date} to {r.end_date}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">{r.reason}</p>
+                  <p className="text-sm text-ink-2 mt-1">{r.reason}</p>
 
                   <div className="flex gap-2 mt-3">
                     <button
@@ -112,16 +111,16 @@ export default function OwnerLeavePage() {
 
           <h2 className="font-semibold mb-3">Decided</h2>
           {decided.length === 0 ? (
-            <p className="text-gray-900">Nothing yet.</p>
+            <p className="text-ink">Nothing yet.</p>
           ) : (
             <div className="space-y-2">
               {decided.map((r) => (
-                <div key={r.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 text-sm">
+                <div key={r.id} className="bg-surface rounded-lg shadow-sm border border-rule p-3 text-sm">
                   <p>
                     <span className="font-medium">{r.users.name}</span> — {r.start_date} to {r.end_date} —{' '}
-                    <span className={r.status === 'approved' ? 'text-green-700' : 'text-red-700'}>{r.status}</span>
+                    <span className={r.status === 'approved' ? 'text-ok' : 'text-danger'}>{r.status}</span>
                   </p>
-                  {r.decision_reason && <p className="text-gray-900 mt-1">{r.decision_reason}</p>}
+                  {r.decision_reason && <p className="text-ink mt-1">{r.decision_reason}</p>}
                 </div>
               ))}
             </div>
@@ -129,5 +128,6 @@ export default function OwnerLeavePage() {
         </>
       )}
     </div>
+    </AppShell>
   );
 }

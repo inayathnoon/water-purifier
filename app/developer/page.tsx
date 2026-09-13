@@ -170,36 +170,36 @@ export default function DeveloperPage() {
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="flex justify-between items-center gap-2 mb-6">
-        <span className="text-sm text-gray-500">{user?.name} (developer)</span>
+        <span className="text-sm text-ink-2">{user?.name} (developer)</span>
         <button
           onClick={handleSignOut}
-          className="px-3 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          className="px-3 py-1.5 text-sm text-ink bg-surface border border-rule rounded-md hover:bg-accent-tint"
         >
           Sign out
         </button>
       </div>
 
       <h1 className="text-2xl font-bold mb-1">Developer Panel</h1>
-      <p className="text-sm text-gray-500 mb-6">Maintenance tools — not part of the business dashboard.</p>
+      <p className="text-sm text-ink-2 mb-6">Maintenance tools — not part of the business dashboard.</p>
 
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4 text-sm">{error}</p>}
+      {error && <p className="text-danger bg-danger-tint p-3 rounded mb-4 text-sm">{error}</p>}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+      <div className="bg-surface rounded-lg shadow-sm border border-rule p-4 mb-6">
         <h2 className="font-semibold mb-1">View As</h2>
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-ink-2 mb-3">
           Preview what each role actually sees — read-only, doesn't need a separate account.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Link href="/dashboard?viewAs=admin" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
+          <Link href="/dashboard?viewAs=admin" className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint">
             View as Admin
           </Link>
-          <Link href="/dashboard?viewAs=owner" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50">
+          <Link href="/dashboard?viewAs=owner" className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint">
             View as Owner
           </Link>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+      <div className="bg-surface rounded-lg shadow-sm border border-rule p-4 mb-6">
         <div className="flex justify-between items-center mb-2">
           <h2 className="font-semibold">Database Migrations</h2>
           {!migrationsLoading && migrations.filter((m) => !m.applied).length > 0 && (
@@ -209,14 +209,14 @@ export default function DeveloperPage() {
           )}
         </div>
         {migrationsLoading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-ink-2">Loading...</p>
         ) : (
           <>
             <div className="divide-y mb-3 max-h-48 overflow-y-auto">
               {migrations.map((m) => (
                 <div key={m.filename} className="flex justify-between items-center py-1.5 text-sm">
-                  <span className={m.applied ? 'text-gray-900' : 'font-medium'}>{m.filename}</span>
-                  <span className={m.applied ? 'text-green-700' : 'text-orange-700'}>
+                  <span className={m.applied ? 'text-ink' : 'font-medium'}>{m.filename}</span>
+                  <span className={m.applied ? 'text-ok' : 'text-orange-700'}>
                     {m.applied ? 'Applied' : 'Pending'}
                   </span>
                 </div>
@@ -226,92 +226,92 @@ export default function DeveloperPage() {
               <button
                 onClick={handleRunMigrations}
                 disabled={runningMigrations || migrations.every((m) => m.applied)}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover disabled:opacity-50"
               >
                 {runningMigrations ? 'Running...' : 'Run Pending Migrations'}
               </button>
-              {migrationResult && <span className="text-sm text-gray-500">{migrationResult}</span>}
+              {migrationResult && <span className="text-sm text-ink-2">{migrationResult}</span>}
             </div>
           </>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+      <div className="bg-surface rounded-lg shadow-sm border border-rule p-4 mb-6">
         <h2 className="font-semibold mb-1">Product / Spare Parts / Areas Sheet</h2>
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-ink-2 mb-3">
           The sheet is the source of truth (§9) — add or edit rows there directly, then sync.
         </p>
 
         <div className="space-y-3">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-medium text-gray-900 uppercase tracking-wide mb-2">Product Catalog</p>
+          <div className="bg-inset rounded-lg p-3">
+            <p className="text-xs font-medium text-ink uppercase tracking-wide mb-2">Product Catalog</p>
             <div className="flex flex-wrap items-center gap-3">
               <a
                 href={PRODUCT_SHEET_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
               >
                 Open Sheet →
               </a>
               <button
                 onClick={handleSyncProducts}
                 disabled={syncing}
-                className="px-3 py-1.5 bg-white border rounded-md text-sm hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1.5 bg-surface border rounded-md text-sm hover:bg-inset disabled:opacity-50"
               >
                 {syncing ? 'Syncing...' : 'Sync products now'}
               </button>
-              {syncMessage && <span className="text-sm text-gray-500">{syncMessage}</span>}
+              {syncMessage && <span className="text-sm text-ink-2">{syncMessage}</span>}
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-medium text-gray-900 uppercase tracking-wide mb-2">Spare Parts</p>
+          <div className="bg-inset rounded-lg p-3">
+            <p className="text-xs font-medium text-ink uppercase tracking-wide mb-2">Spare Parts</p>
             <div className="flex flex-wrap items-center gap-3">
               <a
                 href={SPARE_PARTS_SHEET_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
               >
                 Open Spare Parts Sheet →
               </a>
               <button
                 onClick={handleSyncSpareParts}
                 disabled={sparePartsSyncing}
-                className="px-3 py-1.5 bg-white border rounded-md text-sm hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1.5 bg-surface border rounded-md text-sm hover:bg-inset disabled:opacity-50"
               >
                 {sparePartsSyncing ? 'Syncing...' : 'Sync spare parts'}
               </button>
-              {sparePartsSyncMessage && <span className="text-sm text-gray-500">{sparePartsSyncMessage}</span>}
+              {sparePartsSyncMessage && <span className="text-sm text-ink-2">{sparePartsSyncMessage}</span>}
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-medium text-gray-900 uppercase tracking-wide mb-2">Areas</p>
+          <div className="bg-inset rounded-lg p-3">
+            <p className="text-xs font-medium text-ink uppercase tracking-wide mb-2">Areas</p>
             <div className="flex flex-wrap items-center gap-3">
               <a
                 href={AREAS_SHEET_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
               >
                 Open Areas Sheet →
               </a>
               <button
                 onClick={handleSyncAreas}
                 disabled={areasSyncing}
-                className="px-3 py-1.5 bg-white border rounded-md text-sm hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1.5 bg-surface border rounded-md text-sm hover:bg-inset disabled:opacity-50"
               >
                 {areasSyncing ? 'Syncing...' : 'Sync areas'}
               </button>
-              {areasSyncMessage && <span className="text-sm text-gray-500">{areasSyncMessage}</span>}
+              {areasSyncMessage && <span className="text-sm text-ink-2">{areasSyncMessage}</span>}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-surface rounded-lg shadow-sm border border-rule p-4">
         <div className="flex justify-between items-center mb-3">
           <h2 className="font-semibold">Staff Accounts</h2>
           <button
@@ -358,16 +358,16 @@ export default function DeveloperPage() {
         )}
 
         {loading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-ink-2">Loading...</p>
         ) : (
           <div className="divide-y">
             {staff.map((member) => (
               <div key={member.id} className="py-2 flex justify-between items-center gap-2">
                 <div>
-                  <p className={`text-sm font-medium ${!member.active ? 'text-gray-400 line-through' : ''}`}>
+                  <p className={`text-sm font-medium ${!member.active ? 'text-ink-3 line-through' : ''}`}>
                     {member.name}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-ink-2">
                     {member.phone} · {ROLE_LABEL[member.role]}
                     {!member.active && ' · deactivated'}
                   </p>
@@ -375,7 +375,7 @@ export default function DeveloperPage() {
                 <button
                   onClick={() => handleToggleActive(member)}
                   className={`px-3 py-1.5 rounded-md text-xs whitespace-nowrap ${
-                    member.active ? 'border hover:bg-gray-50' : 'bg-blue-600 text-white hover:bg-blue-700'
+                    member.active ? 'border hover:bg-accent-tint' : 'bg-accent text-white hover:bg-accent-hover'
                   }`}
                 >
                   {member.active ? 'Deactivate' : 'Reactivate'}

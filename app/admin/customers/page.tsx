@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import AreaSelect from '@/components/AreaSelect';
 import { todayIST } from '@/lib/dates';
 
@@ -58,9 +58,9 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 const KIND_BADGE: Record<string, string> = {
-  enquiry: 'bg-blue-100 text-blue-800',
-  installation: 'bg-green-100 text-green-800',
-  service_visit: 'bg-yellow-100 text-yellow-800',
+  enquiry: 'bg-accent-tint text-accent-deep',
+  installation: 'bg-ok-tint text-ok',
+  service_visit: 'bg-warn-tint text-warn',
 };
 
 export default function CustomerDirectoryPage() {
@@ -233,10 +233,9 @@ function CustomerDirectoryPageInner() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      <HomeLink />
-      <h1 className="text-2xl font-bold mb-1 mt-2">Customer Directory</h1>
-      <p className="text-sm text-gray-500 mb-4">
+    <AppShell title="Customers">
+    <div className="max-w-4xl mx-auto">
+      <p className="text-sm text-ink-2 mb-4">
         Search by phone number or name to see everything a customer has enquired about or bought.
       </p>
 
@@ -244,72 +243,72 @@ function CustomerDirectoryPageInner() {
         <input
           autoFocus
           placeholder="Phone number or name"
-          className="flex-1 border rounded px-3 py-2 text-gray-900"
+          className="flex-1 border rounded px-3 py-2 text-ink"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <button
           type="submit"
           disabled={searching || !query.trim()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50"
         >
           {searching ? 'Searching...' : 'Search'}
         </button>
       </form>
 
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded mb-4">{error}</p>}
+      {error && <p className="text-danger bg-danger-tint p-3 rounded mb-4">{error}</p>}
 
       {searched && results.length === 0 && !searching && (
-        <p className="text-gray-900">No customers match &quot;{query}&quot;.</p>
+        <p className="text-ink">No customers match &quot;{query}&quot;.</p>
       )}
 
       {results.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
+        <div className="bg-surface rounded-lg shadow-sm border border-rule divide-y">
           {results.map((c) => {
             const isExpanded = expandedId === c.id;
             const tickets = history[c.id];
             return (
               <div key={c.id}>
-                <div className="w-full p-4 hover:bg-gray-50 flex justify-between items-center gap-2">
+                <div className="w-full p-4 hover:bg-accent-tint flex justify-between items-center gap-2">
                   <button onClick={() => toggleExpand(c)} className="flex-1 text-left">
                     <p className="font-medium">{c.name}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-ink-2">
                       {c.phone_number} · {c.address}, {c.area}
                     </p>
                   </button>
                   <button
                     onClick={() => (editingId === c.id ? setEditingId(null) : startEditing(c))}
-                    className="text-sm text-gray-600 hover:underline whitespace-nowrap"
+                    className="text-sm text-ink-2 hover:underline whitespace-nowrap"
                   >
                     {editingId === c.id ? 'Cancel' : 'Edit'}
                   </button>
-                  <button onClick={() => toggleExpand(c)} className="text-blue-600 text-sm whitespace-nowrap">
+                  <button onClick={() => toggleExpand(c)} className="text-accent-deep text-sm whitespace-nowrap">
                     {isExpanded ? 'Hide ▲' : 'History ▼'}
                   </button>
                 </div>
 
                 {editingId === c.id && (
-                  <form onSubmit={(e) => handleSaveEdit(e, c.id)} className="bg-blue-50 border-t border-b p-4 space-y-2">
-                    {editError && <p className="text-red-600 text-sm">{editError}</p>}
+                  <form onSubmit={(e) => handleSaveEdit(e, c.id)} className="bg-accent-tint border-t border-b p-4 space-y-2">
+                    {editError && <p className="text-danger text-sm">{editError}</p>}
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         required
                         placeholder="Phone number"
-                        className="border rounded px-3 py-2 text-gray-900"
+                        className="border rounded px-3 py-2 text-ink"
                         value={editForm.phoneNumber}
                         onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
                       />
                       <input
                         required
                         placeholder="Name"
-                        className="border rounded px-3 py-2 text-gray-900"
+                        className="border rounded px-3 py-2 text-ink"
                         value={editForm.name}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value.toUpperCase() })}
                       />
                       <input
                         required
                         placeholder="Address"
-                        className="border rounded px-3 py-2 text-gray-900"
+                        className="border rounded px-3 py-2 text-ink"
                         value={editForm.address}
                         onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                       />
@@ -328,7 +327,7 @@ function CustomerDirectoryPageInner() {
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50"
                     >
                       {saving ? 'Saving...' : 'Save changes'}
                     </button>
@@ -336,58 +335,58 @@ function CustomerDirectoryPageInner() {
                 )}
 
                 {isExpanded && (
-                  <div className="bg-gray-50 border-t p-4">
+                  <div className="bg-inset border-t p-4">
                     {loadingHistory === c.id ? (
-                      <p className="text-sm text-gray-600">Loading...</p>
+                      <p className="text-sm text-ink-2">Loading...</p>
                     ) : !tickets || tickets.length === 0 ? (
-                      <p className="text-sm text-gray-600">No enquiries or purchases on record.</p>
+                      <p className="text-sm text-ink-2">No enquiries or purchases on record.</p>
                     ) : (
                       <div className="space-y-2">
                         {tickets.map((t) => {
                           const order = firstOrder(t.orders);
                           return (
-                            <div key={t.id} className="bg-white rounded border p-3 text-sm">
+                            <div key={t.id} className="bg-surface rounded border p-3 text-sm">
                               <div className="flex justify-between items-start">
                                 <div>
                                   <span className={`text-xs px-2 py-0.5 rounded-full ${KIND_BADGE[t.kind]}`}>
                                     {KIND_LABEL[t.kind]}
                                   </span>
-                                  <span className="ml-2 text-gray-600 capitalize">{t.status}</span>
+                                  <span className="ml-2 text-ink-2 capitalize">{t.status}</span>
                                 </div>
-                                <span className="text-xs text-gray-600 whitespace-nowrap">
+                                <span className="text-xs text-ink-2 whitespace-nowrap">
                                   {(t.actual_date ?? t.created_at.slice(0, 10))}
                                 </span>
                               </div>
                               {t.enquiry_product_interest && (
-                                <p className="mt-1 text-gray-900">{t.enquiry_product_interest}</p>
+                                <p className="mt-1 text-ink">{t.enquiry_product_interest}</p>
                               )}
                               {t.kind === 'installation' && t.agreed_price != null && (
-                                <p className="mt-1 text-gray-900">Agreed price: ₹{t.agreed_price}</p>
+                                <p className="mt-1 text-ink">Agreed price: ₹{t.agreed_price}</p>
                               )}
                               {t.kind === 'service_visit' && t.charge_amount != null && (
-                                <p className="mt-1 text-gray-900">
+                                <p className="mt-1 text-ink">
                                   Charge: {t.charge_amount === 0 ? 'Free (under warranty)' : `₹${t.charge_amount}`}
                                 </p>
                               )}
                               {order && (
                                 <>
-                                  <p className="mt-1 text-gray-600">
+                                  <p className="mt-1 text-ink-2">
                                     List ₹{order.list_price} · Sold ₹{order.sold_price} · Discount ₹{order.discount} · Paid ₹
                                     {order.paid_amount} ·{' '}
-                                    <span className={order.balance_owed > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+                                    <span className={order.balance_owed > 0 ? 'text-danger font-medium' : 'text-green-600'}>
                                       Balance ₹{order.balance_owed}
                                     </span>
                                     {order.balance_owed > 0 && (
                                       <>
                                         <button
                                           onClick={() => (payingOrderId === order.id ? setPayingOrderId(null) : startPayment(order.id))}
-                                          className="ml-2 text-blue-600 hover:underline"
+                                          className="ml-2 text-accent-deep hover:underline"
                                         >
                                           {payingOrderId === order.id ? 'Cancel' : 'Record payment'}
                                         </button>
                                         <button
                                           onClick={() => (callingOrderId === order.id ? setCallingOrderId(null) : startCall(order.id))}
-                                          className="ml-2 text-blue-600 hover:underline"
+                                          className="ml-2 text-accent-deep hover:underline"
                                         >
                                           {callingOrderId === order.id ? 'Cancel' : 'Log call'}
                                         </button>
@@ -395,7 +394,7 @@ function CustomerDirectoryPageInner() {
                                     )}
                                   </p>
                                   {order.payment_history?.length > 0 && (
-                                    <div className="mt-1 text-xs text-gray-600">
+                                    <div className="mt-1 text-xs text-ink-2">
                                       Payments:{' '}
                                       {order.payment_history
                                         .map((p) => `₹${p.amount} on ${p.date.slice(0, 10)}`)
@@ -403,7 +402,7 @@ function CustomerDirectoryPageInner() {
                                     </div>
                                   )}
                                   {t.call_log?.length > 0 && (
-                                    <div className="mt-1 text-xs text-gray-600">
+                                    <div className="mt-1 text-xs text-ink-2">
                                       Calls (newest first):
                                       <ul className="mt-0.5 space-y-0.5">
                                         {t.call_log.map((call) => (
@@ -419,7 +418,7 @@ function CustomerDirectoryPageInner() {
                                       onSubmit={(e) => handleLogCall(e, order.id, c.id)}
                                       className="mt-2 pt-2 border-t flex flex-wrap gap-2 items-start"
                                     >
-                                      {callError && <p className="w-full text-red-600 text-xs">{callError}</p>}
+                                      {callError && <p className="w-full text-danger text-xs">{callError}</p>}
                                       <input
                                         required
                                         placeholder="What did they say?"
@@ -430,7 +429,7 @@ function CustomerDirectoryPageInner() {
                                       <button
                                         type="submit"
                                         disabled={callSubmitting}
-                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                                        className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover disabled:opacity-50"
                                       >
                                         {callSubmitting ? 'Saving...' : 'Save'}
                                       </button>
@@ -441,7 +440,7 @@ function CustomerDirectoryPageInner() {
                                       onSubmit={(e) => handleRecordPayment(e, order.id, c.id)}
                                       className="mt-2 pt-2 border-t flex flex-wrap gap-2 items-start"
                                     >
-                                      {paymentError && <p className="w-full text-red-600 text-xs">{paymentError}</p>}
+                                      {paymentError && <p className="w-full text-danger text-xs">{paymentError}</p>}
                                       <input
                                         type="date"
                                         required
@@ -464,7 +463,7 @@ function CustomerDirectoryPageInner() {
                                       <button
                                         type="submit"
                                         disabled={payingSubmitting}
-                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                                        className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover disabled:opacity-50"
                                       >
                                         {payingSubmitting ? 'Saving...' : 'Save'}
                                       </button>
@@ -473,7 +472,7 @@ function CustomerDirectoryPageInner() {
                                 </>
                               )}
                               {t.enquiry_source && t.enquiry_source !== 'general' && (
-                                <p className="mt-1 text-xs text-gray-600 capitalize">Source: {t.enquiry_source.replace('_', ' ')}</p>
+                                <p className="mt-1 text-xs text-ink-2 capitalize">Source: {t.enquiry_source.replace('_', ' ')}</p>
                               )}
                             </div>
                           );
@@ -488,5 +487,6 @@ function CustomerDirectoryPageInner() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

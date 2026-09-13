@@ -72,7 +72,7 @@ export default function ProductPicker({
     <div className="grid grid-cols-3 gap-2">
       <select
         required={required}
-        className="border rounded px-3 py-2 text-gray-900"
+        className="border rounded px-3 py-2 text-ink"
         value={brand}
         onChange={(e) => {
           setBrand(e.target.value);
@@ -91,7 +91,7 @@ export default function ProductPicker({
       <select
         required={required}
         disabled={!brand}
-        className="border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
+        className="border rounded px-3 py-2 text-ink disabled:bg-inset"
         value={name}
         onChange={(e) => {
           setName(e.target.value);
@@ -109,7 +109,7 @@ export default function ProductPicker({
       <select
         required={required}
         disabled={!name || variants.length <= 1}
-        className="border rounded px-3 py-2 text-gray-900 disabled:bg-gray-50"
+        className="border rounded px-3 py-2 text-ink disabled:bg-inset"
         value={variantCode}
         onChange={(e) => {
           const chosen = variants.find((v) => v.code === e.target.value);

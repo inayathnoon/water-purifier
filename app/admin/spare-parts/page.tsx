@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import HomeLink from '@/components/HomeLink';
+import AppShell from '@/components/AppShell';
 import { todayIST, isWithinWarranty } from '@/lib/dates';
 
 interface SparePart {
@@ -239,10 +239,9 @@ function SparePartsPageInner() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4">
-      <HomeLink />
+    <AppShell title="Spares">
+    <div className="max-w-3xl mx-auto">
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
-        <h1 className="text-2xl font-bold">Spares</h1>
         {!ticketId && (
           <button
             onClick={() => setShowSellForm((s) => !s)}
@@ -252,7 +251,7 @@ function SparePartsPageInner() {
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-ink-2 mb-6">
         {ticketId
           ? 'Spare parts sold as part of confirming this job — linked back to it automatically.'
           : 'A part sold on its own at the office — no visit, no job, customer details optional.'}
@@ -262,25 +261,25 @@ function SparePartsPageInner() {
         <div className="mb-6">
           {sparesConfirmed ? (
             <div className="flex items-center gap-3">
-              <p className="text-sm bg-green-50 text-green-800 rounded-md px-3 py-2 flex-1">
+              <p className="text-sm bg-ok-tint text-ok rounded-md px-3 py-2 flex-1">
                 Spares step done for this job — it can now be marked complete.
               </p>
-              {noSparesError && <p className="text-red-600 text-xs">{noSparesError}</p>}
+              {noSparesError && <p className="text-danger text-xs">{noSparesError}</p>}
               <button
                 onClick={handleUndoNoSpares}
                 disabled={confirmingNoSpares}
-                className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+                className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint disabled:opacity-50 whitespace-nowrap"
               >
                 Undo
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              {noSparesError && <p className="text-red-600 text-xs">{noSparesError}</p>}
+              {noSparesError && <p className="text-danger text-xs">{noSparesError}</p>}
               <button
                 onClick={handleNoSparesNeeded}
                 disabled={confirmingNoSpares}
-                className="text-sm text-gray-600 hover:underline disabled:opacity-50"
+                className="text-sm text-ink-2 hover:underline disabled:opacity-50"
               >
                 {confirmingNoSpares ? 'Saving...' : 'No parts used'}
               </button>
@@ -290,24 +289,24 @@ function SparePartsPageInner() {
       )}
 
       {showSellForm && (
-        <form onSubmit={handleSellSubmit} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-3">
-          {sellError && <p className="text-red-600 text-sm">{sellError}</p>}
+        <form onSubmit={handleSellSubmit} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-8 space-y-3">
+          {sellError && <p className="text-danger text-sm">{sellError}</p>}
           {withinWarranty && (
-            <p className="text-sm bg-blue-50 text-blue-800 rounded-md px-3 py-2">
+            <p className="text-sm bg-accent-tint text-accent-deep rounded-md px-3 py-2">
               Still under warranty — any parts used here are free of charge.
             </p>
           )}
           <div className="grid grid-cols-2 gap-3">
             <input
               placeholder="Customer name (optional)"
-              className="border rounded px-3 py-2 text-gray-900"
+              className="border rounded px-3 py-2 text-ink"
               value={sellCustomerName}
               onChange={(e) => setSellCustomerName(e.target.value.toUpperCase())}
               readOnly={!!ticketId}
             />
             <input
               placeholder="Phone number (optional)"
-              className="border rounded px-3 py-2 text-gray-900"
+              className="border rounded px-3 py-2 text-ink"
               value={sellPhoneNumber}
               onChange={(e) => setSellPhoneNumber(e.target.value)}
               readOnly={!!ticketId}
@@ -315,19 +314,19 @@ function SparePartsPageInner() {
           </div>
           <div className="border rounded-lg divide-y">
             {spareParts.length === 0 ? (
-              <p className="text-sm text-gray-500 p-3">No spare parts loaded — check the sheet.</p>
+              <p className="text-sm text-ink-2 p-3">No spare parts loaded — check the sheet.</p>
             ) : (
               spareParts.map((p) => (
                 <div key={p.name} className="flex justify-between items-center p-3">
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-gray-500">{withinWarranty ? 'Free' : `₹${p.price}`}</p>
+                    <p className="text-xs text-ink-2">{withinWarranty ? 'Free' : `₹${p.price}`}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => adjustSellQty(p.name, -1)}
-                      className="w-9 h-9 rounded-full border text-lg font-semibold active:bg-gray-100"
+                      className="w-9 h-9 rounded-full border text-lg font-semibold active:bg-inset"
                     >
                       −
                     </button>
@@ -335,7 +334,7 @@ function SparePartsPageInner() {
                     <button
                       type="button"
                       onClick={() => adjustSellQty(p.name, 1)}
-                      className="w-9 h-9 rounded-full border text-lg font-semibold active:bg-gray-100"
+                      className="w-9 h-9 rounded-full border text-lg font-semibold active:bg-inset"
                     >
                       +
                     </button>
@@ -361,18 +360,18 @@ function SparePartsPageInner() {
       {loading ? (
         <p>Loading...</p>
       ) : recentSales.length === 0 ? (
-        <p className="text-gray-900">{ticketId ? 'Nothing recorded yet.' : 'No spare part sales yet.'}</p>
+        <p className="text-ink">{ticketId ? 'Nothing recorded yet.' : 'No spare part sales yet.'}</p>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y">
+        <div className="bg-surface rounded-lg shadow-sm border border-rule divide-y">
           {recentSales.map((s) => (
             <div key={s.id} className="p-3 text-sm">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="font-medium">
                     {s.part_name} x{s.quantity}
-                    {s.customer_name && <span className="text-gray-900 font-normal"> — {s.customer_name}</span>}
+                    {s.customer_name && <span className="text-ink font-normal"> — {s.customer_name}</span>}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-ink-2">
                     {new Date(s.created_at).toLocaleString()} · sold by {s.users?.name ?? 'Unknown'}
                   </p>
                 </div>
@@ -380,7 +379,7 @@ function SparePartsPageInner() {
                   <span className="font-medium">₹{s.total}</span>
                   <button
                     onClick={() => (editingId === s.id ? setEditingId(null) : startEditing(s))}
-                    className="text-xs text-gray-600 hover:underline"
+                    className="text-xs text-ink-2 hover:underline"
                   >
                     {editingId === s.id ? 'Cancel' : 'Edit'}
                   </button>
@@ -389,7 +388,7 @@ function SparePartsPageInner() {
 
               {editingId === s.id && (
                 <form onSubmit={(e) => handleSaveEdit(e, s.id)} className="mt-3 pt-3 border-t space-y-2">
-                  {editError && <p className="text-red-600 text-xs">{editError}</p>}
+                  {editError && <p className="text-danger text-xs">{editError}</p>}
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="date"
@@ -452,5 +451,6 @@ function SparePartsPageInner() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }
