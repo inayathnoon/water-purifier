@@ -30,7 +30,18 @@ async function fetchSpareParts(): Promise<SparePart[]> {
 
   let rows: string[][];
   try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${qtab}!A:B` });
+    // UNFORMATTED_VALUE (default is FORMATTED_VALUE) — without this, a
+    // price the sheet displays with a thousands separator (e.g. "1,200")
+    // comes back as that literal string, `Number("1,200")` is NaN, and
+    // the `|| 0` fallback below silently turned every such part free.
+    // Confirmed live: UV Chamber/RO Membrane/Alkaline Filter/SMPS (all
+    // 4+ digit prices) were reading ₹0 while every 3-digit price (no
+    // comma) read correctly.
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${qtab}!A:B`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
     rows = res.data.values ?? [];
   } catch (e) {
     throw new ApiError(500, `Could not read the "${SPARE_PARTS_TAB}" sheet: ${(e as Error).message}`);
@@ -39,7 +50,7 @@ async function fetchSpareParts(): Promise<SparePart[]> {
   return rows
     .slice(1) // header row
     .filter((r) => (r[0] ?? '').trim())
-    .map((r) => ({ name: r[0].trim(), price: Number(r[1]) || 0 }));
+    .map((r) => ({ name: String(r[0]).trim(), price: Number(r[1]) || 0 }));
 }
 
 export async function getSpareParts(): Promise<SparePart[]> {
