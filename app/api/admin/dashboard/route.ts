@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { daysAgoIST, isEnquiryOverdue, todayIST } from '@/lib/dates';
+import { daysAgoIST, isEnquiryOverdue, todayIST, mondayOfWeekIST } from '@/lib/dates';
 import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
 // installation_date is a plain DATE (no time/timezone component) — doing
@@ -30,7 +30,10 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Admin" preview works.
     await requireUser(['admin', 'owner', 'developer']);
     const today = todayIST();
-    const weekEnd = dateAddDays(today, 6);
+    // Mon–Sat of the current calendar week, fixed — not a rolling
+    // next-7-days window from today.
+    const weekStart = mondayOfWeekIST();
+    const weekEnd = dateAddDays(weekStart, 5);
 
     const [newEnquiries, jobsToDispatch, dueForMarkDone, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue, weekJobs] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
@@ -104,16 +107,15 @@ export async function GET() {
         .not('tickets.installation_date', 'is', null)
         .gte('tickets.installation_date', dateMinusDays(today, 30)),
 
-      // This week's schedule, per technician — same "who's busy + what's
-      // still unassigned" picture the owner dashboard already has, now
-      // here too, right next to Jobs to Dispatch. status included so the
-      // frontend only offers to edit a still-'booked' job, not one
-      // already completed.
+      // This week's schedule, per technician — Mon–Sat of the current
+      // calendar week (fixed, not a rolling next-7-days window). status
+      // included so the frontend only offers to edit a still-'booked'
+      // job, not one already completed.
       supabaseAdmin
         .from('tickets')
         .select('id, kind, status, booked_date, booked_half_day, location, assigned_to_id, customers(name)')
         .in('kind', ['installation', 'service_visit'])
-        .gte('booked_date', today)
+        .gte('booked_date', weekStart)
         .lte('booked_date', weekEnd)
         .in('status', ['booked', 'completed']),
     ]);
@@ -198,7 +200,7 @@ export async function GET() {
       overdueCallCount,
       satisfactionCallsDue: satisfactionCallsDueList,
       weekJobs: weekJobs.data ?? [],
-      weekStart: today,
+      weekStart,
       weekEnd,
       today,
     });

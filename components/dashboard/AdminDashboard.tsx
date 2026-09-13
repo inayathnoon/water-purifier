@@ -241,7 +241,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <DashboardCard
           title="New enquiries"
           badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
@@ -332,6 +332,26 @@ export default function AdminDashboard() {
               </div>
             );
           })}
+        </DashboardCard>
+
+        <DashboardCard
+          title="Yearly service calls due"
+          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
+          badgeColor="bg-blue-100 text-blue-800"
+          emptyText="None due this month."
+          viewAllHref="/admin/service-calls"
+          shownCount={Math.min(5, data.serviceCallsDue.length)}
+          totalCount={data.serviceCallsDue.length}
+        >
+          {data.serviceCallsDue.slice(0, 5).map((s) => (
+            <Row
+              key={s.installationTicketId}
+              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
+              primary={s.customerName}
+              secondary={`${s.phoneNumber} · ${s.area}`}
+              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
+            />
+          ))}
         </DashboardCard>
       </div>
 
@@ -542,25 +562,6 @@ export default function AdminDashboard() {
           ))}
         </DashboardCard>
 
-        <DashboardCard
-          title="Yearly service calls due"
-          badge={data.serviceCallsDue.length > 0 ? `${data.serviceCallsDue.length} this month` : undefined}
-          badgeColor="bg-blue-100 text-blue-800"
-          emptyText="None due this month."
-          viewAllHref="/admin/service-calls"
-          shownCount={Math.min(5, data.serviceCallsDue.length)}
-          totalCount={data.serviceCallsDue.length}
-        >
-          {data.serviceCallsDue.slice(0, 5).map((s) => (
-            <Row
-              key={s.installationTicketId}
-              href={`/admin/service-calls?highlightInstallation=${s.installationTicketId}`}
-              primary={s.customerName}
-              secondary={`${s.phoneNumber} · ${s.area}`}
-              tag={`${(s.monthsSinceInstall / 12).toFixed(1)}y since install`}
-            />
-          ))}
-        </DashboardCard>
       </div>
     </div>
   );

@@ -3142,6 +3142,53 @@ section above holding). The trimmed `orders` select for
 `salesByCategory` re-checked directly against live data, unchanged
 shape.
 
+## Dashboard Layout, Round 2: Talked Through Live, Owner Simplified Further (2026-09-13)
+
+Worked through the layout with the user directly rather than guessing —
+asked what "arrangement I'm not happy with" actually meant, got three
+concrete answers, then several more corrections live as they watched
+each change land:
+
+- **Admin**: "Yearly service calls due" moved out of its own dangling
+  row (5 cards in a 2-column grid always left the last one alone) and
+  into the New Enquiries/Jobs to Dispatch row instead — that row is now
+  3-column, and the Finished Installation/Service/Payments Outstanding
+  row is back to an even 2. This Week's position (already moved up
+  earlier this session) was confirmed as correct — right after Jobs to
+  Dispatch, before anything else.
+- **Owner, corrected in several live passes**: the previous round gave
+  owner full admin-style *actions* (mark done, sell spares, confirm) on
+  "Finished Installation/Service" — reconsidered as pulling the page
+  back toward being a "tool," which is exactly what the owner said they
+  didn't want it to feel like. That card is removed from the owner
+  dashboard entirely; **Jobs to Dispatch and Payments Outstanding are
+  now view-only status lists** (name, phone, tag — no buttons), same
+  data admin sees, just nothing to click but "view all." "New enquiries"
+  was tried, then dropped — admin already owns enquiries end to end, the
+  owner only needed the two enquiry-escalation cards it already had.
+  "+ New Purchase" removed from the owner's nav grid too — no create
+  actions for owner anywhere on this page now, only browsing and
+  escalation.
+- **Final owner layout, top to bottom**: nav grid (browse-only) →
+  scorecards (Kitchen/Vessel/Commercial/Service/Spare + Total) → one
+  4-column row (Vessel/Commercial enquiries, Passed to you, Jobs to
+  Dispatch, Payments Outstanding — the last still `highlight`ed) → This
+  Week → pending-leave banner. The `/api/admin/dashboard` fetch this
+  round's earlier version needed is gone entirely now that neither
+  remaining card depends on it.
+- **This Week is now a fixed Mon–Sat calendar week**, not a rolling
+  next-7-days window — new `mondayOfWeekIST()` in `lib/dates.ts` (ISO
+  week: Monday starts it, a Sunday's "this week" Monday is 6 days
+  earlier, not the upcoming one), used by both dashboard routes'
+  `weekStart`/`weekEnd`. `WeekSchedule`'s own date-range renderer already
+  worked off `weekStart`/`weekEnd` generically, so no change needed
+  there beyond a stale comment.
+
+**Verified**: `mondayOfWeekIST()` checked directly against all seven
+days of a real week (Sun through Sat) — every one resolves to the same
+Monday. `tsc`/`next build` clean, `eslint` unchanged (25/3, no new
+issues), all 5 hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

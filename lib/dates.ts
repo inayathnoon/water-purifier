@@ -117,3 +117,19 @@ export const HALF_DAY_TIMES: Record<string, { start: string; end: string }> = {
   afternoon: { start: '12:00', end: '15:00' },
   evening: { start: '15:00', end: '18:00' },
 };
+
+/**
+ * Monday of the current IST calendar week (ISO week — Monday starts it,
+ * Sunday is still counted as its last day, so a Sunday's "this week"
+ * Monday is 6 days earlier, not the upcoming one). Used for "This Week"
+ * schedule — a fixed Mon–Sat block, not a rolling next-7-days window, so
+ * the label always reads as a real calendar week regardless of what day
+ * it's checked on.
+ */
+export function mondayOfWeekIST(now: Date = new Date()): string {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  const dow = ist.getUTCDay(); // 0=Sun..6=Sat
+  const daysSinceMonday = (dow + 6) % 7;
+  const mondayUTC = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() - daysSinceMonday);
+  return new Date(mondayUTC).toISOString().slice(0, 10);
+}

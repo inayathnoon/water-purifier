@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { todayIST, monthStartISTThreshold } from '@/lib/dates';
+import { monthStartISTThreshold, mondayOfWeekIST } from '@/lib/dates';
 
 // §15.3's "what did we earn this month" split out by category — the three
 // product categories (from the sold purifier itself), spare parts (both
@@ -39,8 +39,10 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Owner" preview works.
     await requireUser(['owner', 'developer']);
 
-    const today = todayIST();
-    const weekEnd = dateAddDays(today, 6);
+    // Mon–Sat of the current calendar week, fixed — not a rolling
+    // next-7-days window from today.
+    const weekStart = mondayOfWeekIST();
+    const weekEnd = dateAddDays(weekStart, 5);
     const monthStartISO = monthStartISTThreshold();
 
     const [
@@ -91,13 +93,13 @@ export async function GET() {
         .eq('status', 'open')
         .in('enquiry_product_interest', ['Vessel', 'Commercial']),
 
-      // This week's schedule, per technician — what's lined up for them
-      // (§15.3's "who's busy" taken out to a full week, not just today).
+      // This week's schedule, per technician — Mon–Sat of the current
+      // calendar week (fixed, not a rolling next-7-days window).
       supabaseAdmin
         .from('tickets')
         .select('id, kind, booked_date, booked_half_day, assigned_to_id, customers(name)')
         .in('kind', ['installation', 'service_visit'])
-        .gte('booked_date', today)
+        .gte('booked_date', weekStart)
         .lte('booked_date', weekEnd)
         .in('status', ['booked', 'completed']),
 
@@ -201,7 +203,7 @@ export async function GET() {
       commercialVesselEnquiries: commercialVesselEnquiries.data ?? [],
       weekJobs: weekJobs.data ?? [],
       jobsToDispatch: jobsToDispatch.data ?? [],
-      weekStart: today,
+      weekStart,
       weekEnd,
     });
   } catch (err) {

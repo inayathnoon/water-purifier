@@ -1,7 +1,8 @@
 'use client';
 
-// The next 7 days, staff as rows — used on both the admin and owner
-// dashboards, identical except admin's cells are clickable (to
+// Mon–Sat of the current calendar week (fixed, not a rolling next-7-days
+// window — see mondayOfWeekIST()), staff as rows — used on both the admin
+// and owner dashboards, identical except admin's cells are clickable (to
 // reassign/edit a booked job in place) and owner's are read-only.
 
 // Admin's weekJobs carries extra fields (location, a stricter status) that
