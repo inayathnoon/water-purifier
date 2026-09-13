@@ -8,7 +8,7 @@ import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
 import BookingForm from '@/components/BookingForm';
 import { todayIST } from '@/lib/dates';
-import { formatINR } from '@/lib/format';
+import { formatINR, toStartCase } from '@/lib/format';
 
 // Label on the left, the field on the right — placeholder text alone was
 // too faint to read reliably, a real label always is.
@@ -298,12 +298,21 @@ function InstallationsPageInner() {
   // reports back over Telegram/phone and admin records it here. Same
   // action as the dashboard's "Finished Installation/Service" card,
   // reachable here too for anyone working straight off this page.
-  const handleMarkDone = async (ticketId: string) => {
-    if (!(await confirm('Mark this installation done?'))) return;
+  // One click does the whole thing now — mark done and confirm/close in
+  // the same action, instead of a separate "Confirm & close" step after.
+  const handleMarkDone = async (ticketId: string, customer: { name: string; phone_number: string }) => {
+    const message = `${toStartCase(customer.name)} — ${customer.phone_number}\n\nPlease call the customer at ${customer.phone_number} to confirm before marking this installation complete.\n\nMark installation complete?`;
+    if (!(await confirm(message))) return;
     setError('');
     const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
     if (!res.ok) {
       setError((await res.json()).error ?? 'Failed to mark done');
+      return;
+    }
+    const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+    if (!closeRes.ok) {
+      setError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again below.');
+      load();
       return;
     }
     load();
@@ -574,7 +583,7 @@ function InstallationsPageInner() {
                         Put back to dispatch
                       </button>
                       <button
-                        onClick={() => handleMarkDone(inst.id)}
+                        onClick={() => handleMarkDone(inst.id, inst.customers)}
                         className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
                       >
                         Installation completed

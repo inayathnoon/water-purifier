@@ -173,16 +173,39 @@ export default function AdminDashboard() {
     loadDashboard();
   };
 
-  const handleMarkDone = async (ticketId: string, label: string) => {
-    if (!(await confirm(`Mark this ${label.toLowerCase()} done?`))) return;
+  // Installation completed used to be two separate clicks — mark done,
+  // then a second "Called & confirmed" once the admin had actually made
+  // that call. Business call: fold them into one — clicking "Installation
+  // completed" now marks the job done and immediately confirms/closes it
+  // in the same action, so there's no lingering unconfirmed installation
+  // waiting on a second click. (Service visits already work this way —
+  // completing the spares step there doubles as the completion click.)
+  const handleMarkDone = async (ticketId: string, label: string, customer?: { name: string; phone_number: string }) => {
+    const message =
+      label === 'Installation' && customer
+        ? `${toStartCase(customer.name)} — ${customer.phone_number}\n\nPlease call the customer at ${customer.phone_number} to confirm before marking this installation complete.\n\nMark installation complete?`
+        : `Mark this ${label.toLowerCase()} done?`;
+    if (!(await confirm(message))) return;
     setMarkDoneError('');
     setMarkingDoneId(ticketId);
     const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
-    setMarkingDoneId(null);
     if (!res.ok) {
+      setMarkingDoneId(null);
       setMarkDoneError((await res.json()).error ?? 'Failed to mark done');
       return;
     }
+    if (label === 'Installation') {
+      const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+      setMarkingDoneId(null);
+      if (!closeRes.ok) {
+        setMarkDoneError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again below.');
+        loadDashboard();
+        return;
+      }
+      loadDashboard();
+      return;
+    }
+    setMarkingDoneId(null);
     loadDashboard();
   };
 
@@ -338,7 +361,7 @@ export default function AdminDashboard() {
             </span>
             {t.kind === 'installation' ? (
               <button
-                onClick={() => handleMarkDone(t.id, 'Installation')}
+                onClick={() => handleMarkDone(t.id, 'Installation', t.customers)}
                 disabled={markingDoneId === t.id}
                 className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
               >

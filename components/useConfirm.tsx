@@ -41,7 +41,7 @@ export function useConfirm(): [(message: string) => Promise<boolean>, ReactNode]
           </button>
           <button
             onClick={() => respond(true)}
-            className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+            className="px-3 py-1.5 bg-danger text-white rounded-md text-sm hover:opacity-90"
           >
             Confirm
           </button>
