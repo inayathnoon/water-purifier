@@ -211,7 +211,7 @@ export default function AdminDashboard() {
           {[
             { href: '/admin/enquiries', label: 'Enquiries', newHref: '/admin/enquiries?new=1', newLabel: '+ New Enquiry', newColor: 'bg-blue-600 hover:bg-blue-700 text-white' },
             { href: '/admin/orders', label: 'Purchases', newHref: '/admin/installations?new=1', newLabel: '+ New Purchase', newColor: 'bg-green-600 hover:bg-green-700 text-white' },
-            { href: '/admin/service-calls', label: 'Services', newHref: '/admin/service-calls?new=1', newLabel: '+ New Service', newColor: 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' },
+            { href: '/admin/service-calls', label: 'Services', newHref: '/admin/service-calls?new=1', newLabel: '+ New Service', newColor: 'bg-sky-400 hover:bg-sky-500 text-gray-900' },
             { href: '/admin/spare-parts', label: 'Spares', newHref: '/admin/spare-parts?new=1', newLabel: '+ Sell Spares', newColor: 'bg-orange-500 hover:bg-orange-600 text-white' },
             { href: '/admin/customers', label: 'Customers' },
             { href: '/admin/products', label: 'Products' },
@@ -429,7 +429,7 @@ export default function AdminDashboard() {
                         ) : (
                           <Link
                             href={sellSparePartHref(item.t)}
-                            className="px-2 py-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded text-xs whitespace-nowrap"
+                            className="px-2 py-1 bg-sky-400 hover:bg-sky-500 text-gray-900 rounded text-xs whitespace-nowrap"
                           >
                             Service completed
                           </Link>
@@ -457,7 +457,7 @@ export default function AdminDashboard() {
                           className={`px-2 py-1 rounded text-xs disabled:opacity-50 whitespace-nowrap ${
                             item.t.kind === 'installation'
                               ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                              : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'
+                              : 'bg-sky-400 hover:bg-sky-500 text-gray-900'
                           }`}
                         >
                           {confirmingJobId === item.t.id ? 'Confirming...' : 'Called & Confirmed'}

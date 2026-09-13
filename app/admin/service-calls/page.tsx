@@ -680,7 +680,7 @@ function ServiceCallsPageInner() {
                     </button>
                     <a
                       href={`/admin/spare-parts?new=1&ticketId=${c.id}&kind=service_visit&customerName=${encodeURIComponent(c.customers.name)}&phone=${encodeURIComponent(c.customers.phone_number)}`}
-                      className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-md text-sm"
+                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-gray-900 rounded-md text-sm"
                     >
                       Service completed
                     </a>
@@ -717,7 +717,7 @@ function ServiceCallsPageInner() {
                     <button
                       onClick={() => handleConfirmClose(c.id)}
                       disabled={confirmingId === c.id}
-                      className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-md text-sm disabled:opacity-50"
+                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-gray-900 rounded-md text-sm disabled:opacity-50"
                     >
                       {confirmingId === c.id ? 'Confirming...' : 'Called & Confirmed'}
                     </button>
