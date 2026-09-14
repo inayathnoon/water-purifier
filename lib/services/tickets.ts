@@ -606,8 +606,6 @@ export async function completeJob(
   callerId: string,
   input: {
     actualDate: string;
-    actualStartTime: string;
-    actualEndTime: string;
     notes: string;
   }
 ) {
@@ -630,8 +628,6 @@ export async function completeJob(
 
   const update: Record<string, unknown> = {
     actual_date: input.actualDate,
-    actual_start_time: input.actualStartTime,
-    actual_end_time: input.actualEndTime,
     actual_notes: input.notes,
     status: 'completed', // §6.7: completed, not closed — returns to admin
   };
@@ -645,7 +641,7 @@ export async function completeJob(
       // order's sale price) is deliberately excluded even though it lives
       // on this same row — this response shape predates staff login and
       // is kept exactly as strict now that only admin/owner call it.
-      'id, kind, status, actual_date, actual_start_time, actual_end_time, actual_notes'
+      'id, kind, status, actual_date, actual_notes'
     )
     .single();
   if (error) throw new ApiError(500, error.message);
@@ -665,8 +661,6 @@ export async function completeJob(
       productOrKind: product ? `${product} (${kindLabel})` : kindLabel,
       customerName: customer?.name ?? 'Unknown',
       customerAddress: customer?.address ?? 'Unknown',
-      startTime: input.actualStartTime,
-      endTime: input.actualEndTime,
     });
   })().catch(() => {});
 

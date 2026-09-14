@@ -238,8 +238,6 @@ test('§13.4: completeJob response never includes a sale price', async () => {
 
     const completed = await completeJob(ticket.id, staffId, {
       actualDate: new Date().toISOString().slice(0, 10),
-      actualStartTime: '09:00',
-      actualEndTime: '11:00',
       notes: 'installed fine',
     });
 

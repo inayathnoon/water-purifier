@@ -74,21 +74,22 @@ export async function notifyJobAssigned(input: {
   await sendAndLog('job_assigned', text);
 }
 
-/** §10.3 row 2: who finished what, for whom, where, and how long it took. No prices (§10.6). */
+/** §10.3 row 2: who finished what, for whom, where. No prices (§10.6).
+ * No duration line — the "actual" start/end times behind it were never
+ * real (fixed half-day windows since the staff-portal removal, not
+ * anything a technician actually clocked), so "Took 3h 0m" was always
+ * the exact same fabricated number for every job in that slot. Neither
+ * shown here nor stored on the ticket any more (see completeJob()). */
 export async function notifyJobCompleted(input: {
   ticketId: string;
   technicianName: string;
   productOrKind: string;
   customerName: string;
   customerAddress: string;
-  startTime: string;
-  endTime: string;
 }) {
-  const duration = formatDuration(input.startTime, input.endTime);
   const text =
     `✅ <b>Job completed</b>\n` +
     `${input.technicianName} finished ${input.productOrKind} for ${input.customerName}, ${input.customerAddress}\n` +
-    `Took ${duration}\n` +
     `${appUrl(`/tickets/${input.ticketId}`)}`;
 
   await sendAndLog('job_completed', text);
@@ -138,14 +139,4 @@ export async function notifyEnquiryPassedToOwner(input: {
     `${appUrl(`/tickets/${input.ticketId}`)}`;
 
   await sendAndLog('enquiry_passed_to_owner', text);
-}
-
-function formatDuration(start: string, end: string): string {
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  const minutes = eh * 60 + em - (sh * 60 + sm);
-  if (minutes <= 0) return 'a short visit';
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
