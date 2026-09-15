@@ -438,18 +438,15 @@ export default function AdminDashboard() {
   const paymentRows = rows.filter((r) => r.group === 'payment');
 
   return (
-    // Plain page flow, no viewport-height math — a card is as tall as its
-    // own rows (a quiet day gets short cards, not ones padded out to fill
-    // a fixed height), capped at ~5 rows before it scrolls inside itself.
-    // On a light day that means the whole dashboard still fits on one
-    // screen with nothing scrolling at all; on a busy one the page
-    // scrolls a little rather than every card shrinking to a sliver,
-    // which is what a fixed-height layout did on a smaller screen.
-    // `items-start` keeps a short card short instead of stretching it to
-    // match a taller neighbour.
+    // Plain page flow, no viewport-height math — a card's content is as
+    // tall as its own rows, capped at ~5 before it scrolls inside itself.
+    // The card itself, though, stretches to match its row partner (default
+    // grid stretch, no items-start) so a quiet-day card doesn't leave an
+    // empty gray gap next to a busier neighbour — the shorter card's own
+    // background/border just extends down to meet it.
     <div className="flex flex-col gap-4">
       {markDoneError && <p className="text-danger text-[13px]">{markDoneError}</p>}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <DashboardCard
           // An open Assign form would otherwise have to be filled in
           // through a 5-row scroll window — let this one card grow while

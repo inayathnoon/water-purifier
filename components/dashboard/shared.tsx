@@ -78,20 +78,22 @@ export function DashboardCard({
   const isEmpty = Array.isArray(children) ? children.length === 0 : !children;
   const showCount = totalCount != null && totalCount > 0;
   return (
-    <div className={`bg-surface border border-rule ${highlight ? 'border-t-2 border-t-danger' : ''}`}>
-      <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-rule">
+    <div className={`bg-surface border border-rule flex flex-col h-full ${highlight ? 'border-t-2 border-t-danger' : ''}`}>
+      <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-rule shrink-0">
         <h3 className="font-condensed text-[15px] uppercase tracking-[0.06em]">{title}</h3>
         {badge && <span className={`text-[11px] font-semibold uppercase tracking-[0.08em] px-2 py-0.5 shrink-0 ${TONE_BADGE[tone]}`}>{badge}</span>}
       </div>
       {isEmpty ? (
-        <p className="px-4 py-3 text-[13px] text-ink-2">{emptyText}</p>
+        <p className="px-4 py-3 text-[13px] text-ink-2 flex-1">{emptyText}</p>
       ) : (
         // ~5 rows tall at this card's row height (66px each) before it
-        // starts scrolling inside instead of growing.
-        <div className={`px-4 ${capRows ? 'max-h-[21rem] overflow-y-auto' : ''}`}>{children}</div>
+        // starts scrolling inside instead of growing — flex-1 lets it
+        // additionally stretch to fill a taller neighbour's row height
+        // when there's fewer than 5 rows, rather than leaving a gap below.
+        <div className={`px-4 flex-1 ${capRows ? 'max-h-[21rem] overflow-y-auto' : ''}`}>{children}</div>
       )}
       {(viewAllHref || viewAllLinks) && !isEmpty && (
-        <div className="flex justify-between items-center gap-2 px-4 py-2.5 border-t border-rule">
+        <div className="flex justify-between items-center gap-2 px-4 py-2.5 border-t border-rule shrink-0">
           {viewAllHref && (
             <Link href={viewAllHref} className="text-[13px] text-accent-deep hover:underline">
               View all →
