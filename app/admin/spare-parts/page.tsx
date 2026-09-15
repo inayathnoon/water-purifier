@@ -512,6 +512,8 @@ function SparePartsPageInner() {
         </form>
       )}
 
+      {!showSellForm && (
+      <>
       <h2 className="text-lg font-semibold mb-2">{ticketId ? 'Recorded for this job' : 'Recent sales'}</h2>
       {loading ? (
         <p>Loading...</p>
@@ -605,6 +607,8 @@ function SparePartsPageInner() {
             </div>
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
     </AppShell>
