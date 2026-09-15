@@ -3372,6 +3372,55 @@ All test customers/tickets and both sheet rows cleaned up afterward.
 `tsc`/`next build`/`eslint` unchanged from baseline (21 errors/4
 warnings, all pre-existing), all 5 hard-rule tests pass.
 
+## Spares: Confirm-Instead-of-Block on Zero Items; Self-Installed Purchases (2026-09-15)
+
+Two more from live use, each confirmed with a clarifying question first —
+one turned out to be a real gap in yesterday's spares work, the other
+touches §13.5 (jobs can only go to real service staff) closely enough to
+check before building.
+
+**Recording a spares sale with nothing picked no longer hard-blocks.**
+Reported as "without any spares we are not able to record sale" —
+turned out to be the case where the business sometimes doesn't charge
+for a visit even outside warranty (a relationship, goodwill) and wants
+that recorded as a deliberate ₹0, not forced through typing a fake line
+item. For a job-linked service visit specifically, submitting with
+nothing picked and no extras now shows a confirm dialog ("No spares or
+extras added — record this as ₹0 and mark it done?") instead of an
+error, and confirming routes to the exact same `confirmNoSparesNeeded()`
++ mark-done + close chain "No parts used" already triggers — same
+outcome, reachable from the same button instead of needing to notice a
+separate small link. A plain office sale or an installation-linked one
+still hard-blocks on zero items — there's no ticket to fall back on
+confirming "done" for, and nothing to attribute a ₹0 record to.
+
+**New Purchase's "Assign to Staff" gained a "No staff — I did it
+myself" option**, for when the admin or owner personally installed the
+unit at the moment of sale — confirmed directly: this means no
+scheduling at all, not "leave it open" and not "let an admin account be
+a valid technician." New `selfCompleteInstallation(ticketId, actualDate)`
+in `lib/services/tickets.ts` skips straight from a freshly-created
+`open` installation ticket to `completed` (with the given date, no
+`assigned_to_id` ever set — §13.5's assignee rule only ever applies to
+a real assignment, which this deliberately isn't one) and hands off to
+the existing `closeTicketAfterConfirmation()` for the real warranty/
+order logic — no new order-creation or Sales-sheet-sync code, reusing
+exactly what a normal book→complete→confirm cycle already does. New
+`POST /api/admin/tickets/[id]/self-complete`. Picking this option in the
+dropdown also hides the now-meaningless half-day select, and routes the
+purchase form's booking step to this endpoint per created ticket instead
+of the normal book endpoint.
+
+**Verified live against production**: `selfCompleteInstallation()`
+refused on a non-open ticket, refused a future date, then on a real
+open installation correctly closed it directly (no assigned_to_id),
+stamped `installation_date` from the given backdated date, and created
+the order at the agreed price — a second call on the same
+now-closed ticket was correctly refused too. The Sales sheet row it
+produced read back correctly, then was cleaned up along with the test
+customer/ticket. `tsc`/`next build`/`eslint` unchanged from baseline,
+all 5 hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

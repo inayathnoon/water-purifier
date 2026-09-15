@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
+import { useConfirm } from '@/components/useConfirm';
 import { todayIST, isWithinWarranty } from '@/lib/dates';
 import { formatINR } from '@/lib/format';
 
@@ -85,6 +86,7 @@ function SparePartsPageInner() {
   const [sparesConfirmed, setSparesConfirmed] = useState(false);
   const [confirmingNoSpares, setConfirmingNoSpares] = useState(false);
   const [noSparesError, setNoSparesError] = useState('');
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -204,6 +206,17 @@ function SparePartsPageInner() {
       .map((x) => ({ partName: x.name.trim(), unitPrice: withinWarranty ? 0 : Number(x.price) || 0, quantity: Number(x.quantity) }));
     const items = [...pickedItems, ...extraItems];
     if (items.length === 0) {
+      // Sometimes nothing gets charged even outside warranty (a
+      // relationship call, goodwill, whatever the reason) — for a linked
+      // service visit this isn't blocked, just confirmed, and is exactly
+      // the same outcome as clicking "No parts used" below. A plain
+      // office/installation sale has nothing to attribute a ₹0 record to,
+      // so that case stays a hard block.
+      if (ticketId && ticketKind === 'service_visit') {
+        if (!(await confirm('No spares or extras added — record this as ₹0 and mark it done?'))) return;
+        await handleNoSparesNeeded();
+        return;
+      }
       setSellError('Pick at least one part, or add an extra.');
       return;
     }
@@ -277,6 +290,7 @@ function SparePartsPageInner() {
   return (
     <AppShell title="Spares">
     <div className="max-w-3xl mx-auto">
+      {confirmDialog}
       <div className="flex flex-wrap justify-between items-center gap-2 mb-1 mt-2">
         {!ticketId && (
           <button

@@ -903,6 +903,33 @@ export async function updatePurchase(
 }
 
 /**
+ * "No staff — I did it myself": the admin or owner personally installed
+ * the unit at the moment of sale, so there's nothing to dispatch — no
+ * technician, no booking, no separate completion step later. Skips
+ * straight from a freshly-created, still-`open` installation ticket to
+ * `completed` (with the given date) and hands off to
+ * `closeTicketAfterConfirmation()` for the actual warranty/order logic,
+ * exactly as if a technician had been assigned, visited, and been
+ * confirmed — there's just no technician in this picture at all, so
+ * `assigned_to_id` stays null throughout (§13.5's assignee rule only
+ * ever applies to a real assignment, which this deliberately isn't one).
+ */
+export async function selfCompleteInstallation(ticketId: string, actualDate: string) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.kind !== 'installation') throw new ApiError(400, 'Only an installation can be self-completed');
+  if (ticket.status !== 'open') throw new ApiError(400, 'Job is already assigned or completed');
+  if (actualDate > todayIST()) throw new ApiError(400, 'Completion date cannot be in the future');
+
+  const { error } = await supabaseAdmin
+    .from('tickets')
+    .update({ actual_date: actualDate, status: 'completed' })
+    .eq('id', ticketId);
+  if (error) throw new ApiError(500, error.message);
+
+  return closeTicketAfterConfirmation(ticketId);
+}
+
+/**
  * §6.7/§7.1: admin closes the ticket after confirming with the customer.
  * For an installation, this is the single moment the order is created
  * (§7.1), using the price agreed at conversion time (§5.7).

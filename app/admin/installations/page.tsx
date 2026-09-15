@@ -70,6 +70,10 @@ function emptyPurchaseItem(id: number): PurchaseItem {
   return { id, productDetails: '', productCode: '', extraDetails: '', price: '', paidAmount: '', isFree: false, listPrice: null };
 }
 
+// Sentinel for "No staff — I did it myself" in the Assign to Staff
+// dropdown — never a real staff id, so it can't collide with one.
+const SELF_INSTALLED = '__self__';
+
 interface StaffMember {
   id: string;
   name: string;
@@ -231,8 +235,22 @@ function InstallationsPageInner() {
     // planned date, so they get the same assignment too. A booking
     // failure here doesn't undo the purchase, which already succeeded —
     // just surfaced as a warning; the ticket(s) stay ready to book below.
+    // "No staff" is the other case entirely — no technician, no
+    // dispatch, the admin/owner already installed it themselves, so each
+    // ticket goes straight to self-complete instead of being booked.
     let bookingFailed = false;
-    if (purchaseForm.assignedToId) {
+    if (purchaseForm.assignedToId === SELF_INSTALLED) {
+      const selfCompleteResults = await Promise.all(
+        (data.results ?? []).map((r: { ticket: { id: string } }) =>
+          fetch(`/api/admin/tickets/${r.ticket.id}/self-complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actualDate: purchaseForm.plannedInstallationDate }),
+          })
+        )
+      );
+      bookingFailed = selfCompleteResults.some((r) => !r.ok);
+    } else if (purchaseForm.assignedToId) {
       const bookingResults = await Promise.all(
         (data.results ?? []).map((r: { ticket: { id: string } }) =>
           fetch(`/api/admin/installations/${r.ticket.id}/book`, {
@@ -251,7 +269,11 @@ function InstallationsPageInner() {
     }
     setPurchaseSubmitting(false);
     if (bookingFailed) {
-      setPurchaseError('Purchase recorded, but assigning staff failed — book it manually below.');
+      setPurchaseError(
+        purchaseForm.assignedToId === SELF_INSTALLED
+          ? 'Purchase recorded, but marking it self-installed failed — try again below.'
+          : 'Purchase recorded, but assigning staff failed — book it manually below.'
+      );
     }
 
     // The purchase is real now — this is the moment the source enquiry
@@ -500,21 +522,28 @@ function InstallationsPageInner() {
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, assignedToId: e.target.value })}
                 >
                   <option value="">(not yet decided)</option>
+                  {/* No technician involved at all — the admin/owner
+                      installed it themselves at the moment of sale, so
+                      there's nothing to schedule or dispatch; this closes
+                      the purchase immediately instead of booking a job. */}
+                  <option value={SELF_INSTALLED}>No staff — I did it myself</option>
                   {staff.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
                   ))}
                 </select>
-                <select
-                  className="border rounded px-3 py-2 text-ink"
-                  value={purchaseForm.bookedHalfDay}
-                  onChange={(e) => setPurchaseForm({ ...purchaseForm, bookedHalfDay: e.target.value })}
-                >
-                  <option value="morning">Morning</option>
-                  <option value="afternoon">Afternoon</option>
-                  <option value="evening">Evening</option>
-                </select>
+                {purchaseForm.assignedToId !== SELF_INSTALLED && (
+                  <select
+                    className="border rounded px-3 py-2 text-ink"
+                    value={purchaseForm.bookedHalfDay}
+                    onChange={(e) => setPurchaseForm({ ...purchaseForm, bookedHalfDay: e.target.value })}
+                  >
+                    <option value="morning">Morning</option>
+                    <option value="afternoon">Afternoon</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                )}
               </div>
             </FormRow>
           )}
