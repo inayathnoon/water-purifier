@@ -6,7 +6,14 @@
  * and no ad-hoc hex anywhere else. `color-scheme: light` keeps native
  * form controls (date pickers, checkboxes) from following the OS's dark
  * mode — this app has no dark theme. */
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  /* AppShell's persistent sidebar width (≥1024px) — a single source so a
+   * fixed-position element outside the normal flex flow (a page's own
+   * bottom bar, say) can align itself to the same content column without
+   * a second hard-coded 220px drifting out of sync with AppShell's own. */
+  --sidebar-w: 220px;
+}
 
 @theme {
   /* ground + ink */

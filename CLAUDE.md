@@ -3638,6 +3638,50 @@ service charge 550) summing to the expected ₹1,150, correctly set
 row present. All test data cleaned up afterward. `tsc`/`next build`/
 `eslint` unchanged from baseline, all 5 hard-rule tests pass.
 
+**Reworked again the same day, from a real screenshot**: the bar
+computed its formula-style `+`/`−`/`=` layout above correctly, but two
+real bugs and one visual complaint came with it —
+
+- **Misaligned with the form above it.** The bar was `inset-x-0`
+  (spans the whole viewport, including AppShell's 220px sidebar), then
+  centered its `max-w-3xl` contents on *that* full width — while the
+  form card above it is `max-w-3xl mx-auto` *inside* the sidebar-offset
+  content column. The two centers differed by half the sidebar's width,
+  so the totals sat visibly left of the card they belonged to. Fixed by
+  bounding the bar to the same content column `<main>` occupies —
+  `left-0 lg:left-[var(--sidebar-w)] right-0`, then the identical
+  `max-w-[1440px] mx-auto px-4 lg:px-8` → `max-w-3xl mx-auto` nesting
+  `<main>` and the form already use — rather than re-deriving the
+  sidebar width by eye a second time, it's now a shared
+  `--sidebar-w: 220px` CSS variable (`app/globals.css`), read by both
+  AppShell's own sidebar and this bar.
+- **Clipped the last parts row.** A static `pb-28` on the form assumed
+  a fixed bar height, but the bar wraps to two lines at a narrow width
+  (and grows/shrinks as the Service charge field appears or
+  disappears) — a taller bar than the guess clipped the last row behind
+  it. Replaced with a `ResizeObserver` measuring the bar's real height
+  live, applied as the form's `paddingBottom` (`height + 24px`) — always
+  exactly enough clearance, at any width or wrap state.
+- **Read as a formula, not a summary.** Replaced the `+`/`−`/`=` glyphs
+  wedged between inputs with a plain layout: the two editable figures
+  (Service charge, Discount) as labeled fields on the left, a read-only
+  right-aligned stack on the right (`Spare parts ₹X` on a quiet 13px
+  line, a hairline, then `Total ₹Y` at 24px bold), then Cancel (a quiet
+  text link) and Record sale (the one accent-filled button) — no
+  arithmetic symbols doing the work of explaining the total, the labels
+  do that instead. Also dropped `shadow-lg` (elevation is reserved for
+  dialogs in this design system) and squared every corner except the
+  two inputs themselves (`rounded-xs`, matching every other input in
+  the app).
+
+Verified: `tsc`/`next build`/`eslint` unchanged from baseline, all 5
+hard-rule tests pass (unrelated area, but this touches
+`recordSparePartSale()`'s neighborhood closely enough to be worth a
+re-run). Not independently re-verified against a live 1024/1280/1440px
+render — the alignment fix is exact CSS math mirroring `<main>`'s own
+nesting rather than a guessed value, but a quick look on the actual
+screen this was reported from is worth doing regardless.
+
 ## Fixed-Height Dashboard Undone: Cards Size To Their Own Rows, Capped At Five (2026-09-15)
 
 Reported with a photo of the real machine — a normal Windows laptop in

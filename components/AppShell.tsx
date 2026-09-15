@@ -149,8 +149,8 @@ function ShellInner({ title, children }: { title: string; children: React.ReactN
       )}
 
       {/* Sidebar — persistent ≥1024px, hidden (hamburger sheet) below that. */}
-      <aside className={`hidden lg:block w-[220px] shrink-0 border-r border-rule bg-surface ${viewAs ? 'mt-8' : ''}`}>
-        <div className="fixed w-[220px] h-screen">{sidebar}</div>
+      <aside className={`hidden lg:block w-[var(--sidebar-w)] shrink-0 border-r border-rule bg-surface ${viewAs ? 'mt-8' : ''}`}>
+        <div className="fixed w-[var(--sidebar-w)] h-screen">{sidebar}</div>
       </aside>
 
       {/* Mobile nav sheet */}

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import { useConfirm } from '@/components/useConfirm';
@@ -93,6 +93,20 @@ function SparePartsPageInner() {
   const [confirmingNoSpares, setConfirmingNoSpares] = useState(false);
   const [noSparesError, setNoSparesError] = useState('');
   const [confirm, confirmDialog] = useConfirm();
+  // The fixed bottom bar's real height, measured live — it wraps to a
+  // second line on a narrow width, so a fixed bottom-padding guess on the
+  // form would either waste space or, on a wider bar, clip the last row
+  // behind it. Seeded with a sane estimate so there's no flash of a
+  // too-small gap before the first measurement lands.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(96);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || !showSellForm) return;
+    const observer = new ResizeObserver(([entry]) => setBarHeight(entry.contentRect.height));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [showSellForm]);
 
   const load = async () => {
     setLoading(true);
@@ -206,6 +220,17 @@ function SparePartsPageInner() {
   const discountAmount = Math.min(Math.max(0, Number(discount) || 0), sparePartsTotal);
   const serviceChargeAmount = serviceChargePart ? Math.max(0, Number(serviceChargeValue) || 0) : 0;
   const sellTotal = serviceChargeAmount + sparePartsTotal - discountAmount;
+
+  // Bar's own Cancel — a job-linked sale has no top-of-page toggle to
+  // fall back on (the form is always open for it), so bail out to the
+  // dashboard instead of just hiding a form nothing else would show.
+  const handleCancelSell = () => {
+    if (ticketId) {
+      router.push('/dashboard');
+    } else {
+      setShowSellForm(false);
+    }
+  };
 
   const handleSellSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,7 +388,11 @@ function SparePartsPageInner() {
       )}
 
       {showSellForm && (
-        <form onSubmit={handleSellSubmit} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-8 space-y-3 pb-28">
+        <form
+          onSubmit={handleSellSubmit}
+          className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-8 space-y-3"
+          style={{ paddingBottom: barHeight + 24 }}
+        >
           {sellError && <p className="text-danger text-sm">{sellError}</p>}
           {withinWarranty && (
             <p className="text-sm bg-accent-tint text-accent-deep rounded-md px-3 py-2">
@@ -460,52 +489,71 @@ function SparePartsPageInner() {
           </div>
 
           {/* Fixed to the bottom of the viewport, not the form — visible
-              the whole time the admin is scrolling through the parts
-              list above. Service charge + Spare parts (calculated) −
-              Discount = Total, spelled out so it's clear where every
-              rupee in the total actually comes from. */}
-          <div className="fixed bottom-0 inset-x-0 bg-surface border-t border-rule shadow-lg z-20">
-            <div className="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center gap-6">
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                {serviceChargePart && (
-                  <>
-                    <span className="text-ink-2">Service charge</span>
-                    <span className="text-ink-2">₹</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={serviceChargeValue}
-                      onChange={(e) => setServiceChargeValue(e.target.value)}
-                      className="w-20 border rounded px-2 py-1"
-                    />
-                    <span className="text-ink-2">+</span>
-                  </>
-                )}
-                <span className="text-ink-2">Spare parts</span>
-                <span className="font-medium">{formatINR(sparePartsTotal)}</span>
-                <span className="text-ink-2">−</span>
-                <span className="text-ink-2">Discount</span>
-                <span className="text-ink-2">₹</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  className="w-20 border rounded px-2 py-1"
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xl font-bold whitespace-nowrap">= {formatINR(sellTotal)}</span>
-                <button
-                  type="submit"
-                  disabled={submittingSell}
-                  className="px-6 py-3 text-base bg-accent hover:bg-accent-hover text-white font-semibold disabled:opacity-50 whitespace-nowrap"
-                >
-                  {submittingSell ? 'Recording...' : 'Record sale'}
-                </button>
+              the whole time the admin is scrolling through the parts list
+              above. Bounded to the same content column as <main> (sidebar
+              width, then the same max-w-[1440px]/px-4 lg:px-8/max-w-3xl
+              nesting <main> and this form already use) rather than the
+              full viewport, so its left/right edges actually line up with
+              the form card's — inset-x-0 previously centered it on the
+              viewport including the sidebar, half a sidebar-width off
+              from where the form itself sits. */}
+          <div ref={barRef} className="fixed bottom-0 left-0 lg:left-[var(--sidebar-w)] right-0 bg-surface border-t border-rule z-20">
+            <div className="max-w-[1440px] mx-auto px-4 lg:px-8">
+              <div className="max-w-3xl mx-auto py-3 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-end gap-4">
+                  {serviceChargePart && (
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] uppercase tracking-[0.06em] text-ink-2">Service charge</span>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-2 text-[13px]">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={serviceChargeValue}
+                          onChange={(e) => setServiceChargeValue(e.target.value)}
+                          className="w-24 h-10 pl-6 pr-2 border border-rule rounded-xs focus-visible:outline-2 focus-visible:outline-accent"
+                        />
+                      </div>
+                    </label>
+                  )}
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[11px] uppercase tracking-[0.06em] text-ink-2">Discount</span>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-2 text-[13px]">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0"
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
+                        className="w-24 h-10 pl-6 pr-2 border border-rule rounded-xs focus-visible:outline-2 focus-visible:outline-accent"
+                      />
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-[13px] text-ink-2 tabular-nums">Spare parts {formatINR(sparePartsTotal)}</p>
+                    <p className="text-[24px] font-bold tabular-nums border-t border-rule pt-1 mt-1">
+                      Total {formatINR(sellTotal)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={handleCancelSell} className="text-[13px] text-ink-2 hover:underline">
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingSell}
+                      className="px-6 py-3 text-base bg-accent hover:bg-accent-hover text-white font-semibold disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {submittingSell ? 'Recording...' : 'Record sale'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
