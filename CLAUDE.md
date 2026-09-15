@@ -3638,6 +3638,55 @@ service charge 550) summing to the expected ₹1,150, correctly set
 row present. All test data cleaned up afterward. `tsc`/`next build`/
 `eslint` unchanged from baseline, all 5 hard-rule tests pass.
 
+## Fixed-Height Dashboard Undone: Cards Size To Their Own Rows, Capped At Five (2026-09-15)
+
+Reported with a photo of the real machine — a normal Windows laptop in
+Chrome, the one the admin actually works on. The "fits one screen, no
+page scroll" layout shipped earlier the same day had collapsed every box
+to a sliver: one barely-readable row each, a cut-off second row, and four
+separate tiny scrollbars.
+
+**Why it broke there and not here**: `100vh` was the right unit (it
+already excludes the browser's own chrome), but the layout divided
+whatever height was left across a 2×2 grid *plus* the staff schedule.
+On a shorter viewport — a 1366×768-class laptop panel, Windows display
+scaling at 125%, a bookmarks bar — there simply isn't enough height for
+that, and the design failed silently: instead of overflowing visibly, it
+shrank each card until the content disappeared behind its own scrollbar.
+A fixed-height/no-scroll layout can't be verified from here either, since
+the failure only shows up at viewport heights this machine doesn't have.
+
+**The replacement, specified by the business after being shown three
+mocked-up options**: drop the viewport math entirely and let the page
+scroll normally, but cap each card at ~5 rows:
+
+- A card is as tall as its own rows — two rows on a quiet day is a short
+  card, not one padded out to a fixed height. `items-start` on the grid
+  keeps a short card from stretching to match a taller neighbour.
+- Past ~5 rows (`max-h-[21rem]`, at this card's 66px row height) the row
+  list scrolls inside the card instead of the card growing down the page.
+  `DashboardCard`'s `fillHeight` prop became `capRows` for this; every
+  other caller (owner dashboard) still renders at natural height.
+- Net behaviour: on a light day the whole dashboard still fits one screen
+  with nothing scrolling; on a busy day the page scrolls a little and
+  each card caps itself, rather than all four cards shrinking at once.
+- Two cards pass `capRows={false}` while an inline form is open in them
+  (Assign on Jobs to dispatch, the completion-date panel on Close-outs) —
+  filling a form through a 5-row scroll window is miserable, and it's one
+  expression to let just that card grow while it's open.
+
+**Standing lesson, since this is the second time a layout has had to be
+walked back after meeting real hardware**: viewport-locked layouts are
+not verifiable from this machine. Prefer natural page flow with bounded
+sections — it degrades gracefully at any height, scaling factor or zoom,
+and the failure mode is a slightly longer page rather than unreadable
+content.
+
+Verified: `tsc`/`next build` clean, `eslint` unchanged from baseline (20
+errors/4 warnings, all pre-existing), all 5 hard-rule tests pass. Not
+live-verified on the business's own laptop — that check belongs to whoever
+opens it there, which is exactly how this regression surfaced.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

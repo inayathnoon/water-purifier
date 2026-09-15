@@ -438,16 +438,23 @@ export default function AdminDashboard() {
   const paymentRows = rows.filter((r) => r.group === 'payment');
 
   return (
-    // Fixed to what's left of the viewport below AppShell's top bar
-    // (3.5rem) and its own vertical padding (3rem) — the whole dashboard
-    // is meant to read at a glance, not be scrolled through. Each box
-    // below scrolls its own row list internally if it has more than
-    // fits; the page itself never does.
-    <div className="h-[calc(100vh-6.5rem)] flex flex-col gap-4">
-      {markDoneError && <p className="text-danger text-[13px] shrink-0">{markDoneError}</p>}
-      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+    // Plain page flow, no viewport-height math — a card is as tall as its
+    // own rows (a quiet day gets short cards, not ones padded out to fill
+    // a fixed height), capped at ~5 rows before it scrolls inside itself.
+    // On a light day that means the whole dashboard still fits on one
+    // screen with nothing scrolling at all; on a busy one the page
+    // scrolls a little rather than every card shrinking to a sliver,
+    // which is what a fixed-height layout did on a smaller screen.
+    // `items-start` keeps a short card short instead of stretching it to
+    // match a taller neighbour.
+    <div className="flex flex-col gap-4">
+      {markDoneError && <p className="text-danger text-[13px]">{markDoneError}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         <DashboardCard
-          fillHeight
+          // An open Assign form would otherwise have to be filled in
+          // through a 5-row scroll window — let this one card grow while
+          // it's open.
+          capRows={!assigningId}
           title="Jobs to dispatch"
           badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} overdue` : undefined}
           tone="danger"
@@ -456,7 +463,7 @@ export default function AdminDashboard() {
           {dispatchRows.map((r) => r.render())}
         </DashboardCard>
         <DashboardCard
-          fillHeight
+          capRows={!installConfirmId}
           title="Close-outs"
           badge={data.overdueMarkDoneCount > 0 ? `${data.overdueMarkDoneCount} overdue` : undefined}
           tone="danger"
@@ -465,7 +472,7 @@ export default function AdminDashboard() {
           {closeoutRows.map((r) => r.render())}
         </DashboardCard>
         <DashboardCard
-          fillHeight
+          capRows
           title="New enquiries"
           badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
           tone="danger"
@@ -474,7 +481,7 @@ export default function AdminDashboard() {
           {enquiryRows.map((r) => r.render())}
         </DashboardCard>
         <DashboardCard
-          fillHeight
+          capRows
           title="Payments outstanding"
           badge={data.overdueCallCount > 0 ? `${data.overdueCallCount} overdue` : undefined}
           tone="warn"
@@ -484,7 +491,7 @@ export default function AdminDashboard() {
         </DashboardCard>
       </div>
 
-      <div className="shrink-0">
+      <div>
         <WeekSchedule
           days={data.scheduleDays}
           weekJobs={data.weekJobs}

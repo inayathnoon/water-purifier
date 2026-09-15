@@ -46,7 +46,7 @@ export function DashboardCard({
   shownCount,
   totalCount,
   highlight,
-  fillHeight,
+  capRows,
   children,
 }: {
   title: string;
@@ -68,28 +68,30 @@ export function DashboardCard({
   // danger top edge — never a full-card tint, so danger stays meaning
   // "past due", not "this module is important".
   highlight?: boolean;
-  // Fills its grid cell and scrolls its own row list internally instead
-  // of growing the page — for a fixed-height, no-page-scroll layout
-  // (the admin dashboard's 4-box grid) where a card with more rows than
-  // fits shouldn't push the rest of the screen off the bottom.
-  fillHeight?: boolean;
+  // Caps the row list at roughly five rows and scrolls inside past that,
+  // instead of the card growing without limit down the page. The card
+  // still shrinks below the cap when there are fewer rows — a quiet day
+  // gets a genuinely short card, not one padded out to a fixed height.
+  capRows?: boolean;
   children: React.ReactNode;
 }) {
   const isEmpty = Array.isArray(children) ? children.length === 0 : !children;
   const showCount = totalCount != null && totalCount > 0;
   return (
-    <div className={`bg-surface border border-rule ${highlight ? 'border-t-2 border-t-danger' : ''} ${fillHeight ? 'h-full flex flex-col min-h-0' : ''}`}>
-      <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-rule shrink-0">
+    <div className={`bg-surface border border-rule ${highlight ? 'border-t-2 border-t-danger' : ''}`}>
+      <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-rule">
         <h3 className="font-condensed text-[15px] uppercase tracking-[0.06em]">{title}</h3>
         {badge && <span className={`text-[11px] font-semibold uppercase tracking-[0.08em] px-2 py-0.5 shrink-0 ${TONE_BADGE[tone]}`}>{badge}</span>}
       </div>
       {isEmpty ? (
         <p className="px-4 py-3 text-[13px] text-ink-2">{emptyText}</p>
       ) : (
-        <div className={`px-4 ${fillHeight ? 'flex-1 overflow-y-auto min-h-0' : ''}`}>{children}</div>
+        // ~5 rows tall at this card's row height (66px each) before it
+        // starts scrolling inside instead of growing.
+        <div className={`px-4 ${capRows ? 'max-h-[21rem] overflow-y-auto' : ''}`}>{children}</div>
       )}
       {(viewAllHref || viewAllLinks) && !isEmpty && (
-        <div className="flex justify-between items-center gap-2 px-4 py-2.5 border-t border-rule shrink-0">
+        <div className="flex justify-between items-center gap-2 px-4 py-2.5 border-t border-rule">
           {viewAllHref && (
             <Link href={viewAllHref} className="text-[13px] text-accent-deep hover:underline">
               View all →
