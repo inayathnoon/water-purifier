@@ -1,8 +1,8 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { updatePurchase } from '@/lib/services/tickets';
 
-// Correcting a purchase's product or price — only while unpaid and
-// unvisited (see updatePurchase()). The customer itself isn't editable
+// Correcting a purchase's product or price — available at any stage of
+// its life (see updatePurchase()). The customer itself isn't editable
 // here; a wrong-customer purchase goes through Void instead.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

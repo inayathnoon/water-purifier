@@ -537,22 +537,6 @@ export default function OrdersPage() {
                                   Close purchase
                                 </button>
                               )}
-                              {/* Editable any time before a tech has actually visited — a
-                                  price/product typo doesn't stop being worth fixing just
-                                  because a partial payment has already come in. Void stays
-                                  gated to unpaid+unvisited only (a genuine data-entry
-                                  mistake, not a real sale with real money against it). */}
-                              {!o.tickets.actual_date && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    editingPurchaseId === o.ticket_id ? setEditingPurchaseId(null) : startEditingPurchase(o);
-                                  }}
-                                  className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint"
-                                >
-                                  {editingPurchaseId === o.ticket_id ? 'Cancel edit' : 'Edit'}
-                                </button>
-                              )}
                               {o.paid_amount === 0 && !o.tickets.actual_date && (
                                 <button
                                   onClick={(e) => {
@@ -568,6 +552,25 @@ export default function OrdersPage() {
                               )}
                             </div>
                           )}
+
+                          {/* Available regardless of purchase/order status — a product,
+                              price, or bill-date typo is worth fixing whether it's caught
+                              same-day or found months later on an already-closed sale.
+                              Raising/lowering sold price re-opens/re-closes the order to
+                              match (see updatePurchase()) — Void stays the one thing still
+                              gated to unpaid+unvisited, since undoing real money or real
+                              completed work needs a human decision, not a plain edit. */}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                editingPurchaseId === o.ticket_id ? setEditingPurchaseId(null) : startEditingPurchase(o);
+                              }}
+                              className="px-3 py-1.5 border rounded-md text-sm hover:bg-accent-tint"
+                            >
+                              {editingPurchaseId === o.ticket_id ? 'Cancel edit' : 'Edit purchase details'}
+                            </button>
+                          </div>
 
                           {editingPurchaseId === o.ticket_id && (
                             <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t space-y-3">
@@ -604,6 +607,27 @@ export default function OrdersPage() {
                                   onChange={(e) => setPurchaseEditForm({ ...purchaseEditForm, soldPrice: e.target.value })}
                                 />
                               </div>
+                              {(() => {
+                                const newSold = Number(purchaseEditForm.soldPrice);
+                                if (!Number.isFinite(newSold)) return null;
+                                const newBalance = newSold - o.paid_amount;
+                                if (o.status === 'closed' && newBalance > 0) {
+                                  return (
+                                    <p className="text-xs text-warn">
+                                      This reopens the purchase — ₹{newBalance.toFixed(2)} will show as owed again
+                                      under Payments outstanding.
+                                    </p>
+                                  );
+                                }
+                                if (o.status === 'open' && newBalance <= 0) {
+                                  return (
+                                    <p className="text-xs text-ok">
+                                      Nothing will be owed at this price — the purchase closes automatically.
+                                    </p>
+                                  );
+                                }
+                                return null;
+                              })()}
 
                               <p className="text-xs text-ink-2 pt-1">Customer details</p>
                               <div className="grid grid-cols-2 gap-2">

@@ -817,14 +817,25 @@ export async function cancelJob(ticketId: string, reason: string) {
 }
 
 /**
- * Correcting a purchase's product or price — available any time before a
- * visit has been recorded, whether or not a partial payment has already
- * come in (revised 2026-09-07 — almost every real purchase has *some*
- * payment against it well before installation, so gating this the same
- * as Void made it effectively unusable). A payment already in hand only
- * puts a floor under sold_price — it can never drop below what's already
- * been paid. Once a visit is recorded, a correction needs a human
- * decision (a refund, or redoing the confirmed work), not a plain edit.
+ * Correcting a purchase's product or price — available at any stage of
+ * its life, not just before a visit (revised 2026-09-15 — an already-
+ * completed or closed purchase had no way to fix a typo except the much
+ * narrower completion-date/notes edit, which doesn't touch product or
+ * money at all). A payment already in hand only puts a floor under
+ * sold_price — it can never drop below what's already been paid.
+ *
+ * Raising sold_price above what's already been paid, on an order that
+ * was closed, *reopens* it — a real balance now exists, so the order
+ * has to go back to showing up in Payments Outstanding rather than
+ * quietly reading "closed" with money owed (the DB's own
+ * enforce_order_payment_on_close trigger would refuse the write outright
+ * otherwise). Symmetrically, lowering sold_price down to what's already
+ * paid closes an order that was still open — the same "closing isn't a
+ * separate action, just balance hitting zero" rule recordPayment()
+ * already applies. Both directions are intentional, not a side effect
+ * to guard against — a genuine price correction should genuinely change
+ * whether money is still owed.
+ *
  * The customer itself still isn't editable here at all; a wrong-customer
  * purchase goes through Void instead (still gated to unpaid+unvisited —
  * a genuine data-entry mistake, not a real sale), since re-pointing
@@ -837,18 +848,14 @@ export async function updatePurchase(
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.kind !== 'installation') throw new ApiError(400, 'Not a purchase');
-  if (ticket.actual_date) {
-    throw new ApiError(400, 'A visit has already been recorded — this can no longer be edited here');
-  }
 
   const { data: order, error: orderError } = await supabaseAdmin.from('orders').select('*').eq('ticket_id', ticketId).single();
   if (orderError || !order) throw new ApiError(404, 'Order not found for this purchase');
   if (updates.listPrice !== undefined && updates.listPrice < 0) throw new ApiError(400, 'List price must be zero or more');
   if (updates.soldPrice !== undefined && updates.soldPrice < 0) throw new ApiError(400, 'Sold price must be zero or more');
-  // A payment already in hand no longer blocks editing (a product/price
-  // typo doesn't stop being worth fixing just because a partial payment
-  // came in) — but the sold price can never drop below what's already
-  // been paid, since that would imply a negative balance owed.
+  // The sold price can never drop below what's already been paid —
+  // that would imply a negative balance owed, which the orders table's
+  // own CHECK constraint (paid_amount <= sold_price) would refuse anyway.
   if (updates.soldPrice !== undefined && updates.soldPrice < Number(order.paid_amount)) {
     throw new ApiError(400, `Sold price cannot be less than the ₹${order.paid_amount} already paid`);
   }
@@ -881,7 +888,16 @@ export async function updatePurchase(
 
   const orderPatch: Record<string, unknown> = {};
   if (updates.listPrice !== undefined) orderPatch.list_price = updates.listPrice;
-  if (updates.soldPrice !== undefined) orderPatch.sold_price = updates.soldPrice;
+  if (updates.soldPrice !== undefined) {
+    orderPatch.sold_price = updates.soldPrice;
+    // Recompute open/closed together with sold_price in the same write —
+    // the DB trigger checks NEW.status against the balance implied by
+    // NEW.sold_price, so status has to travel with it in one statement
+    // rather than a follow-up call (which the trigger would reject
+    // outright if it left a closed order showing a balance owed).
+    const newBalance = updates.soldPrice - Number(order.paid_amount);
+    orderPatch.status = newBalance > 0 ? 'open' : 'closed';
+  }
   if (billDate !== undefined) orderPatch.created_at = billDate;
 
   let updatedOrder = order;

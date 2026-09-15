@@ -3687,6 +3687,91 @@ errors/4 warnings, all pre-existing), all 5 hard-rule tests pass. Not
 live-verified on the business's own laptop — that check belongs to whoever
 opens it there, which is exactly how this regression surfaced.
 
+## Admin Dashboard: Card-Height Stretch; Services Page Split; Spares Footer; Purchases Fully Editable (2026-09-15)
+
+Four more rounds of live feedback the same day, working from real screenshots:
+
+**Dashboard cards stretch to match their row partner.** The just-shipped
+`items-start` (deliberately keeping a quiet-day card short) was itself
+wrong — a real screenshot showed Close-outs/Payments outstanding with
+1-2 rows sitting well short of Jobs to dispatch/New enquiries next to
+them, leaving an empty gray gap in the row. Removed `items-start` (grid's
+default stretch instead) and made `DashboardCard` a flex column with its
+row-list area `flex-1`, so a shorter card's own background/border
+extends down to meet its taller neighbour — capped-row scrolling
+behavior is unchanged, only the card's own height changed.
+
+**`/admin/service-calls` split "Requested — booking or in progress" in
+two.** A completed-but-not-yet-closed visit was sitting in that one list
+with no visual distinction from a still-open or still-booked one.
+`requestedOrInProgress` (open/booked, headed **"Requested or In
+Progress"**) and a new **"Completed services"** section (status
+`completed`, same "what the tech recorded" block the old combined list
+already rendered) — same pattern the existing "Closed" section already
+used, just one stage earlier.
+
+**Spares' fixed bottom footer had a big empty middle on a wide screen.**
+`justify-between` inside the `max-w-3xl mx-auto` bar pushed "Record
+sale" to the container's far edge regardless of how little content sat
+on the left. Dropped `justify-between` for a plain grouped `gap-6` —
+everything sits together on the left now, no dead middle space.
+
+**Purchases: a completed/closed purchase had no way to fix a mistake
+except the narrow completion-date/notes edit** — product, price, bill
+date, and customer were all locked the moment a visit was recorded.
+`updatePurchase()`'s `if (ticket.actual_date) throw` gate is removed
+entirely — product, list price, sold price, and bill date are now
+editable at any stage of a purchase's life, not just before a visit.
+
+The real complication, worked through directly since the user asked "is
+there any data issue for later?": `sold_price` drives `balance_owed`
+(generated column) and a **closed order with a balance owed is refused
+outright by the existing DB trigger** (`enforce_order_payment_on_close`,
+§13.1) — so raising the price on an already-closed order can't just
+patch `sold_price` and leave `status: 'closed'` sitting there, the write
+would be rejected. `updatePurchase()` now recomputes `status` in the
+*same* update statement whenever `soldPrice` changes: balance surfaces
+→ `status: 'open'` (the order genuinely reopens and reappears under
+Payments Outstanding — not a display quirk, real money is now owed
+again); balance clears → `status: 'closed'` (mirrors `recordPayment()`'s
+existing auto-close-on-zero-balance rule). The existing floor
+(`soldPrice` can never drop below `paid_amount`) is unchanged. The
+purchase-edit form on `/admin/orders` shows a live warning either
+direction ("This reopens the purchase — ₹X will show as owed again" /
+"closes automatically") as the admin types a new sold price, so the
+consequence is visible before saving, not just after.
+
+`/admin/orders`'s "Edit purchase details" button moved out of the
+`status === 'open'` block it was previously nested in (which hid it
+entirely on any closed order) so it now renders unconditionally per
+row. **Void stays exactly as gated as before** (`paid_amount === 0 &&
+!actual_date`) — deliberately not widened: undoing real completed work
+or real money needs a human decision (a refund, redoing confirmed
+work), not a plain edit, which is the same reasoning that already
+governs Void and is why it's a delete, not a correction.
+
+The "installation must reflect changes" concern raised alongside this:
+completion-date corrections (`editCompletedJob`, unchanged by this
+round) already re-derive `installation_date`/`warranty_expires_at` and
+re-sync the Sales sheet — a product/price correction doesn't touch
+either of those (warranty is dated from the visit, not the price), so
+nothing there needed new plumbing. Editing `soldPrice`/`billDate` still
+goes through the existing clear-then-resync dance against the Sales
+sheet's match key (unchanged, already worked for a pre-visit edit and
+needed no adjustment for a post-close one).
+
+**Verified live against production**: created a real fully-paid
+purchase (auto-closed at sale, per the existing rule), raised its sold
+price above what was paid — correctly reopened with the exact new
+balance; lowered it back to the paid amount — correctly re-closed;
+attempted to lower it below the paid amount — correctly refused with
+the specific amount named. All 5 hard-rule tests still pass (this
+touches status/balance logic adjacent to §13.1's own trigger). `tsc`/
+`next build` clean, `eslint` unchanged from baseline (20/4). Test
+customer/ticket/order cleaned up directly afterward (not through
+`cancelJob()`, which correctly refuses once a payment/visit exists —
+exactly the state this test needed to reach).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
