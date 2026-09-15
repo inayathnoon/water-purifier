@@ -12,7 +12,12 @@ export function toStartCase(s: string): string {
 
 // Every ₹ figure in the app goes through this — Indian digit grouping
 // (₹1,39,000, not ₹139000), no decimals (this app never handles paise).
+// Every real amount so far has been non-negative, but a spares sale's
+// total can legitimately go negative (a discount larger than what it's
+// discounting) — the minus sign belongs before the ₹, not after it,
+// which is where Intl.NumberFormat's own '-1,150' would otherwise land
+// if just concatenated in (reading as "₹-1,150").
 const inrFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 export function formatINR(n: number): string {
-  return `₹${inrFormatter.format(n)}`;
+  return `${n < 0 ? '-' : ''}₹${inrFormatter.format(Math.abs(n))}`;
 }

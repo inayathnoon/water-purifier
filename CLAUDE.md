@@ -3816,6 +3816,43 @@ customer/ticket/order cleaned up directly afterward (not through
 `cancelJob()`, which correctly refuses once a payment/visit exists —
 exactly the state this test needed to reach).
 
+## Bug: Spares Discount Was Silently Capped, Preventing a Negative Total (2026-09-16)
+
+Reported live: "the internal calculation is wrong ... it is service
+charge + spare total − discount = total, it can [be] negative also."
+The formula itself (`serviceChargeAmount + sparePartsTotal -
+discountAmount`) was already exactly that — but `discountAmount` was
+clamped with `Math.min(discount, sparePartsTotal)`, a leftover from
+before the service charge was pulled out into its own always-present
+line (when the discount could only ever apply against the parts total
+alone, capping it there made sense; once the total became service
+charge + parts − discount, the same cap now silently prevented a
+discount from ever offsetting the service charge, or the sale from
+ever landing below zero — a legitimate outcome for a goodwill credit
+larger than what's actually being bought this time). Removed the cap —
+`discountAmount` is now only floored at zero (a negative typed-in
+discount makes no sense), nothing above.
+
+**Real second bug caught while fixing this**: `formatINR()` — the one
+function every ₹ figure in the app renders through — never handled a
+negative number correctly. `` `₹${inrFormatter.format(n)}` `` on `n =
+-1150` produces `₹-1,150` (the minus sign lands after the ₹ symbol,
+straight from `Intl.NumberFormat`'s own `-1,150` output being
+concatenated in as-is) — every existing call site happened to only ever
+pass non-negative amounts, so this had never surfaced before. Fixed
+to `` `${n < 0 ? '-' : ''}₹${inrFormatter.format(Math.abs(n))}` `` —
+reads as `-₹1,150`, correctly signed before the currency symbol.
+`recordSparePartSale()` itself needed no change — it already accepted
+whatever `unitPrice` a client sent per item with no non-negativity
+check, and `spare_part_sales` has no DB constraint on `total`/`unit_price`
+beyond `quantity > 0`, so a negative discount line item was already
+written correctly; the bug was purely in what the admin saw while
+building the sale, not in what got saved.
+
+Verified: `tsc`/`next build`/`eslint` unchanged from baseline (20/4).
+`formatINR(-1150)` → `-₹1,150`, `formatINR(1150)` → `₹1,150`,
+`formatINR(0)` → `₹0` — checked directly, not just read from the code.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

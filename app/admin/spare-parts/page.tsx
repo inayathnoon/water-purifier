@@ -215,10 +215,14 @@ function SparePartsPageInner() {
   const sparePartsTotal =
     spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * displayPrice(p), 0) +
     extras.reduce((sum, x) => sum + (Number(x.price) || 0) * (Number(x.quantity) || 0), 0);
-  // Never below zero, and never more than the parts total itself — a
-  // discount can zero the parts out, not flip the sale negative.
-  const discountAmount = Math.min(Math.max(0, Number(discount) || 0), sparePartsTotal);
+  // Only floored at zero (a negative discount typed in makes no sense) —
+  // not capped to sparePartsTotal, since the discount is allowed to
+  // outweigh it and take the whole sale negative (e.g. a goodwill
+  // credit bigger than what's actually being bought this time).
+  const discountAmount = Math.max(0, Number(discount) || 0);
   const serviceChargeAmount = serviceChargePart ? Math.max(0, Number(serviceChargeValue) || 0) : 0;
+  // Service charge + spare parts − discount — can legitimately land
+  // below zero when the discount outweighs the rest.
   const sellTotal = serviceChargeAmount + sparePartsTotal - discountAmount;
 
   // Bar's own Cancel — a job-linked sale has no top-of-page toggle to
