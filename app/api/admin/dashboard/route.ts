@@ -3,15 +3,6 @@ import { supabaseAdmin } from '@/lib/db';
 import { daysAgoIST, isEnquiryOverdue, todayIST, nextWorkingDaysIST } from '@/lib/dates';
 import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
-// installation_date is a plain DATE (no time/timezone component) — doing
-// calendar-day subtraction directly on the date string avoids the
-// timestamptz-threshold helpers built for created_at-style columns.
-function dateMinusDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
  * enquiries, jobs waiting to be dispatched to a technician, customers to
@@ -30,7 +21,7 @@ export async function GET() {
     const weekStart = scheduleDays[0];
     const weekEnd = scheduleDays[scheduleDays.length - 1];
 
-    const [newEnquiries, jobsToDispatch, dueForMarkDone, awaitingConfirmation, paymentsOutstanding, satisfactionCallsDue, weekJobs] = await Promise.all([
+    const [newEnquiries, jobsToDispatch, dueForMarkDone, awaitingConfirmation, paymentsOutstanding, weekJobs] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
@@ -91,16 +82,6 @@ export async function GET() {
         .eq('status', 'open')
         .gt('balance_owed', 0)
         .order('balance_owed', { ascending: false }),
-
-      // Follow-up satisfaction call, separate from the install-confirm
-      // step — due for anything installed in the last 30 days that
-      // hasn't had this specific call logged yet.
-      supabaseAdmin
-        .from('orders')
-        .select('id, tickets!inner(installation_date, customers(name, phone_number))')
-        .eq('confirmation_status', 'pending')
-        .not('tickets.installation_date', 'is', null)
-        .gte('tickets.installation_date', dateMinusDays(today, 30)),
 
       // This week's schedule, per technician — Mon–Sat of the current
       // calendar week (fixed, not a rolling next-7-days window). status
@@ -173,14 +154,6 @@ export async function GET() {
       (t) => t.actual_date && daysAgoIST(t.actual_date) >= 7
     ).length;
 
-    const satisfactionCallsDueList = (satisfactionCallsDue.data ?? [])
-      .map((o: any) => ({
-        orderId: o.id,
-        installationDate: o.tickets.installation_date as string,
-        customers: o.tickets.customers,
-      }))
-      .sort((a, b) => a.installationDate.localeCompare(b.installationDate));
-
     return Response.json({
       newEnquiries: newEnquiries.data ?? [],
       oldEnquiryCount,
@@ -193,7 +166,6 @@ export async function GET() {
       serviceCallsDue,
       paymentsOutstanding: paymentsOutstandingByPerson,
       overdueCallCount,
-      satisfactionCallsDue: satisfactionCallsDueList,
       weekJobs: weekJobs.data ?? [],
       scheduleDays,
       today,

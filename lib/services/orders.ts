@@ -130,32 +130,3 @@ export async function closeOrder(orderId: string) {
   return data;
 }
 
-/**
- * A separate follow-up satisfaction call, made sometime after the
- * installation itself is done — distinct from the confirm-and-close call
- * that stamps installation_date (that one is "was the job done right?",
- * this one is "checking in a few weeks later"). Requires a short note
- * (3+ words) rather than a bare click, same shape as §5.4/§5.5's
- * word-count rule for enquiry closure — a note that's actually a note,
- * not just a formality.
- */
-export async function confirmOrderSatisfaction(orderId: string, note: string) {
-  const wordCount = note.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount < 3) {
-    throw new ApiError(400, 'Please write at least 3 words about the call');
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('orders')
-    .update({
-      confirmation_status: 'completed',
-      confirmation_note: note.trim(),
-      confirmed_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
-    .select('*')
-    .single();
-
-  if (error) throw new ApiError(500, error.message);
-  return data;
-}

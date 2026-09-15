@@ -18,8 +18,6 @@ interface Order {
   discount: number;
   balance_owed: number;
   last_payment_call_at: string | null;
-  confirmation_status: 'pending' | 'completed';
-  confirmation_note: string | null;
   created_at: string;
   tickets: {
     status: string;
@@ -77,9 +75,6 @@ export default function OrdersPage() {
   const [callNote, setCallNote] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [satisfactionNoteFor, setSatisfactionNoteFor] = useState<string | null>(null);
-  const [satisfactionNote, setSatisfactionNote] = useState('');
-  const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   // Voiding a purchase entered against the wrong customer or product —
   // only offered before any payment or visit, see cancelJob().
@@ -296,34 +291,12 @@ export default function OrdersPage() {
     load();
   };
 
-  // A separate follow-up satisfaction call, made sometime after the
-  // installation is already confirmed — needs its own short note, not
-  // just a click (mirrors §5.4/§5.5's word-count rule for enquiries).
-  const handleConfirmSatisfaction = async (orderId: string) => {
-    if (confirmingSatisfaction) return;
-    setError('');
-    setConfirmingSatisfaction(true);
-    const res = await fetch(`/api/admin/orders/${orderId}/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note: satisfactionNote }),
-    });
-    setConfirmingSatisfaction(false);
-    if (!res.ok) {
-      setError((await res.json()).error);
-      return;
-    }
-    setSatisfactionNoteFor(null);
-    setSatisfactionNote('');
-    load();
-  };
-
   const handleDownload = () => {
     const headers = [
       'Bill Date', 'Planned Installation Date', 'Installation Completed Date', 'Customer', 'Phone', 'Address', 'Area',
       'Brand', 'Name', 'Variant', 'SKU', 'Master SKU',
       'List Price', 'Sold Price', 'Discount', 'Paid', 'Balance Owed', 'Payment Status', 'Installation Status',
-      'Follow-up Call Status', 'Follow-up Call Note', 'Warranty Expires',
+      'Warranty Expires',
     ];
     const rows = visibleOrders.map((o) => {
       const p = productFields(o);
@@ -347,8 +320,6 @@ export default function OrdersPage() {
         o.balance_owed,
         o.balance_owed > 0 ? 'Pending' : 'Completed',
         o.tickets.installation_date ? 'Completed' : 'Pending',
-        o.confirmation_status === 'completed' ? 'Completed' : 'Pending',
-        o.confirmation_note ?? '',
         o.tickets.warranty_expires_at ?? '',
       ];
     });
@@ -430,7 +401,6 @@ export default function OrdersPage() {
                 <th className="p-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Balance</th>
                 <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Payment</th>
                 <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Installation</th>
-                <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Follow-up</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
@@ -482,18 +452,11 @@ export default function OrdersPage() {
                           <span className="text-ink-2">Pending</span>
                         )}
                       </td>
-                      <td className="p-3 whitespace-nowrap">
-                        {o.confirmation_status === 'completed' ? (
-                          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] px-1.5 py-0.5 bg-ok-tint text-ok">Completed</span>
-                        ) : (
-                          <span className="text-ink-2">Pending</span>
-                        )}
-                      </td>
                       <td className="p-3 text-accent-deep whitespace-nowrap text-[12px] font-semibold">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-inset">
-                        <td colSpan={13} className="p-4">
+                        <td colSpan={12} className="p-4">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
                             <div>
                               <p className="text-ink-2 text-xs">Address</p>
@@ -517,12 +480,6 @@ export default function OrdersPage() {
                               <p className="text-ink-2 text-xs">Warranty until</p>
                               <p>{o.tickets.warranty_expires_at ?? '—'}</p>
                             </div>
-                            {o.confirmation_status === 'completed' && o.confirmation_note && (
-                              <div className="col-span-2 sm:col-span-4">
-                                <p className="text-ink-2 text-xs">Follow-up call</p>
-                                <p>{o.confirmation_note}</p>
-                              </div>
-                            )}
                             {o.tickets.actual_notes && (
                               <div className="col-span-2 sm:col-span-4">
                                 <p className="text-ink-2 text-xs">Notes</p>
@@ -741,39 +698,6 @@ export default function OrdersPage() {
                                   {voiding ? 'Voiding...' : 'Confirm void'}
                                 </button>
                               </div>
-                            </div>
-                          )}
-
-                          {o.tickets.installation_date && o.confirmation_status === 'pending' && (
-                            <div className="mt-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSatisfactionNoteFor(satisfactionNoteFor === o.id ? null : o.id);
-                                  setSatisfactionNote('');
-                                }}
-                                className="px-3 py-1.5 border rounded-md text-sm bg-surface"
-                              >
-                                Log follow-up call
-                              </button>
-                            </div>
-                          )}
-
-                          {satisfactionNoteFor === o.id && (
-                            <div onClick={(e) => e.stopPropagation()} className="mt-3 pt-3 border-t flex gap-2">
-                              <input
-                                placeholder="What did they say? (3+ words)"
-                                className="border rounded px-3 py-2 flex-1 bg-surface"
-                                value={satisfactionNote}
-                                onChange={(e) => setSatisfactionNote(e.target.value)}
-                              />
-                              <button
-                                onClick={() => handleConfirmSatisfaction(o.id)}
-                                disabled={confirmingSatisfaction}
-                                className="px-4 py-2 bg-accent text-white rounded-md disabled:opacity-50"
-                              >
-                                {confirmingSatisfaction ? 'Saving...' : 'Confirm'}
-                              </button>
                             </div>
                           )}
 

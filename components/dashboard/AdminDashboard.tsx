@@ -29,7 +29,6 @@ interface AdminDashboardData {
   paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number; oldestInstallationDate: string | null }[];
   overdueCallCount: number;
   overdueConfirmationCount: number;
-  satisfactionCallsDue: { orderId: string; installationDate: string; customers: { name: string; phone_number: string } }[];
   weekJobs: {
     id: string;
     kind: string;
@@ -58,9 +57,9 @@ interface QueueRow {
   ageLabel: string;
   ageTone: Tone;
   // Sort priority for the "All" view specifically — Dispatch, Installation,
-  // Service visit, Follow up, Payment, Enquiry (not by age across the
-  // whole queue) — a real dispatch/install/service/payment mix reads
-  // clearer grouped by what kind of thing it is than shuffled by age.
+  // Service visit, Payment, Enquiry (not by age across the whole queue) —
+  // a real dispatch/install/service/payment mix reads clearer grouped by
+  // what kind of thing it is than shuffled by age.
   priority: number;
   render: () => React.ReactNode;
 }
@@ -69,7 +68,6 @@ const PRIORITY = {
   dispatch: 0,
   installation: 1,
   service_visit: 2,
-  follow_up: 3,
   payment: 4,
   enquiry: 5,
 } as const;
@@ -93,10 +91,6 @@ export default function AdminDashboard() {
   const [assigning, setAssigning] = useState(false);
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
   const [confirmJobError, setConfirmJobError] = useState('');
-  const [satisfactionNoteFor, setSatisfactionNoteFor] = useState<string | null>(null);
-  const [satisfactionNote, setSatisfactionNote] = useState('');
-  const [satisfactionError, setSatisfactionError] = useState('');
-  const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
   const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
   const [markDoneError, setMarkDoneError] = useState('');
   // Installation completed — an inline date panel (defaults to today,
@@ -217,32 +211,6 @@ export default function AdminDashboard() {
   const sellSparePartHref = (t: { id: string; kind: string; customers: { name: string; phone_number: string } }) =>
     `/admin/spare-parts?new=1&ticketId=${t.id}&kind=${t.kind}` +
     `&customerName=${encodeURIComponent(t.customers.name)}&phone=${encodeURIComponent(t.customers.phone_number)}`;
-
-  const startSatisfaction = (orderId: string) => {
-    setSatisfactionError('');
-    setSatisfactionNoteFor(orderId);
-    setSatisfactionNote('');
-  };
-
-  const handleConfirmSatisfaction = async (e: React.FormEvent, orderId: string) => {
-    e.preventDefault();
-    if (confirmingSatisfaction) return;
-    setSatisfactionError('');
-    setConfirmingSatisfaction(true);
-    const res = await fetch(`/api/admin/orders/${orderId}/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note: satisfactionNote }),
-    });
-    setConfirmingSatisfaction(false);
-    if (!res.ok) {
-      setSatisfactionError((await res.json()).error ?? 'Failed to confirm');
-      return;
-    }
-    setSatisfactionNoteFor(null);
-    setSatisfactionNote('');
-    loadDashboard();
-  };
 
   // Build one queue from every source list — this is the "Needs you
   // today" merge (§7.2): dispatch, enquiries, close-outs (due/job/
@@ -455,60 +423,6 @@ export default function AdminDashboard() {
       });
     }
 
-    for (const s of data.satisfactionCallsDue) {
-      const age = daysAgo(s.installationDate);
-      out.push({
-        key: `satisfaction-${s.orderId}`,
-        group: 'closeout',
-        kind: 'follow_up',
-        primary: toStartCase(s.customers.name),
-        secondary: s.customers.phone_number,
-        ageDays: age,
-        ageLabel: `installed ${age}d ago`,
-        ageTone: 'neutral',
-        priority: PRIORITY.follow_up,
-        render: () => (
-          <div key={`satisfaction-${s.orderId}`} className="py-3 border-b border-divider last:border-0">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
-                  <TypeTag kind="follow_up" />
-                  {toStartCase(s.customers.name)}
-                </p>
-                <p className="text-[13px] text-ink-2 truncate">{s.customers.phone_number}</p>
-              </div>
-              <span className="text-[13px] text-ink-2 shrink-0">installed {age}d ago</span>
-              <button
-                onClick={() => (satisfactionNoteFor === s.orderId ? setSatisfactionNoteFor(null) : startSatisfaction(s.orderId))}
-                className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint"
-              >
-                {satisfactionNoteFor === s.orderId ? 'Cancel' : 'Confirm'}
-              </button>
-            </div>
-            {satisfactionNoteFor === s.orderId && (
-              <form onSubmit={(e) => handleConfirmSatisfaction(e, s.orderId)} className="mt-3 pt-3 border-t border-divider flex gap-2">
-                {satisfactionError && <p className="w-full text-danger text-[13px]">{satisfactionError}</p>}
-                <input
-                  required
-                  placeholder="What did they say? (3+ words)"
-                  className="border border-rule rounded-xs px-2 py-1.5 text-[13px] flex-1 focus-visible:outline-2 focus-visible:outline-accent"
-                  value={satisfactionNote}
-                  onChange={(e) => setSatisfactionNote(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={confirmingSatisfaction}
-                  className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-[13px] font-semibold disabled:opacity-50"
-                >
-                  {confirmingSatisfaction ? 'Saving…' : 'Save'}
-                </button>
-              </form>
-            )}
-          </div>
-        ),
-      });
-    }
-
     for (const s of data.serviceCallsDue) {
       const ageDays = Math.round(s.monthsSinceInstall * 30);
       out.push({
@@ -594,11 +508,10 @@ export default function AdminDashboard() {
     assigning,
     staff,
     markingDoneId,
+    markDoneError,
+    installConfirmId,
+    installConfirmDate,
     confirmingJobId,
-    satisfactionNoteFor,
-    satisfactionNote,
-    satisfactionError,
-    confirmingSatisfaction,
   ]);
 
   const visibleRows = filter === 'all' ? rows : rows.filter((r) => r.group === filter);

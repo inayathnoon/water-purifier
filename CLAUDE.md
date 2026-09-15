@@ -3421,6 +3421,59 @@ produced read back correctly, then was cleaned up along with the test
 customer/ticket. `tsc`/`next build`/`eslint` unchanged from baseline,
 all 5 hard-rule tests pass.
 
+## Bug: Dashboard's "Installation Completed" Panel Never Actually Opened (2026-09-15)
+
+Reported live: clicking "Installation completed" on the admin dashboard
+did nothing. Root cause was a stale-closure bug in the "Needs you today"
+queue's `useMemo` — `installConfirmId`, `installConfirmDate`, and
+`markDoneError` (all added for the backdatable-completion-date panel a
+few commits ago) were read inside the memoized `render()` closures but
+never listed in the `useMemo`'s own dependency array. Clicking the
+button correctly called `setInstallConfirmId(t.id)`, but since none of
+its dependencies had changed, the memo never recomputed — the row kept
+rendering with the stale (always-null) `installConfirmId` it was
+created with, so the inline date panel could never appear. Fixed by
+adding all three to the deps array. This class of bug is exactly why
+that `eslint-disable-next-line react-hooks/exhaustive-deps` sits right
+above this array — the lint rule that would have caught it is
+deliberately silenced there (for unrelated reasons: including the
+handler functions themselves would defeat the memo's whole point, since
+they're recreated every render) — worth remembering before adding any
+future piece of state this array's `render()` closures read.
+`/admin/installations`'s own equivalent panel was never affected — that
+list is a plain `.map()` in JSX, not wrapped in a memo.
+
+## Purchase Follow-Up Satisfaction Calls Removed — Yearly Service Stays (2026-09-15)
+
+Explicit ask: remove the "checking in a few weeks later" follow-up call
+on a purchase entirely (distinct from — and not to be confused with —
+the yearly service-due reminder, which stays exactly as it was). This
+was never a hard rule, just a §5.4/§5.5-style 3-word-minimum note
+requirement layered onto `orders.confirmation_status`. Removed outright
+rather than just hidden:
+
+- `confirmOrderSatisfaction()` in `lib/services/orders.ts` and its route
+  (`POST /api/admin/orders/[id]/confirm`) — deleted.
+- The admin dashboard's "Needs you today" queue no longer has a
+  `follow_up`-kind row type at all — `satisfactionCallsDue` dropped from
+  `/api/admin/dashboard`'s response (and the query, and the now-unused
+  `dateMinusDays()` helper it needed).
+- `/admin/orders`: the "Follow-up" column, its "Log follow-up call"
+  button/note form, and the CSV export's two Follow-up columns are gone.
+
+`orders.confirmation_status`/`confirmation_note`/`confirmed_at` are left
+in the schema, unused — same "harmless unused column" precedent as
+`parts_used`/`charge_amount`/`callback_date`. Nothing else in this app
+read those columns, so nothing else needed touching. Yearly service
+(`getYearlyServiceDueThisMonth()`, the "Yearly service calls due" card,
+"+ New Service") is completely untouched — a different feature that
+happened to sit near this one on the dashboard, not the same thing.
+
+**Verified**: `tsc`/`next build` clean (had to clear a stale `.next`
+type-check cache pointing at the deleted route file first), `eslint`
+actually dropped by one from baseline (fewer lines, no new issues), all
+5 hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
