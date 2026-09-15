@@ -310,17 +310,6 @@ function InstallationsPageInner() {
     load();
   };
 
-  const handleCloseAfterConfirm = async (ticketId: string) => {
-    setError('');
-    const res = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error);
-      return;
-    }
-    load();
-  };
-
   // No technician login to mark their own job done any more — the tech
   // reports back over Telegram/phone and admin records it here. Same
   // action as the dashboard's "Finished Installation/Service" card,
@@ -637,14 +626,6 @@ function InstallationsPageInner() {
                         Installation completed
                       </button>
                     </>
-                  )}
-                  {inst.status === 'completed' && (
-                    <button
-                      onClick={() => handleCloseAfterConfirm(inst.id)}
-                      className="px-3 py-1.5 bg-ok hover:opacity-90 text-white text-sm"
-                    >
-                      Confirm & close
-                    </button>
                   )}
                 </div>
               </div>

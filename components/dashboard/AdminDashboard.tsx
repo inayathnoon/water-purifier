@@ -16,7 +16,6 @@ interface AdminDashboardData {
   overdueDispatchCount: number;
   dueForMarkDone: { id: string; kind: string; booked_date: string; spares_confirmed: boolean; customers: { name: string; phone_number: string } }[];
   overdueMarkDoneCount: number;
-  awaitingConfirmation: { id: string; kind: string; actual_date: string; customers: { name: string; phone_number: string } }[];
   serviceCallsDue: {
     installationTicketId: string;
     customerName: string;
@@ -28,7 +27,6 @@ interface AdminDashboardData {
   }[];
   paymentsOutstanding: { name: string; phoneNumber: string; totalBalance: number; orderCount: number; oldestInstallationDate: string | null }[];
   overdueCallCount: number;
-  overdueConfirmationCount: number;
   weekJobs: {
     id: string;
     kind: string;
@@ -89,8 +87,6 @@ export default function AdminDashboard() {
   const [assignForm, setAssignForm] = useState(emptyAssignForm());
   const [assignError, setAssignError] = useState('');
   const [assigning, setAssigning] = useState(false);
-  const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null);
-  const [confirmJobError, setConfirmJobError] = useState('');
   const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
   const [markDoneError, setMarkDoneError] = useState('');
   // Installation completed — an inline date panel (defaults to today,
@@ -154,18 +150,6 @@ export default function AdminDashboard() {
     }
     setAssigningId(null);
     setEditingJobId(null);
-    loadDashboard();
-  };
-
-  const handleConfirmJob = async (ticketId: string) => {
-    setConfirmJobError('');
-    setConfirmingJobId(ticketId);
-    const res = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
-    setConfirmingJobId(null);
-    if (!res.ok) {
-      setConfirmJobError((await res.json()).error ?? 'Failed to confirm');
-      return;
-    }
     loadDashboard();
   };
 
@@ -387,42 +371,6 @@ export default function AdminDashboard() {
       });
     }
 
-    for (const t of data.awaitingConfirmation) {
-      const age = daysAgo(t.actual_date);
-      out.push({
-        key: `job-${t.id}`,
-        group: 'closeout',
-        kind: t.kind,
-        primary: toStartCase(t.customers.name),
-        secondary: t.customers.phone_number,
-        ageDays: age,
-        ageLabel: age >= 7 ? `${age}d overdue` : `${age}d`,
-        ageTone: age >= 7 ? 'danger' : 'neutral',
-        priority: t.kind === 'installation' ? PRIORITY.installation : PRIORITY.service_visit,
-        render: () => (
-          <div key={`job-${t.id}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
-                <TypeTag kind={t.kind} />
-                {toStartCase(t.customers.name)}
-              </p>
-              <p className="text-[13px] text-ink-2 truncate">{t.customers.phone_number}</p>
-            </div>
-            <span className={`text-[13px] font-medium shrink-0 ${age >= 7 ? 'text-danger' : 'text-ink-2'}`}>
-              {age >= 7 ? `${age}d overdue` : `${age}d`}
-            </span>
-            <button
-              onClick={() => handleConfirmJob(t.id)}
-              disabled={confirmingJobId === t.id}
-              className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
-            >
-              {confirmingJobId === t.id ? 'Confirming…' : 'Confirm & close'}
-            </button>
-          </div>
-        ),
-      });
-    }
-
     for (const s of data.serviceCallsDue) {
       const ageDays = Math.round(s.monthsSinceInstall * 30);
       out.push({
@@ -511,7 +459,6 @@ export default function AdminDashboard() {
     markDoneError,
     installConfirmId,
     installConfirmDate,
-    confirmingJobId,
   ]);
 
   const visibleRows = filter === 'all' ? rows : rows.filter((r) => r.group === filter);
@@ -526,7 +473,7 @@ export default function AdminDashboard() {
         {[
           { label: 'Overdue dispatch', count: data.overdueDispatchCount, group: 'dispatch' as const },
           { label: 'Enquiries over 14 days', count: data.oldEnquiryCount, group: 'enquiry' as const },
-          { label: 'Finished, not closed', count: data.overdueMarkDoneCount + data.overdueConfirmationCount, group: 'closeout' as const },
+          { label: 'Overdue to mark done', count: data.overdueMarkDoneCount, group: 'closeout' as const },
           { label: 'Payments overdue', count: data.overdueCallCount, group: 'payment' as const },
         ].map((s) => (
           <button
@@ -559,7 +506,6 @@ export default function AdminDashboard() {
           {visibleRows.length > 0 && (
             <>
               {markDoneError && <p className="text-danger text-[13px] pt-3">{markDoneError}</p>}
-              {confirmJobError && <p className="text-danger text-[13px] pt-3">{confirmJobError}</p>}
               {visibleRows.map((r) => r.render())}
             </>
           )}

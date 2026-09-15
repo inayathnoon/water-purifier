@@ -5,10 +5,12 @@ import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
- * enquiries, jobs waiting to be dispatched to a technician, customers to
- * confirm finished work with, payments outstanding, yearly service calls
- * due. One query per category, all fired together; no page-to-page
- * navigating required to see all five.
+ * enquiries, jobs waiting to be dispatched to a technician, jobs overdue
+ * to be marked done, payments outstanding, yearly service calls due. One
+ * query per category, all fired together; no page-to-page navigating
+ * required to see all of it. No separate "confirm finished work" step any
+ * more — marking a job done now closes it in the same action (see
+ * completeJob()/closeTicketAfterConfirmation() in lib/services/tickets.ts).
  */
 export async function GET() {
   try {
@@ -21,7 +23,7 @@ export async function GET() {
     const weekStart = scheduleDays[0];
     const weekEnd = scheduleDays[scheduleDays.length - 1];
 
-    const [newEnquiries, jobsToDispatch, dueForMarkDone, awaitingConfirmation, paymentsOutstanding, weekJobs] = await Promise.all([
+    const [newEnquiries, jobsToDispatch, dueForMarkDone, paymentsOutstanding, weekJobs] = await Promise.all([
       // §5: open enquiries, oldest first so 14+ day ones are already at the top (§5.6/§15.4).
       supabaseAdmin
         .from('tickets')
@@ -56,16 +58,6 @@ export async function GET() {
         .eq('status', 'booked')
         .lte('booked_date', today)
         .order('booked_date', { ascending: true }),
-
-      // §6.7: completed jobs waiting on the admin's confirmation call
-      // (part 3 — after part 1 above, or on a job whose tech-recorded
-      // completion predates the staff-portal removal).
-      supabaseAdmin
-        .from('tickets')
-        .select('id, kind, actual_date, customers(name, phone_number)')
-        .in('kind', ['installation', 'service_visit'])
-        .eq('status', 'completed')
-        .order('actual_date', { ascending: true }),
 
       // §7.3/§7.6/§15.6: every order still owed, with discount visible.
       // installation_date lets the card show how long ago the unit was
@@ -148,12 +140,6 @@ export async function GET() {
     }
     const paymentsOutstandingByPerson = [...owedByCustomer.values()].sort((a, b) => b.totalBalance - a.totalBalance);
 
-    // A completed job sitting unconfirmed for a week is a customer who
-    // finished the work days ago and nobody's called to close the loop.
-    const overdueConfirmationCount = (awaitingConfirmation.data ?? []).filter(
-      (t) => t.actual_date && daysAgoIST(t.actual_date) >= 7
-    ).length;
-
     return Response.json({
       newEnquiries: newEnquiries.data ?? [],
       oldEnquiryCount,
@@ -161,8 +147,6 @@ export async function GET() {
       overdueDispatchCount,
       dueForMarkDone: dueForMarkDone.data ?? [],
       overdueMarkDoneCount,
-      awaitingConfirmation: awaitingConfirmation.data ?? [],
-      overdueConfirmationCount,
       serviceCallsDue,
       paymentsOutstanding: paymentsOutstandingByPerson,
       overdueCallCount,

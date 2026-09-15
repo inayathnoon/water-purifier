@@ -116,7 +116,6 @@ function ServiceCallsPageInner() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [callNote, setCallNote] = useState<Record<string, string>>({});
   const [declineNote, setDeclineNote] = useState<Record<string, string>>({});
   const [bookingId, setBookingId] = useState<string | null>(null);
@@ -329,15 +328,6 @@ function ServiceCallsPageInner() {
       return;
     }
     setEditingRequestId(null);
-    load();
-  };
-
-  const handleConfirmClose = async (id: string) => {
-    setError('');
-    setConfirmingId(id);
-    const res = await fetch(`/api/admin/tickets/${id}/close`, { method: 'POST' });
-    setConfirmingId(null);
-    if (!res.ok) return setError((await res.json()).error);
     load();
   };
 
@@ -727,9 +717,10 @@ function ServiceCallsPageInner() {
 
               {c.status === 'completed' && (
                 <div className="mt-3 pt-3 border-t space-y-2">
-                  {/* What's been recorded, right where the admin decides
-                      whether to confirm it — not hidden behind a click,
-                      since confirming here can create an order. Spare
+                  {/* A visit still sitting here in 'completed' predates
+                      the one-click spares-completion merge (or its
+                      immediate close call failed) — no action left to
+                      take on it from here, just what was recorded. Spare
                       parts are recorded separately (Sell Spare Part,
                       linked to this ticket), not on the ticket itself. */}
                   <div className="bg-inset rounded-md p-3 text-sm space-y-1">
@@ -744,15 +735,6 @@ function ServiceCallsPageInner() {
                     <p>
                       <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
                     </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleConfirmClose(c.id)}
-                      disabled={confirmingId === c.id}
-                      className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-ink rounded-md text-sm disabled:opacity-50"
-                    >
-                      {confirmingId === c.id ? 'Confirming...' : 'Confirm & close'}
-                    </button>
                   </div>
                 </div>
               )}

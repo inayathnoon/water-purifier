@@ -3474,6 +3474,50 @@ type-check cache pointing at the deleted route file first), `eslint`
 actually dropped by one from baseline (fewer lines, no new issues), all
 5 hard-rule tests pass.
 
+## "Confirm & Close" Removed Entirely — Installation and Service Alike (2026-09-15)
+
+Explicit ask: remove the standalone confirmation-call step completely,
+not just fold it into the one-click flow — no manual "Confirm & close" /
+"Confirm date" button anywhere, for either job kind. The one-click merges
+built earlier this session (installation's inline date panel, a service
+visit's spares step) already call `closeTicketAfterConfirmation()`
+themselves as the second half of one chained action — that internal call
+is unchanged and still what actually closes a job, stamps warranty, and
+creates/updates the order. What's gone is the separate, user-facing
+button that let an admin manually close a job already sitting in
+`completed` — every one of its four occurrences:
+
+- The admin dashboard's "Needs you today" queue: the whole
+  `awaitingConfirmation`-based row type, `handleConfirmJob()`, and the
+  `/api/admin/dashboard` query/count that fed it (`overdueConfirmationCount`
+  folded away — the "Finished, not closed" attention-strip tile is now
+  just "Overdue to mark done", `overdueMarkDoneCount` alone).
+- `/admin/installations`: `handleCloseAfterConfirm()` and its button on a
+  `completed`-status row (the tech's-notes display next to it is
+  untouched — that's informational, not an action).
+- `/admin/service-calls`: `handleConfirmClose()` and its button on a
+  `completed`-status row (same treatment — the recorded spare-parts/notes
+  block stays, just nothing to click).
+- `/admin/orders`: `handleConfirmInstallation()` and the "Confirm date"
+  button in the Installation column — a `completed`-but-not-yet-closed
+  ticket now just reads "Pending" there, same as one that hasn't been
+  marked done at all.
+
+**Known tradeoff, accepted deliberately, not overlooked**: if the
+one-click flow's own internal close-call ever fails right after its
+mark-done half already succeeded (a network blip between the two chained
+requests), that job is now stuck in `completed` with no UI path left to
+close it — the only two recovery options are re-running
+`closeTicketAfterConfirmation()` directly against that ticket id, or (for
+an installation) via the Developer panel/DB access. This was the exact
+edge case the fallback button existed to catch; removing it was an
+explicit, direct instruction rather than something to quietly work around.
+
+**Verified**: `tsc`/`next build` clean, `eslint` unchanged (still 20
+errors/4 warnings, no new issues), all 5 hard-rule tests pass. Grepped
+the whole codebase afterward for any surviving reference to the removed
+handlers/fields — none found.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

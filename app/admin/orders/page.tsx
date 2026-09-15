@@ -74,7 +74,6 @@ export default function OrdersPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const [callNote, setCallNote] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   // Voiding a purchase entered against the wrong customer or product —
   // only offered before any payment or visit, see cancelJob().
@@ -243,23 +242,6 @@ export default function OrdersPage() {
   const handleClose = async (orderId: string) => {
     setError('');
     const res = await fetch(`/api/admin/orders/${orderId}/close`, { method: 'POST' });
-    if (!res.ok) {
-      setError((await res.json()).error);
-      return;
-    }
-    load();
-  };
-
-  // The tech has already marked the job done (ticket.status === 'completed');
-  // this is the admin's confirmation call — closing it stamps
-  // installation_date (from the tech's own actual_date, §8.1) and starts
-  // the warranty clock. Installation status on this page is read straight
-  // off whether installation_date is set, so this is what flips it.
-  const handleConfirmInstallation = async (ticketId: string) => {
-    setError('');
-    setConfirmingId(ticketId);
-    const res = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
-    setConfirmingId(null);
     if (!res.ok) {
       setError((await res.json()).error);
       return;
@@ -440,14 +422,6 @@ export default function OrdersPage() {
                       <td className="p-3 whitespace-nowrap">
                         {o.tickets.installation_date ? (
                           <span className="text-[11px] font-semibold uppercase tracking-[0.05em] px-1.5 py-0.5 bg-ok-tint text-ok">Completed</span>
-                        ) : o.tickets.status === 'completed' ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleConfirmInstallation(o.ticket_id); }}
-                            disabled={confirmingId === o.ticket_id}
-                            className="px-2 py-1 text-[12px] font-semibold border border-rule hover:bg-accent-tint disabled:opacity-50"
-                          >
-                            {confirmingId === o.ticket_id ? 'Confirming…' : 'Confirm date'}
-                          </button>
                         ) : (
                           <span className="text-ink-2">Pending</span>
                         )}
