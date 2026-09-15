@@ -40,48 +40,27 @@ interface AdminDashboardData {
   scheduleDays: string[];
 }
 
-type FilterGroup = 'dispatch' | 'enquiry' | 'closeout' | 'payment';
+type QueueGroup = 'dispatch' | 'enquiry' | 'closeout' | 'payment';
 
-// One unified row shape the whole "Needs you today" queue is built from —
-// every source list (dispatch, enquiries, close-outs, yearly service,
-// payments) reduces to this so they can share one sort and one filter set.
+// One unified row shape the dashboard's four boxes are built from — every
+// source list (dispatch, enquiries, close-outs, yearly service, payments)
+// reduces to this so they can share one sort and one render, split into
+// its four boxes purely by `group`.
 interface QueueRow {
   key: string;
-  group: FilterGroup;
+  group: QueueGroup;
   kind: string;
   primary: string;
   secondary: string;
   ageDays: number;
   ageLabel: string;
   ageTone: Tone;
-  // Sort priority for the "All" view specifically — Dispatch, Installation,
-  // Service visit, Payment, Enquiry (not by age across the whole queue) —
-  // a real dispatch/install/service/payment mix reads clearer grouped by
-  // what kind of thing it is than shuffled by age.
-  priority: number;
   render: () => React.ReactNode;
 }
-
-const PRIORITY = {
-  dispatch: 0,
-  installation: 1,
-  service_visit: 2,
-  payment: 4,
-  enquiry: 5,
-} as const;
-
-const FILTERS: { key: FilterGroup | 'all'; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'dispatch', label: 'Dispatch' },
-  { key: 'enquiry', label: 'Enquiries' },
-  { key: 'closeout', label: 'Close-outs' },
-  { key: 'payment', label: 'Payments' },
-];
 
 export default function AdminDashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [filter, setFilter] = useState<FilterGroup | 'all'>('all');
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState(emptyAssignForm());
@@ -214,7 +193,6 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: age >= 3 ? `${age}d overdue` : `${age}d open`,
         ageTone: age >= 3 ? 'danger' : 'neutral',
-        priority: PRIORITY.dispatch,
         render: () => (
           <div key={t.id} className="py-3 border-b border-divider last:border-0">
             <div className="flex items-center gap-3">
@@ -271,7 +249,6 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: label,
         ageTone: tone,
-        priority: PRIORITY.enquiry,
         render: () => (
           <div key={e.id} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -303,7 +280,6 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: age >= 3 ? `${age}d overdue` : `${age}d`,
         ageTone: age >= 3 ? 'danger' : 'neutral',
-        priority: t.kind === 'installation' ? PRIORITY.installation : PRIORITY.service_visit,
         render: () => (
           <div key={`due-${t.id}`} className="py-3 border-b border-divider last:border-0">
             <div className="flex items-center gap-3">
@@ -382,7 +358,6 @@ export default function AdminDashboard() {
         ageDays,
         ageLabel: `${(s.monthsSinceInstall / 12).toFixed(1)}y since install`,
         ageTone: 'neutral',
-        priority: PRIORITY.service_visit,
         render: () => (
           <div key={`yearly-${s.installationTicketId}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -415,7 +390,6 @@ export default function AdminDashboard() {
         ageDays: age,
         ageLabel: `${formatINR(o.totalBalance)}${o.oldestInstallationDate ? ` · ${age}d` : ''}`,
         ageTone: 'danger',
-        priority: PRIORITY.payment,
         render: () => (
           <div key={`payment-${o.phoneNumber}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
             <div className="min-w-0 flex-1">
@@ -440,16 +414,11 @@ export default function AdminDashboard() {
       });
     }
 
-    // "All" reads clearer grouped by kind (Dispatch, Installation, Service
-    // visit, Follow up, Payment, Enquiry) than shuffled purely by age;
-    // a single filtered view stays sorted oldest-first, since everything
-    // in it is already the same kind.
-    out.sort((a, b) => (filter === 'all' ? a.priority - b.priority || b.ageDays - a.ageDays : b.ageDays - a.ageDays));
+    out.sort((a, b) => b.ageDays - a.ageDays);
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     data,
-    filter,
     assigningId,
     assignForm,
     assignError,
@@ -461,96 +430,106 @@ export default function AdminDashboard() {
     installConfirmDate,
   ]);
 
-  const visibleRows = filter === 'all' ? rows : rows.filter((r) => r.group === filter);
-
   if (!data) return <p className="text-ink-2 text-[13px]">Loading…</p>;
 
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Attention strip — one bordered row of counters, each a filter
-          shortcut into the queue below. A zero renders in plain ink. */}
-      <div className="bg-surface border border-rule flex flex-wrap divide-x divide-rule">
-        {[
-          { label: 'Overdue dispatch', count: data.overdueDispatchCount, group: 'dispatch' as const },
-          { label: 'Enquiries over 14 days', count: data.oldEnquiryCount, group: 'enquiry' as const },
-          { label: 'Overdue to mark done', count: data.overdueMarkDoneCount, group: 'closeout' as const },
-          { label: 'Payments overdue', count: data.overdueCallCount, group: 'payment' as const },
-        ].map((s) => (
-          <button
-            key={s.label}
-            onClick={() => setFilter(s.group)}
-            className="flex-1 min-w-[160px] text-left px-4 py-3 hover:bg-accent-tint focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2"
-          >
-            <p className={`text-[24px] font-bold tabular-nums leading-none ${s.count > 0 ? 'text-danger' : 'text-ink'}`}>{s.count}</p>
-            <p className="text-[13px] text-ink-2 mt-1">{s.label}</p>
-          </button>
-        ))}
-      </div>
+  const dispatchRows = rows.filter((r) => r.group === 'dispatch');
+  const enquiryRows = rows.filter((r) => r.group === 'enquiry');
+  const closeoutRows = rows.filter((r) => r.group === 'closeout');
+  const paymentRows = rows.filter((r) => r.group === 'payment');
 
-      {/* Needs you today — the merged work queue. */}
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-1 flex-wrap">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 text-[13px] font-semibold border ${
-                filter === f.key ? 'bg-accent text-white border-accent' : 'border-rule text-ink-2 hover:bg-accent-tint'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <DashboardCard title="Needs you today" emptyText="Nothing needs attention right now.">
-          {visibleRows.length > 0 && (
-            <>
-              {markDoneError && <p className="text-danger text-[13px] pt-3">{markDoneError}</p>}
-              {visibleRows.map((r) => r.render())}
-            </>
-          )}
+  return (
+    // Fixed to what's left of the viewport below AppShell's top bar
+    // (3.5rem) and its own vertical padding (3rem) — the whole dashboard
+    // is meant to read at a glance, not be scrolled through. Each box
+    // below scrolls its own row list internally if it has more than
+    // fits; the page itself never does.
+    <div className="h-[calc(100vh-6.5rem)] flex flex-col gap-4">
+      {markDoneError && <p className="text-danger text-[13px] shrink-0">{markDoneError}</p>}
+      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+        <DashboardCard
+          fillHeight
+          title="Jobs to dispatch"
+          badge={data.overdueDispatchCount > 0 ? `${data.overdueDispatchCount} overdue` : undefined}
+          tone="danger"
+          emptyText="Nothing waiting on a technician."
+        >
+          {dispatchRows.map((r) => r.render())}
+        </DashboardCard>
+        <DashboardCard
+          fillHeight
+          title="Close-outs"
+          badge={data.overdueMarkDoneCount > 0 ? `${data.overdueMarkDoneCount} overdue` : undefined}
+          tone="danger"
+          emptyText="Nothing needs closing out."
+        >
+          {closeoutRows.map((r) => r.render())}
+        </DashboardCard>
+        <DashboardCard
+          fillHeight
+          title="New enquiries"
+          badge={data.oldEnquiryCount > 0 ? `${data.oldEnquiryCount} over 14 days` : undefined}
+          tone="danger"
+          emptyText="Nothing open."
+        >
+          {enquiryRows.map((r) => r.render())}
+        </DashboardCard>
+        <DashboardCard
+          fillHeight
+          title="Payments outstanding"
+          badge={data.overdueCallCount > 0 ? `${data.overdueCallCount} overdue` : undefined}
+          tone="warn"
+          emptyText="Nothing owed."
+        >
+          {paymentRows.map((r) => r.render())}
         </DashboardCard>
       </div>
 
+      <div className="shrink-0">
+        <WeekSchedule
+          days={data.scheduleDays}
+          weekJobs={data.weekJobs}
+          staff={staff}
+          onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
+          activeJobId={editingJobId}
+        />
+      </div>
+
+      {/* A fixed overlay, not inline flow — editing a job from the
+          schedule shouldn't reshuffle the fixed-height layout above. */}
       {editingJobId &&
         (() => {
           const job = data.weekJobs.find((j) => j.id === editingJobId);
           if (!job) return null;
           return (
-            <form
-              onSubmit={(e) => handleAssign(e, job)}
-              className="bg-surface border border-rule p-4 space-y-2 max-w-md"
-            >
-              <div className="flex justify-between items-center">
-                <p className="text-[13px] font-semibold">
-                  Editing {toStartCase(job.customers.name)}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
-                </p>
-                <button type="button" onClick={() => setEditingJobId(null)} className="text-[13px] text-ink-2 hover:underline">
-                  Cancel
-                </button>
-              </div>
-              {assignError && <p className="text-danger text-[13px]">{assignError}</p>}
-              <BookingForm
-                staff={staff}
-                value={assignForm}
-                onChange={setAssignForm}
-                showLocation={job.kind !== 'installation'}
-                submitLabel="Save changes"
-                submittingLabel="Saving…"
-                submitting={assigning}
-                compact
-              />
-            </form>
+            <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-4" onClick={() => setEditingJobId(null)}>
+              <form
+                onSubmit={(e) => handleAssign(e, job)}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-surface border border-rule p-4 space-y-2 max-w-md w-full shadow-lg"
+              >
+                <div className="flex justify-between items-center">
+                  <p className="text-[13px] font-semibold">
+                    Editing {toStartCase(job.customers.name)}&apos;s {job.kind === 'installation' ? 'installation' : 'service visit'}
+                  </p>
+                  <button type="button" onClick={() => setEditingJobId(null)} className="text-[13px] text-ink-2 hover:underline">
+                    Cancel
+                  </button>
+                </div>
+                {assignError && <p className="text-danger text-[13px]">{assignError}</p>}
+                <BookingForm
+                  staff={staff}
+                  value={assignForm}
+                  onChange={setAssignForm}
+                  showLocation={job.kind !== 'installation'}
+                  submitLabel="Save changes"
+                  submittingLabel="Saving…"
+                  submitting={assigning}
+                  compact
+                />
+              </form>
+            </div>
           );
         })()}
-
-      <WeekSchedule
-        days={data.scheduleDays}
-        weekJobs={data.weekJobs}
-        staff={staff}
-        onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
-        activeJobId={editingJobId}
-      />
     </div>
   );
 }

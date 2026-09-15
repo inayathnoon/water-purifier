@@ -3518,6 +3518,89 @@ errors/4 warnings, no new issues), all 5 hard-rule tests pass. Grepped
 the whole codebase afterward for any surviving reference to the removed
 handlers/fields — none found.
 
+## Spares: Fixed Bottom Total, Service Charge Pulled Out With a Discount Instead of Per-Part Price Editing (2026-09-15)
+
+Two related changes to `/admin/spare-parts`'s sell form, replacing the
+per-part price override added a couple of turns ago:
+
+- **Total + Record sale are now a fixed bar at the bottom of the
+  viewport** (`fixed bottom-0 inset-x-0`, bigger text, its own
+  border/shadow) instead of sitting at the end of the scrollable form —
+  visible the whole time the admin is scrolling through a long parts
+  list, not just once they reach the bottom.
+- **The flat visit charge ("Service charges") is pulled out of the
+  regular parts list entirely** into its own always-visible block above
+  it, for a service-visit-linked sale — no longer conditionally hidden
+  when the visit happens to be within warranty (it now always shows,
+  reading "Free (under warranty)" automatically in that case, same as
+  before, just never absent from view). Outside warranty, it comes with
+  its own **Discount** field — reduces or zeroes this one line for a
+  deliberate no-charge case (goodwill, a relationship) that isn't
+  already covered by §13.3's automatic warranty-free rule, which is
+  still enforced server-side in `recordSparePartSale()` regardless of
+  what the discount field says. This item is now always included in
+  what gets submitted for a service-visit sale (even at ₹0), rather than
+  something the admin has to remember to add.
+- **Per-part price editing (added last turn) is removed** — every part
+  in the picker is back to a fixed, non-editable price (list price, or
+  Free under warranty), matching the plain fixed-price display every
+  other picker in this app already uses. The discount field on the
+  service charge is the one place a price can still be adjusted down.
+
+`recordSparePartSale()` itself is unchanged — it already trusted
+whatever `unitPrice` a client sent (forcing 0 only inside warranty), so
+none of this needed a backend change; it was purely how the sell form
+builds the `items[]` array it already knew how to send.
+
+**Verified live against production**: a real out-of-warranty service
+visit, submitted with only the auto-included service charge (₹550 list,
+₹200 discount) and no other parts picked, produced exactly one
+`spare_part_sales` row totaling ₹350, correctly set `spares_confirmed`,
+and let `completeJob()` proceed — all cleaned up afterward. `tsc`/`next
+build`/`eslint` unchanged from baseline (20 errors/4 warnings, no new
+issues), all 5 hard-rule tests pass.
+
+## Admin Dashboard: Back to Four Named Boxes, Fixed to One Screen (2026-09-15)
+
+Reworked live, in direct response to feedback: the merged "Needs you
+today" single-list-with-filter-chips design (built a few turns ago) is
+gone — back to four separate, always-visible boxes (**Jobs to dispatch,
+Close-outs, New enquiries, Payments outstanding**), 2×2, with **Staff
+schedule** full-width below. Explicit ask: the whole thing fits in one
+screen, no page scroll.
+
+- The unified `rows` queue (built once, split by `group`) is unchanged
+  under the hood — what changed is only how it's rendered: four
+  `.filter()`s instead of one filter-chip toggle. Sort simplified back
+  to plain oldest-first per box now that there's no "All" view mixing
+  every kind together — the `priority` field and its whole
+  Dispatch/Installation/Service-visit/Payment/Enquiry ordering scheme
+  (added specifically for that mixed view) is removed as dead code
+  along with it.
+- `DashboardCard` gained an optional `fillHeight` prop — `h-full flex
+  flex-col`, with the row-list area as `flex-1 overflow-y-auto` instead
+  of growing with its content. Used only by these four boxes; every
+  other caller (owner dashboard, everywhere else) is unaffected.
+- The whole dashboard root is `h-[calc(100vh-6.5rem)]` (AppShell's
+  56px top bar + its 48px of vertical padding) — the 2×2 grid takes
+  `flex-1` (stretches to fill whatever's left), Staff Schedule sits
+  `shrink-0` at its natural height below it. If any one box has more
+  rows than its stretched height allows, that box scrolls internally
+  (`overflow-y-auto`) — the page itself never does.
+- The inline "editing a booked job" form (opened by clicking a name in
+  Staff Schedule) moved from the normal document flow into a fixed,
+  centered overlay — with a fixed-height page, an inline form appearing
+  inline would either overflow or shove the grid around; an overlay
+  can't do either.
+
+**Not independently re-verified live** — a pure layout/rendering change
+over the exact same `rows` data the previous design already used and
+this session verified; `tsc`/`next build`/`eslint` (unchanged baseline,
+no new issues) and all 5 hard-rule tests confirm nothing behavioral
+moved. Worth a quick look on an actual 1280×800-ish screen to confirm
+the `6.5rem` offset holds exactly — it's derived from AppShell's fixed
+`h-14` + `py-6`, not measured against a live render.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

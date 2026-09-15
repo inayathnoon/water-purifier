@@ -60,10 +60,13 @@ function SparePartsPageInner() {
   const [showSellForm, setShowSellForm] = useState(searchParams.get('new') === '1' || !!ticketId);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
-  // Per-part price override — defaults to the sheet price (or free, under
-  // warranty), but a special case (a discount, a one-off) can change it
-  // right on the row instead of always charging the list price.
-  const [sellPriceOverrides, setSellPriceOverrides] = useState<Record<string, number>>({});
+  // The flat visit charge — pulled out of the regular parts list entirely
+  // (not something to scroll past), always included for a service-visit
+  // sale unless under warranty. A discount reduces or zeroes it for a
+  // deliberate no-charge case (goodwill, a relationship) that isn't
+  // already covered by the automatic warranty-free rule.
+  const [serviceChargePart, setServiceChargePart] = useState<SparePart | null>(null);
+  const [serviceChargeDiscount, setServiceChargeDiscount] = useState('');
   // Extras — a custom line item for anything not in the price sheet at
   // all, alongside the normal picker.
   const [extras, setExtras] = useState<{ id: number; name: string; price: string; quantity: string }[]>([]);
@@ -95,26 +98,21 @@ function SparePartsPageInner() {
     if (ticketId) requests.push(fetch(`/api/admin/tickets/${ticketId}`));
     const [sparePartsRes, salesRes, ticketRes] = await Promise.all(requests);
 
-    let showServiceCharge = false;
+    let isServiceVisit = false;
     if (ticketId && ticketKind === 'service_visit' && ticketRes) {
       const { ticket } = await ticketRes.json();
       const inWarranty = isWithinWarranty(ticket?.installation_date ?? null, todayIST());
       setWithinWarranty(inWarranty);
       setSparesConfirmed(!!ticket?.spares_confirmed);
-      showServiceCharge = !inWarranty; // a free visit has nothing to charge for either.
+      isServiceVisit = true;
     }
 
     const allParts: SparePart[] = (await sparePartsRes.json()).parts ?? [];
-    const visibleParts = showServiceCharge ? allParts : allParts.filter((p) => !isServiceCharge(p));
-    setSpareParts(visibleParts);
-    // A chargeable visit always includes the flat visit charge — default
-    // its quantity to 1 rather than making the admin remember to bump it
-    // from 0 every time (§ Bug: Service Charge Default Silently Never
-    // Matched — the same default this picker had before it moved here).
-    if (showServiceCharge) {
-      const serviceChargePart = visibleParts.find(isServiceCharge);
-      if (serviceChargePart) setSellQuantities((prev) => ({ ...prev, [serviceChargePart.name]: prev[serviceChargePart.name] ?? 1 }));
-    }
+    // The flat visit charge is never part of the scrollable picker — it's
+    // its own always-there figure for a service visit, and doesn't apply
+    // at all to an office/installation sale (no visit is happening).
+    setSpareParts(allParts.filter((p) => !isServiceCharge(p)));
+    setServiceChargePart(isServiceVisit ? allParts.find(isServiceCharge) ?? null : null);
     setRecentSales((await salesRes.json()).sales ?? []);
     setLoading(false);
   };
@@ -179,10 +177,7 @@ function SparePartsPageInner() {
   // Under warranty, every part is free — shown as such, not just silently
   // charged 0, so it's clear this isn't a bug (§13.3 is still enforced
   // server-side in recordSparePartSale() regardless of what's shown here).
-  // An override (once touched) wins over the sheet/warranty default —
-  // §13.3 still re-forces 0 server-side if this ticket is in warranty,
-  // regardless of what's typed here.
-  const displayPrice = (p: SparePart) => (p.name in sellPriceOverrides ? sellPriceOverrides[p.name] : withinWarranty ? 0 : p.price);
+  const displayPrice = (p: SparePart) => (withinWarranty ? 0 : p.price);
   const addExtra = () => {
     setExtras((rows) => [...rows, { id: nextExtraId, name: '', price: '', quantity: '1' }]);
     setNextExtraId((n) => n + 1);
@@ -191,8 +186,18 @@ function SparePartsPageInner() {
     setExtras((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const removeExtra = (id: number) => setExtras((rows) => rows.filter((r) => r.id !== id));
 
+  // Warranty already makes it free automatically (§13.3, re-enforced
+  // server-side regardless); the discount field covers the other
+  // deliberate no-charge case — never below zero either way.
+  const serviceChargeEffectivePrice = serviceChargePart
+    ? withinWarranty
+      ? 0
+      : Math.max(0, serviceChargePart.price - (Number(serviceChargeDiscount) || 0))
+    : 0;
+
   const sellTotal =
     spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * displayPrice(p), 0) +
+    (serviceChargePart ? serviceChargeEffectivePrice : 0) +
     extras.reduce((sum, x) => sum + (Number(x.price) || 0) * (Number(x.quantity) || 0), 0);
 
   const handleSellSubmit = async (e: React.FormEvent) => {
@@ -204,7 +209,12 @@ function SparePartsPageInner() {
     const extraItems = extras
       .filter((x) => x.name.trim() && Number(x.quantity) > 0)
       .map((x) => ({ partName: x.name.trim(), unitPrice: withinWarranty ? 0 : Number(x.price) || 0, quantity: Number(x.quantity) }));
-    const items = [...pickedItems, ...extraItems];
+    // Always included for a service visit — the flat charge is "there"
+    // whether or not the admin picked any other part, same as the sheet
+    // row it's read from; its price is already 0 if under warranty or
+    // fully discounted above.
+    const serviceChargeItems = serviceChargePart ? [{ partName: serviceChargePart.name, unitPrice: serviceChargeEffectivePrice, quantity: 1 }] : [];
+    const items = [...pickedItems, ...serviceChargeItems, ...extraItems];
     if (items.length === 0) {
       // Sometimes nothing gets charged even outside warranty (a
       // relationship call, goodwill, whatever the reason) — for a linked
@@ -233,7 +243,7 @@ function SparePartsPageInner() {
       return;
     }
     setSellQuantities({});
-    setSellPriceOverrides({});
+    setServiceChargeDiscount('');
     setExtras([]);
     if (!ticketId) {
       setSellCustomerName('');
@@ -341,7 +351,7 @@ function SparePartsPageInner() {
       )}
 
       {showSellForm && (
-        <form onSubmit={handleSellSubmit} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-8 space-y-3">
+        <form onSubmit={handleSellSubmit} className="bg-surface p-4 rounded-lg shadow-sm border border-rule mb-8 space-y-3 pb-28">
           {sellError && <p className="text-danger text-sm">{sellError}</p>}
           {withinWarranty && (
             <p className="text-sm bg-accent-tint text-accent-deep rounded-md px-3 py-2">
@@ -364,6 +374,38 @@ function SparePartsPageInner() {
               readOnly={!!ticketId}
             />
           </div>
+
+          {/* The flat visit charge — its own always-there figure, not
+              buried in the scrollable parts list. Warranty already makes
+              it free automatically; the discount field covers any other
+              deliberate no-charge case. */}
+          {serviceChargePart && (
+            <div className="border border-rule rounded-lg p-3 flex justify-between items-center gap-3 bg-inset">
+              <div>
+                <p className="text-sm font-medium">{serviceChargePart.name}</p>
+                <p className="text-xs text-ink-2">
+                  {withinWarranty ? 'Free (under warranty)' : `List: ${formatINR(serviceChargePart.price)}`}
+                </p>
+              </div>
+              {!withinWarranty && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className="text-xs text-ink-2">Discount</label>
+                  <span className="text-xs text-ink-2">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    value={serviceChargeDiscount}
+                    onChange={(e) => setServiceChargeDiscount(e.target.value)}
+                    className="w-20 border rounded px-2 py-1 text-sm"
+                  />
+                  <span className="text-sm font-medium w-20 text-right">{formatINR(serviceChargeEffectivePrice)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="border rounded-lg divide-y">
             {spareParts.length === 0 ? (
               <p className="text-sm text-ink-2 p-3">No spare parts loaded — check the sheet.</p>
@@ -372,30 +414,7 @@ function SparePartsPageInner() {
                 <div key={p.name} className="flex justify-between items-center p-3">
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>
-                    {withinWarranty ? (
-                      <p className="text-xs text-ink-2">Free</p>
-                    ) : (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-xs text-ink-2">₹</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={displayPrice(p)}
-                          onChange={(e) => setSellPriceOverrides((o) => ({ ...o, [p.name]: Number(e.target.value) }))}
-                          className="w-20 border rounded px-1.5 py-0.5 text-xs"
-                        />
-                        {p.name in sellPriceOverrides && sellPriceOverrides[p.name] !== p.price && (
-                          <button
-                            type="button"
-                            onClick={() => setSellPriceOverrides((o) => Object.fromEntries(Object.entries(o).filter(([name]) => name !== p.name)))}
-                            className="text-xs text-ink-2 hover:underline"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <p className="text-xs text-ink-2">{withinWarranty ? 'Free' : formatINR(p.price)}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
@@ -459,15 +478,20 @@ function SparePartsPageInner() {
             </button>
           </div>
 
-          <div className="flex justify-between items-center pt-2">
-            <span className="font-medium">Total: {formatINR(sellTotal)}</span>
-            <button
-              type="submit"
-              disabled={submittingSell}
-              className="px-4 py-2 bg-accent hover:bg-accent-hover text-white disabled:opacity-50"
-            >
-              {submittingSell ? 'Recording...' : 'Record sale'}
-            </button>
+          {/* Fixed to the bottom of the viewport, not the form — the
+              total and the submit button stay visible the whole time the
+              admin is scrolling through the parts list above. */}
+          <div className="fixed bottom-0 inset-x-0 bg-surface border-t border-rule shadow-lg z-20">
+            <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
+              <span className="text-xl font-bold">Total: {formatINR(sellTotal)}</span>
+              <button
+                type="submit"
+                disabled={submittingSell}
+                className="px-6 py-3 text-base bg-accent hover:bg-accent-hover text-white font-semibold disabled:opacity-50"
+              >
+                {submittingSell ? 'Recording...' : 'Record sale'}
+              </button>
+            </div>
           </div>
         </form>
       )}
