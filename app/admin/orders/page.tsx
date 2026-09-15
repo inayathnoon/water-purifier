@@ -99,6 +99,13 @@ export default function OrdersPage() {
   // Find a purchase by customer — phone number or name, filtered
   // client-side over what's already loaded (no separate search request).
   const [query, setQuery] = useState('');
+  // Correcting the completion date/notes on an already-marked-done
+  // installation — the replacement for the old technician-facing
+  // mistake-fix window (editCompletedJob()).
+  const [editingCompletionTicketId, setEditingCompletionTicketId] = useState<string | null>(null);
+  const [completionEditForm, setCompletionEditForm] = useState({ actualDate: '', notes: '' });
+  const [completionEditError, setCompletionEditError] = useState('');
+  const [savingCompletionEdit, setSavingCompletionEdit] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -262,6 +269,30 @@ export default function OrdersPage() {
       setError((await res.json()).error);
       return;
     }
+    load();
+  };
+
+  const startEditingCompletion = (ticket: Order['tickets'], ticketId: string) => {
+    setCompletionEditError('');
+    setEditingCompletionTicketId(ticketId);
+    setCompletionEditForm({ actualDate: ticket.actual_date ?? todayIST(), notes: ticket.actual_notes ?? '' });
+  };
+
+  const handleSaveCompletionEdit = async (ticketId: string) => {
+    if (savingCompletionEdit) return;
+    setSavingCompletionEdit(true);
+    setCompletionEditError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/edit-completion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actualDate: completionEditForm.actualDate, notes: completionEditForm.notes }),
+    });
+    setSavingCompletionEdit(false);
+    if (!res.ok) {
+      setCompletionEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setEditingCompletionTicketId(null);
     load();
   };
 
@@ -499,6 +530,53 @@ export default function OrdersPage() {
                               </div>
                             )}
                           </div>
+
+                          {o.tickets.actual_date && (
+                            <div className="mb-3">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  editingCompletionTicketId === o.ticket_id
+                                    ? setEditingCompletionTicketId(null)
+                                    : startEditingCompletion(o.tickets, o.ticket_id);
+                                }}
+                                className="text-xs text-accent-deep hover:underline"
+                              >
+                                {editingCompletionTicketId === o.ticket_id ? 'Cancel edit' : 'Edit completion date/notes'}
+                              </button>
+                              {editingCompletionTicketId === o.ticket_id && (
+                                <div onClick={(e) => e.stopPropagation()} className="mt-2 p-3 border rounded-md bg-surface space-y-2">
+                                  {completionEditError && <p className="text-danger text-xs">{completionEditError}</p>}
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <label className="text-xs text-ink-2">Completion date</label>
+                                    <input
+                                      type="date"
+                                      max={todayIST()}
+                                      value={completionEditForm.actualDate}
+                                      onChange={(e) => setCompletionEditForm({ ...completionEditForm, actualDate: e.target.value })}
+                                      className="border rounded px-2 py-1 text-sm"
+                                    />
+                                  </div>
+                                  <textarea
+                                    placeholder="Notes"
+                                    value={completionEditForm.notes}
+                                    onChange={(e) => setCompletionEditForm({ ...completionEditForm, notes: e.target.value })}
+                                    className="w-full border rounded px-2 py-1.5 text-sm"
+                                  />
+                                  <p className="text-xs text-ink-2">
+                                    Correcting the date also updates the warranty expiry, and re-syncs the Sales sheet.
+                                  </p>
+                                  <button
+                                    onClick={() => handleSaveCompletionEdit(o.ticket_id)}
+                                    disabled={savingCompletionEdit}
+                                    className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-50"
+                                  >
+                                    {savingCompletionEdit ? 'Saving...' : 'Save'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {overdueCall && (
                             <p className="text-xs text-warn mb-2">

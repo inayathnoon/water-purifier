@@ -42,11 +42,16 @@ export async function GET() {
   try {
     await requireUser(['admin', 'owner']);
 
+    // 'inactive' (declined/voided) stays excluded — genuinely not a real
+    // visit any more. 'closed' is now included (widened from before) so a
+    // completed visit's record stays reachable for an "Edit completion"
+    // correction, the same way Purchases already shows every order
+    // regardless of status.
     const { data, error } = await supabaseAdmin
       .from('tickets')
       .select('*, customers(*), users:assigned_to_id(name)')
       .eq('kind', 'service_visit')
-      .not('status', 'in', '(closed,inactive)')
+      .neq('status', 'inactive')
       .order('created_at', { ascending: true });
 
     if (error) throw error;

@@ -3294,6 +3294,84 @@ and a Friday — each correctly skips Sunday and always returns exactly
 3 real dates. `tsc`/`next build`/`eslint` clean (25/4, unchanged), all
 5 hard-rule tests pass.
 
+## Service Visit Joins Installation's One-Click Close; Backdatable Completion; Spares Extras/Price Override; Edit-After-Close (2026-09-15)
+
+Four related changes, worked out with the business directly (via
+clarifying questions) rather than guessed, since this touches warranty
+dates and the customer-confirmation call:
+
+**Service visits now close in one click too**, matching installation's
+existing merge. `/admin/spare-parts`'s `markDoneAndGoHome()` — the
+function that already marked a service visit done the moment its spares
+step (a real sale or "No parts used") succeeded — now also calls the
+existing `/api/admin/tickets/[id]/close` right after, in the same chain.
+No separate "Called & Confirmed" click is needed for a service visit any
+more, same as installation. That label is retired everywhere it appeared
+("Called & confirmed" / "Called & Confirmed") — the admin dashboard's
+awaiting-confirmation row and `/admin/service-calls`'s completed block
+both now read **"Confirm & close"**, kept only as a fallback for a
+legacy ticket already stuck half-confirmed from before this change (the
+same role `/admin/installations`'s own "Confirm & close" already played).
+
+**"Installation completed" now asks for a completion date** instead of
+silently always stamping today — clicking it opens an inline panel
+(defaults to today, editable to an earlier date, future dates refused)
+naming the customer and reminding the admin to actually call them,
+before the same mark-done → close chain runs with the chosen date.
+`POST /api/admin/tickets/[id]/mark-done` now accepts an optional
+`actualDate` in its body (defaults to `todayIST()` when omitted, so the
+service-visit call site — which never sends one — is unaffected).
+
+**Spares gained per-line price override and free-text extras.** Every
+part's price field on `/admin/spare-parts` is now an editable input
+(defaults to the sheet price, or free under warranty) instead of a fixed
+label — a discount or one-off case no longer needs a workaround.
+`recordSparePartSale()` already trusted whatever `unitPrice` the client
+sent (only forcing it to 0 inside warranty, §13.3), so no backend change
+was needed for the override itself. New **"+ Add extra"** rows (name/
+price/qty) alongside the picker cover anything not in the price sheet at
+all — folded into the same `items[]` array the picker already builds, so
+they go through the identical §13.3 warranty check and sheet sync as
+everything else.
+
+**New: correcting a job's completion record after the fact.** The
+technician-facing mistake-fix window removed during the staff-portal
+removal (`editCompletedServiceVisit()`) had no admin-facing replacement
+for the ticket's own `actual_date`/`actual_notes` — only spare-part sales
+had an edit path. New `editCompletedJob(ticketId, editorId, {actualDate,
+notes})` in `lib/services/tickets.ts`, reachable from `/admin/orders`
+("Edit completion date/notes", shown once a job has `actual_date` set)
+and a new **"Closed"** section on `/admin/service-calls` (that page's own
+`GET` route was widened from excluding both `closed` and `inactive`
+tickets to excluding only `inactive` — a closed service visit needs to
+stay reachable to be corrected, the same way Purchases already shows
+every order regardless of status). Appends the pre-edit values to
+`tickets.edit_history` (same JSONB-append pattern as `orders.
+payment_history`) before applying the correction. For an
+already-*closed* installation, correcting the date re-derives
+`installation_date`/`warranty_expires_at` from it too (§8.1 — the
+warranty clock is supposed to track the real completion date, not
+whatever it happened to be when someone first clicked confirm), and
+re-syncs the Sales sheet; a service visit's correction re-syncs the
+Service sheet. Neither sheet's match key includes `actual_date` (Sales:
+phone+bill_date+sold_price; Service: phone+date=created_at), so a plain
+re-sync finds and updates the existing row in place — no clear-then-write
+dance needed here, unlike a bill_date/sold_price edit elsewhere in this
+app.
+
+**Verified live against production, all of it**: an installation booked
+and completed with a backdated `actualDate` correctly stamped that exact
+date through to `installation_date`/`warranty_expires_at`; correcting it
+again via `editCompletedJob()` correctly re-derived both and the Sales
+sheet row read back with the corrected date in place (not a duplicate);
+a future date was refused. A service visit refused `completeJob()` before
+its spares step, succeeded immediately after, and closed in the same
+follow-up call the spares page now makes automatically; its own
+`editCompletedJob()` correction read back correctly on the Service sheet.
+All test customers/tickets and both sheet rows cleaned up afterward.
+`tsc`/`next build`/`eslint` unchanged from baseline (21 errors/4
+warnings, all pre-existing), all 5 hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

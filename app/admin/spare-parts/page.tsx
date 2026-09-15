@@ -59,6 +59,14 @@ function SparePartsPageInner() {
   const [showSellForm, setShowSellForm] = useState(searchParams.get('new') === '1' || !!ticketId);
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
+  // Per-part price override — defaults to the sheet price (or free, under
+  // warranty), but a special case (a discount, a one-off) can change it
+  // right on the row instead of always charging the list price.
+  const [sellPriceOverrides, setSellPriceOverrides] = useState<Record<string, number>>({});
+  // Extras — a custom line item for anything not in the price sheet at
+  // all, alongside the normal picker.
+  const [extras, setExtras] = useState<{ id: number; name: string; price: string; quantity: string }[]>([]);
+  const [nextExtraId, setNextExtraId] = useState(1);
   const [sellCustomerName, setSellCustomerName] = useState(searchParams.get('customerName') ?? '');
   const [sellPhoneNumber, setSellPhoneNumber] = useState(searchParams.get('phone') ?? '');
   const [sellError, setSellError] = useState('');
@@ -111,12 +119,20 @@ function SparePartsPageInner() {
 
   // The actual "mark this service visit done" call, fired only once the
   // spares step (whichever path) has already succeeded — see the note
-  // above. On success, home is the dashboard, same for either path.
+  // above. Also closes the ticket in the same action (calling the
+  // customer to confirm is assumed to have already happened, same as the
+  // installation flow) — no separate "Called & Confirmed" click after
+  // this any more. On success, home is the dashboard, same for either path.
   const markDoneAndGoHome = async () => {
     setMarkDoneError('');
     const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
     if (!res.ok) {
       setMarkDoneError((await res.json()).error ?? 'Spares saved, but marking the job done failed — try again below.');
+      return;
+    }
+    const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+    if (!closeRes.ok) {
+      setMarkDoneError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again from Services.');
       return;
     }
     router.push('/dashboard');
@@ -161,17 +177,34 @@ function SparePartsPageInner() {
   // Under warranty, every part is free — shown as such, not just silently
   // charged 0, so it's clear this isn't a bug (§13.3 is still enforced
   // server-side in recordSparePartSale() regardless of what's shown here).
-  const displayPrice = (p: SparePart) => (withinWarranty ? 0 : p.price);
-  const sellTotal = spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * displayPrice(p), 0);
+  // An override (once touched) wins over the sheet/warranty default —
+  // §13.3 still re-forces 0 server-side if this ticket is in warranty,
+  // regardless of what's typed here.
+  const displayPrice = (p: SparePart) => (p.name in sellPriceOverrides ? sellPriceOverrides[p.name] : withinWarranty ? 0 : p.price);
+  const addExtra = () => {
+    setExtras((rows) => [...rows, { id: nextExtraId, name: '', price: '', quantity: '1' }]);
+    setNextExtraId((n) => n + 1);
+  };
+  const updateExtra = (id: number, patch: Partial<{ name: string; price: string; quantity: string }>) =>
+    setExtras((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const removeExtra = (id: number) => setExtras((rows) => rows.filter((r) => r.id !== id));
+
+  const sellTotal =
+    spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * displayPrice(p), 0) +
+    extras.reduce((sum, x) => sum + (Number(x.price) || 0) * (Number(x.quantity) || 0), 0);
 
   const handleSellSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingSell) return;
-    const items = spareParts
+    const pickedItems = spareParts
       .filter((p) => (sellQuantities[p.name] ?? 0) > 0)
       .map((p) => ({ partName: p.name, unitPrice: displayPrice(p), quantity: sellQuantities[p.name] }));
+    const extraItems = extras
+      .filter((x) => x.name.trim() && Number(x.quantity) > 0)
+      .map((x) => ({ partName: x.name.trim(), unitPrice: withinWarranty ? 0 : Number(x.price) || 0, quantity: Number(x.quantity) }));
+    const items = [...pickedItems, ...extraItems];
     if (items.length === 0) {
-      setSellError('Pick at least one part.');
+      setSellError('Pick at least one part, or add an extra.');
       return;
     }
     setSubmittingSell(true);
@@ -187,6 +220,8 @@ function SparePartsPageInner() {
       return;
     }
     setSellQuantities({});
+    setSellPriceOverrides({});
+    setExtras([]);
     if (!ticketId) {
       setSellCustomerName('');
       setSellPhoneNumber('');
@@ -258,6 +293,8 @@ function SparePartsPageInner() {
           : 'A part sold on its own at the office — no visit, no job, customer details optional.'}
       </p>
 
+      {markDoneError && <p className="text-danger text-sm mb-4">{markDoneError}</p>}
+
       {ticketId && ticketKind === 'service_visit' && (
         <div className="mb-6">
           {sparesConfirmed ? (
@@ -321,7 +358,30 @@ function SparePartsPageInner() {
                 <div key={p.name} className="flex justify-between items-center p-3">
                   <div>
                     <p className="text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-ink-2">{withinWarranty ? 'Free' : `₹${p.price}`}</p>
+                    {withinWarranty ? (
+                      <p className="text-xs text-ink-2">Free</p>
+                    ) : (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-xs text-ink-2">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={displayPrice(p)}
+                          onChange={(e) => setSellPriceOverrides((o) => ({ ...o, [p.name]: Number(e.target.value) }))}
+                          className="w-20 border rounded px-1.5 py-0.5 text-xs"
+                        />
+                        {p.name in sellPriceOverrides && sellPriceOverrides[p.name] !== p.price && (
+                          <button
+                            type="button"
+                            onClick={() => setSellPriceOverrides((o) => Object.fromEntries(Object.entries(o).filter(([name]) => name !== p.name)))}
+                            className="text-xs text-ink-2 hover:underline"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <button
@@ -344,6 +404,47 @@ function SparePartsPageInner() {
               ))
             )}
           </div>
+
+          {/* Extras — anything not in the price sheet at all, e.g. a
+              one-off part or a custom charge. */}
+          <div className="space-y-2">
+            {extras.map((x) => (
+              <div key={x.id} className="flex items-center gap-2">
+                <input
+                  placeholder="Extra item name"
+                  value={x.name}
+                  onChange={(e) => updateExtra(x.id, { name: e.target.value })}
+                  className="border rounded px-2 py-1.5 text-sm flex-1"
+                />
+                <span className="text-xs text-ink-2">₹</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Price"
+                  value={x.price}
+                  onChange={(e) => updateExtra(x.id, { price: e.target.value })}
+                  className="border rounded px-2 py-1.5 text-sm w-24"
+                  disabled={withinWarranty}
+                />
+                <span className="text-xs text-ink-2">×</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={x.quantity}
+                  onChange={(e) => updateExtra(x.id, { quantity: e.target.value })}
+                  className="border rounded px-2 py-1.5 text-sm w-16"
+                />
+                <button type="button" onClick={() => removeExtra(x.id)} className="text-sm text-danger hover:underline">
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={addExtra} className="text-sm text-accent-deep hover:underline">
+              + Add extra
+            </button>
+          </div>
+
           <div className="flex justify-between items-center pt-2">
             <span className="font-medium">Total: {formatINR(sellTotal)}</span>
             <button

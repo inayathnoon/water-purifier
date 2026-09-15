@@ -24,13 +24,14 @@ function FormRow({ label, required, children }: { label: string; required?: bool
 
 interface ServiceCall {
   id: string;
-  status: 'open' | 'booked' | 'completed';
+  status: 'open' | 'booked' | 'completed' | 'closed';
   created_at: string;
   booked_date: string | null;
   booked_half_day: string | null;
   location: string | null;
   charge_amount: number | null;
   parts_used: string | null;
+  actual_date: string | null;
   actual_notes: string | null;
   spares_confirmed: boolean;
   assigned_to_id: string | null;
@@ -135,6 +136,12 @@ function ServiceCallsPageInner() {
   });
   const [requestEditError, setRequestEditError] = useState('');
   const [savingRequestEdit, setSavingRequestEdit] = useState(false);
+  // Correcting the completion date/notes on an already-marked-done visit —
+  // the replacement for the old technician-facing mistake-fix window.
+  const [editingCompletionId, setEditingCompletionId] = useState<string | null>(null);
+  const [completionEditForm, setCompletionEditForm] = useState({ actualDate: '', notes: '' });
+  const [completionEditError, setCompletionEditError] = useState('');
+  const [savingCompletionEdit, setSavingCompletionEdit] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -148,10 +155,10 @@ function ServiceCallsPageInner() {
     setStaff((await staffRes.json()).staff ?? []);
     setDue((await dueRes.json()).due ?? []);
 
-    // Spare parts sold against a completed visit — for the "what's
-    // already been recorded" block, right where the admin decides
-    // whether to confirm it. Only ever needed for a 'completed' one.
-    const completedIds = serviceCalls.filter((c) => c.status === 'completed').map((c) => c.id);
+    // Spare parts sold against a completed or closed visit — for the
+    // "what's already been recorded" block, right where the admin decides
+    // whether to confirm it (or, once closed, might need to correct).
+    const completedIds = serviceCalls.filter((c) => c.status === 'completed' || c.status === 'closed').map((c) => c.id);
     const salesEntries = await Promise.all(
       completedIds.map(async (id) => {
         const res = await fetch(`/api/admin/spare-part-sales?ticketId=${id}`);
@@ -334,6 +341,32 @@ function ServiceCallsPageInner() {
     load();
   };
 
+  const startEditingCompletion = (c: ServiceCall) => {
+    setCompletionEditError('');
+    setEditingCompletionId(c.id);
+    setCompletionEditForm({ actualDate: c.actual_date ?? todayIST(), notes: c.actual_notes ?? '' });
+  };
+
+  const handleSaveCompletionEdit = async (ticketId: string) => {
+    if (savingCompletionEdit) return;
+    setSavingCompletionEdit(true);
+    setCompletionEditError('');
+    const res = await fetch(`/api/admin/tickets/${ticketId}/edit-completion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actualDate: completionEditForm.actualDate, notes: completionEditForm.notes }),
+    });
+    setSavingCompletionEdit(false);
+    if (!res.ok) {
+      setCompletionEditError((await res.json()).error ?? 'Failed to save');
+      return;
+    }
+    setEditingCompletionId(null);
+    load();
+  };
+
+  const activeCalls = calls.filter((c) => c.status !== 'closed');
+  const closedCalls = calls.filter((c) => c.status === 'closed');
 
   return (
     <AppShell title="Services">
@@ -497,11 +530,11 @@ function ServiceCallsPageInner() {
       <h2 className="text-lg font-semibold mb-2">Requested — booking or in progress</h2>
       {loading ? (
         <p>Loading...</p>
-      ) : calls.length === 0 ? (
+      ) : activeCalls.length === 0 ? (
         <p className="text-ink">No yearly service calls due right now.</p>
       ) : (
         <div className="space-y-4">
-          {calls.map((c) => (
+          {activeCalls.map((c) => (
             <div
               key={c.id}
               id={`call-${c.id}`}
@@ -718,7 +751,7 @@ function ServiceCallsPageInner() {
                       disabled={confirmingId === c.id}
                       className="px-3 py-1.5 bg-sky-400 hover:bg-sky-500 text-ink rounded-md text-sm disabled:opacity-50"
                     >
-                      {confirmingId === c.id ? 'Confirming...' : 'Called & Confirmed'}
+                      {confirmingId === c.id ? 'Confirming...' : 'Confirm & close'}
                     </button>
                   </div>
                 </div>
@@ -726,6 +759,73 @@ function ServiceCallsPageInner() {
             </div>
           ))}
         </div>
+      )}
+
+      {!loading && closedCalls.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold mb-2 mt-6">Closed</h2>
+          <div className="space-y-4">
+            {closedCalls.map((c) => (
+              <div key={c.id} className="bg-surface rounded-lg shadow-sm border border-rule p-4">
+                <p className="font-medium">
+                  {c.customers.name} — {c.customers.phone_number}
+                </p>
+                <p className="text-sm text-ink-2">
+                  {c.customers.address}, {c.customers.area}
+                </p>
+                <p className="text-sm mt-1">
+                  Completed {c.actual_date ?? '—'}
+                  {c.users && <> · {c.users.name}</>}
+                </p>
+                <div className="bg-inset rounded-md p-3 text-sm space-y-1 mt-2">
+                  <p>
+                    <span className="text-ink-2">Spare parts:</span>{' '}
+                    {(sparePartSalesByTicket[c.id] ?? []).length === 0
+                      ? '—'
+                      : sparePartSalesByTicket[c.id].map((s) => `${s.part_name} x${s.quantity} (₹${s.total})`).join(', ')}
+                  </p>
+                  <p>
+                    <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => (editingCompletionId === c.id ? setEditingCompletionId(null) : startEditingCompletion(c))}
+                  className="mt-2 text-xs text-accent-deep hover:underline"
+                >
+                  {editingCompletionId === c.id ? 'Cancel edit' : 'Edit completion date/notes'}
+                </button>
+                {editingCompletionId === c.id && (
+                  <div className="mt-2 p-3 border rounded-md space-y-2">
+                    {completionEditError && <p className="text-danger text-xs">{completionEditError}</p>}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs text-ink-2">Completion date</label>
+                      <input
+                        type="date"
+                        max={todayIST()}
+                        value={completionEditForm.actualDate}
+                        onChange={(e) => setCompletionEditForm({ ...completionEditForm, actualDate: e.target.value })}
+                        className="border rounded px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <textarea
+                      placeholder="Notes"
+                      value={completionEditForm.notes}
+                      onChange={(e) => setCompletionEditForm({ ...completionEditForm, notes: e.target.value })}
+                      className="w-full border rounded px-2 py-1.5 text-sm"
+                    />
+                    <button
+                      onClick={() => handleSaveCompletionEdit(c.id)}
+                      disabled={savingCompletionEdit}
+                      className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-50"
+                    >
+                      {savingCompletionEdit ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
     </AppShell>

@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { daysAgoIST, enquiryUrgency } from '@/lib/dates';
+import { daysAgoIST, enquiryUrgency, todayIST } from '@/lib/dates';
 import { toStartCase, formatINR } from '@/lib/format';
 import BookingForm from '@/components/BookingForm';
 import WeekSchedule from '@/components/dashboard/WeekSchedule';
-import { useConfirm } from '@/components/useConfirm';
 import { DashboardCard, StaffMember, emptyAssignForm, TypeTag, Tone } from './shared';
 
 const daysAgo = daysAgoIST;
@@ -100,7 +99,10 @@ export default function AdminDashboard() {
   const [confirmingSatisfaction, setConfirmingSatisfaction] = useState(false);
   const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
   const [markDoneError, setMarkDoneError] = useState('');
-  const [confirm, confirmDialog] = useConfirm();
+  // Installation completed — an inline date panel (defaults to today,
+  // editable to an earlier date) instead of a plain yes/no confirm.
+  const [installConfirmId, setInstallConfirmId] = useState<string | null>(null);
+  const [installConfirmDate, setInstallConfirmDate] = useState(todayIST());
 
   const loadDashboard = () => {
     fetch('/api/admin/dashboard')
@@ -176,36 +178,39 @@ export default function AdminDashboard() {
   // Installation completed used to be two separate clicks — mark done,
   // then a second "Called & confirmed" once the admin had actually made
   // that call. Business call: fold them into one — clicking "Installation
-  // completed" now marks the job done and immediately confirms/closes it
-  // in the same action, so there's no lingering unconfirmed installation
-  // waiting on a second click. (Service visits already work this way —
-  // completing the spares step there doubles as the completion click.)
-  const handleMarkDone = async (ticketId: string, label: string, customer?: { name: string; phone_number: string }) => {
-    const message =
-      label === 'Installation' && customer
-        ? `${toStartCase(customer.name)} — ${customer.phone_number}\n\nPlease call the customer at ${customer.phone_number} to confirm before marking this installation complete.\n\nMark installation complete?`
-        : `Mark this ${label.toLowerCase()} done?`;
-    if (!(await confirm(message))) return;
+  // completed" opens an inline date panel (today by default, editable to
+  // an earlier date for a job confirmed a day or two late) and, on
+  // confirm, marks the job done and immediately closes it in the same
+  // action — no lingering unconfirmed installation waiting on a second
+  // click. (Service visits already work this way too — completing the
+  // spares step there doubles as the completion click.)
+  const startInstallConfirm = (ticketId: string) => {
+    setMarkDoneError('');
+    setInstallConfirmId(ticketId);
+    setInstallConfirmDate(todayIST());
+  };
+
+  const handleConfirmInstallDone = async (ticketId: string) => {
     setMarkDoneError('');
     setMarkingDoneId(ticketId);
-    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
+    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actualDate: installConfirmDate }),
+    });
     if (!res.ok) {
       setMarkingDoneId(null);
       setMarkDoneError((await res.json()).error ?? 'Failed to mark done');
       return;
     }
-    if (label === 'Installation') {
-      const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
-      setMarkingDoneId(null);
-      if (!closeRes.ok) {
-        setMarkDoneError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again below.');
-        loadDashboard();
-        return;
-      }
+    const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+    setMarkingDoneId(null);
+    setInstallConfirmId(null);
+    if (!closeRes.ok) {
+      setMarkDoneError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again below.');
       loadDashboard();
       return;
     }
-    setMarkingDoneId(null);
     loadDashboard();
   };
 
@@ -348,29 +353,66 @@ export default function AdminDashboard() {
         ageTone: age >= 3 ? 'danger' : 'neutral',
         priority: t.kind === 'installation' ? PRIORITY.installation : PRIORITY.service_visit,
         render: () => (
-          <div key={`due-${t.id}`} className="py-3 border-b border-divider last:border-0 flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
-                <TypeTag kind={t.kind} />
-                {toStartCase(t.customers.name)}
-              </p>
-              <p className="text-[13px] text-ink-2 truncate">{t.customers.phone_number}</p>
+          <div key={`due-${t.id}`} className="py-3 border-b border-divider last:border-0">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-semibold truncate flex items-center gap-1.5">
+                  <TypeTag kind={t.kind} />
+                  {toStartCase(t.customers.name)}
+                </p>
+                <p className="text-[13px] text-ink-2 truncate">{t.customers.phone_number}</p>
+              </div>
+              <span className={`text-[13px] font-medium shrink-0 ${age >= 3 ? 'text-danger' : 'text-ink-2'}`}>
+                {age >= 3 ? `${age}d overdue` : `${age}d`}
+              </span>
+              {t.kind === 'installation' ? (
+                <button
+                  onClick={() => (installConfirmId === t.id ? setInstallConfirmId(null) : startInstallConfirm(t.id))}
+                  disabled={markingDoneId === t.id}
+                  className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
+                >
+                  {markingDoneId === t.id ? 'Saving…' : 'Installation completed'}
+                </button>
+              ) : (
+                <a href={sellSparePartHref(t)} className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint">
+                  Service completed
+                </a>
+              )}
             </div>
-            <span className={`text-[13px] font-medium shrink-0 ${age >= 3 ? 'text-danger' : 'text-ink-2'}`}>
-              {age >= 3 ? `${age}d overdue` : `${age}d`}
-            </span>
-            {t.kind === 'installation' ? (
-              <button
-                onClick={() => handleMarkDone(t.id, 'Installation', t.customers)}
-                disabled={markingDoneId === t.id}
-                className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
-              >
-                {markingDoneId === t.id ? 'Saving…' : 'Installation completed'}
-              </button>
-            ) : (
-              <a href={sellSparePartHref(t)} className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint">
-                Service completed
-              </a>
+            {installConfirmId === t.id && (
+              <div className="mt-3 pt-3 border-t border-divider space-y-2">
+                <p className="text-[13px] text-ink-2">
+                  {toStartCase(t.customers.name)} — {t.customers.phone_number}. Please call the customer to confirm
+                  before marking this installation complete.
+                </p>
+                {markDoneError && <p className="text-danger text-[13px]">{markDoneError}</p>}
+                <div className="flex items-center gap-2">
+                  <label className="text-[13px] text-ink-2 shrink-0" htmlFor={`install-date-${t.id}`}>
+                    Completion date
+                  </label>
+                  <input
+                    id={`install-date-${t.id}`}
+                    type="date"
+                    max={todayIST()}
+                    value={installConfirmDate}
+                    onChange={(e) => setInstallConfirmDate(e.target.value)}
+                    className="border border-rule rounded-xs px-2 py-1 text-[13px] focus-visible:outline-2 focus-visible:outline-accent"
+                  />
+                  <button
+                    onClick={() => handleConfirmInstallDone(t.id)}
+                    disabled={markingDoneId === t.id}
+                    className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-[13px] font-semibold disabled:opacity-50"
+                  >
+                    {markingDoneId === t.id ? 'Saving…' : 'Confirm'}
+                  </button>
+                  <button
+                    onClick={() => setInstallConfirmId(null)}
+                    className="text-[13px] text-ink-2 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         ),
@@ -406,7 +448,7 @@ export default function AdminDashboard() {
               disabled={confirmingJobId === t.id}
               className="shrink-0 px-3 py-1.5 border border-rule text-[13px] font-semibold hover:bg-accent-tint disabled:opacity-50"
             >
-              {confirmingJobId === t.id ? 'Confirming…' : 'Called & confirmed'}
+              {confirmingJobId === t.id ? 'Confirming…' : 'Confirm & close'}
             </button>
           </div>
         ),
@@ -565,8 +607,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      {confirmDialog}
-
       {/* Attention strip — one bordered row of counters, each a filter
           shortcut into the queue below. A zero renders in plain ink. */}
       <div className="bg-surface border border-rule flex flex-wrap divide-x divide-rule">

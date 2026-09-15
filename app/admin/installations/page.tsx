@@ -122,6 +122,11 @@ function InstallationsPageInner() {
   const [purchaseSubmitting, setPurchaseSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [confirm, confirmDialog] = useConfirm();
+  // Installation completed — an inline date panel (today by default,
+  // editable to an earlier date) instead of a plain yes/no confirm.
+  const [installConfirmId, setInstallConfirmId] = useState<string | null>(null);
+  const [installConfirmDate, setInstallConfirmDate] = useState(todayIST());
+  const [installConfirming, setInstallConfirming] = useState(false);
 
   const updatePurchaseItem = (id: number, patch: Partial<PurchaseItem>) =>
     setPurchaseItems((items) => items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -300,16 +305,30 @@ function InstallationsPageInner() {
   // reachable here too for anyone working straight off this page.
   // One click does the whole thing now — mark done and confirm/close in
   // the same action, instead of a separate "Confirm & close" step after.
-  const handleMarkDone = async (ticketId: string, customer: { name: string; phone_number: string }) => {
-    const message = `${toStartCase(customer.name)} — ${customer.phone_number}\n\nPlease call the customer at ${customer.phone_number} to confirm before marking this installation complete.\n\nMark installation complete?`;
-    if (!(await confirm(message))) return;
+  // Completion date defaults to today but is editable to an earlier date
+  // for a job confirmed a day or two late.
+  const startInstallConfirm = (ticketId: string) => {
     setError('');
-    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
+    setInstallConfirmId(ticketId);
+    setInstallConfirmDate(todayIST());
+  };
+
+  const handleConfirmInstallDone = async (ticketId: string) => {
+    setError('');
+    setInstallConfirming(true);
+    const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actualDate: installConfirmDate }),
+    });
     if (!res.ok) {
+      setInstallConfirming(false);
       setError((await res.json()).error ?? 'Failed to mark done');
       return;
     }
     const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
+    setInstallConfirming(false);
+    setInstallConfirmId(null);
     if (!closeRes.ok) {
       setError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again below.');
       load();
@@ -583,7 +602,7 @@ function InstallationsPageInner() {
                         Put back to dispatch
                       </button>
                       <button
-                        onClick={() => handleMarkDone(inst.id, inst.customers)}
+                        onClick={() => (installConfirmId === inst.id ? setInstallConfirmId(null) : startInstallConfirm(inst.id))}
                         className="px-3 py-1.5 bg-accent text-white rounded-md text-sm hover:bg-accent-hover"
                       >
                         Installation completed
@@ -600,6 +619,39 @@ function InstallationsPageInner() {
                   )}
                 </div>
               </div>
+
+              {installConfirmId === inst.id && (
+                <div className="mt-3 pt-3 border-t space-y-2">
+                  <p className="text-sm text-ink-2">
+                    {toStartCase(inst.customers.name)} — {inst.customers.phone_number}. Please call the customer to
+                    confirm before marking this installation complete.
+                  </p>
+                  {error && <p className="text-danger text-sm">{error}</p>}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-ink-2 shrink-0" htmlFor={`install-date-${inst.id}`}>
+                      Completion date
+                    </label>
+                    <input
+                      id={`install-date-${inst.id}`}
+                      type="date"
+                      max={todayIST()}
+                      value={installConfirmDate}
+                      onChange={(e) => setInstallConfirmDate(e.target.value)}
+                      className="border rounded px-2 py-1 text-sm"
+                    />
+                    <button
+                      onClick={() => handleConfirmInstallDone(inst.id)}
+                      disabled={installConfirming}
+                      className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-50"
+                    >
+                      {installConfirming ? 'Saving...' : 'Confirm'}
+                    </button>
+                    <button onClick={() => setInstallConfirmId(null)} className="text-sm text-ink-2 hover:underline">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {bookingId === inst.id && (
                 <form onSubmit={(e) => handleBook(e, inst.id)} className="mt-4 pt-4 border-t space-y-3">

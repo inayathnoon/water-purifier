@@ -668,6 +668,77 @@ export async function completeJob(
 }
 
 /**
+ * Correcting a mistake in what was recorded when a job was marked done —
+ * the completion date or notes — for a job that's already `completed` or
+ * `closed`. Direct replacement for the old (removed) technician-facing
+ * `editCompletedServiceVisit()`: same idea (a mistake-fix window after the
+ * fact), now an admin action reachable from Purchases/Services instead of
+ * a technician's own screen.
+ *
+ * An already-closed installation had its warranty clock started from the
+ * old `actual_date` (§8.1, in `closeTicketAfterConfirmation`) — correcting
+ * the date re-derives `installation_date`/`warranty_expires_at` from the
+ * new one too, so a correction can't leave the warranty window pointing at
+ * a date nobody actually confirmed any more. Neither sheet's match key
+ * (Sales: phone+bill_date+sold_price; Service: phone+date=created_at)
+ * includes `actual_date`, so a plain re-sync finds and updates the
+ * existing row in place — no clear-then-write dance needed here, unlike a
+ * bill_date/sold_price edit.
+ */
+export async function editCompletedJob(
+  ticketId: string,
+  editorId: string,
+  input: { actualDate: string; notes: string }
+) {
+  const ticket = await getTicketOrThrow(ticketId);
+  if (ticket.status !== 'completed' && ticket.status !== 'closed') {
+    throw new ApiError(400, 'Job must be marked done before its record can be corrected');
+  }
+  if (input.actualDate > todayIST()) {
+    throw new ApiError(400, 'Completion date cannot be in the future');
+  }
+
+  const editHistory = Array.isArray(ticket.edit_history) ? ticket.edit_history : [];
+  const entry = {
+    before: { actual_date: ticket.actual_date, actual_notes: ticket.actual_notes },
+    editedBy: editorId,
+    editedAt: new Date().toISOString(),
+  };
+
+  const update: Record<string, unknown> = {
+    actual_date: input.actualDate,
+    actual_notes: input.notes,
+    edit_history: [...editHistory, entry],
+  };
+
+  if (ticket.kind === 'installation' && ticket.status === 'closed') {
+    const warrantyExpires = new Date(input.actualDate);
+    warrantyExpires.setFullYear(warrantyExpires.getFullYear() + 1);
+    update.installation_date = input.actualDate;
+    update.warranty_expires_at = warrantyExpires.toISOString().slice(0, 10);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('tickets')
+    .update(update)
+    .eq('id', ticketId)
+    .select('id, kind, status, actual_date, actual_notes')
+    .single();
+  if (error) throw new ApiError(500, error.message);
+
+  if (ticket.kind === 'installation') {
+    (async () => {
+      const { data: order } = await supabaseAdmin.from('orders').select('id').eq('ticket_id', ticketId).maybeSingle();
+      if (order) await syncOrderToSalesSheetSafely(order.id);
+    })().catch(() => {});
+  } else {
+    syncServiceToSheetSafely(ticketId).catch(() => {});
+  }
+
+  return data;
+}
+
+/**
  * "Put back to dispatch" — undoes a booking entirely (not a cancellation:
  * the customer still needs the work done, it's just nobody's assigned to
  * it right now). Clears assignment/schedule back to exactly the shape a

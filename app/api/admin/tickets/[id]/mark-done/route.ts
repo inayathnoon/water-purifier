@@ -25,8 +25,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error || !ticket) throw new ApiError(404, 'Ticket not found');
     if (!ticket.assigned_to_id) throw new ApiError(400, 'This job has no assigned technician');
 
+    const actualDate = body.actualDate || todayIST();
+    if (actualDate > todayIST()) throw new ApiError(400, 'Completion date cannot be in the future');
+
     const result = await completeJob(id, ticket.assigned_to_id, {
-      actualDate: todayIST(),
+      actualDate,
       notes: body.notes ?? '',
     });
 
