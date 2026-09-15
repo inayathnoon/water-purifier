@@ -3601,6 +3601,43 @@ moved. Worth a quick look on an actual 1280×800-ish screen to confirm
 the `6.5rem` offset holds exactly — it's derived from AppShell's fixed
 `h-14` + `py-6`, not measured against a live render.
 
+## Spares Footer Redesigned Again: Service Charge = X + Spare Parts (Calculated) − Discount = Total (2026-09-15)
+
+The service-charge block moved out of the form body entirely (built one
+turn ago) into the fixed footer itself, and the discount's target
+flipped — it now reduces the **spare-parts total**, never the service
+charge:
+
+- **Service charge** is a plain editable number in the footer (defaults
+  to the sheet's price, or 0 when the visit is already free under
+  warranty) — no longer a picker row or a discount-driven figure, just a
+  number the admin can type over directly. Only shown for a
+  service-visit-linked sale.
+- **Spare parts** — the picked parts + any extras, summed and shown as a
+  read-only calculated figure right next to it.
+- **Discount** — its own editable number, always present (office sales
+  included), subtracted from the spare-parts figure specifically —
+  clamped to never exceed it, so a sale can't go negative.
+- **Total = Service charge + Spare parts − Discount**, spelled out left
+  to right in the footer exactly that way.
+
+On submit, the discount is sent as its own line item with a **negative**
+`unitPrice` (`{partName: 'Discount', unitPrice: -amount, quantity: 1}`)
+rather than distorting any real part's recorded price — `recordSparePartSale()`
+already accepted whatever `unitPrice` a client sent per item (no sign
+check on create), so this needed no backend change; the Spare Part
+Sales sheet now shows an honest `Discount` line alongside the real parts
+whenever one was applied, rather than a part's own price looking
+unexplainably lower than the sheet.
+
+**Verified live against production**: 2× Solenoid Valve (₹900) + a ₹300
+discount + a full ₹550 service charge produced exactly three
+`spare_part_sales` rows (part total 900, discount row stored as -300,
+service charge 550) summing to the expected ₹1,150, correctly set
+`spares_confirmed`, and let `completeJob()` proceed with a negative-price
+row present. All test data cleaned up afterward. `tsc`/`next build`/
+`eslint` unchanged from baseline, all 5 hard-rule tests pass.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

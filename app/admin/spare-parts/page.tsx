@@ -61,12 +61,15 @@ function SparePartsPageInner() {
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
   // The flat visit charge — pulled out of the regular parts list entirely
-  // (not something to scroll past), always included for a service-visit
-  // sale unless under warranty. A discount reduces or zeroes it for a
-  // deliberate no-charge case (goodwill, a relationship) that isn't
-  // already covered by the automatic warranty-free rule.
+  // (not something to scroll past) and shown only in the footer, as a
+  // plain editable number (defaults to the sheet's price, or 0 under
+  // warranty) rather than something reached by picking a quantity.
   const [serviceChargePart, setServiceChargePart] = useState<SparePart | null>(null);
-  const [serviceChargeDiscount, setServiceChargeDiscount] = useState('');
+  const [serviceChargeValue, setServiceChargeValue] = useState('');
+  // Reduces the spare-parts total specifically (never the service
+  // charge) — a discretionary discount, separate from §13.3's automatic
+  // warranty-free rule.
+  const [discount, setDiscount] = useState('');
   // Extras — a custom line item for anything not in the price sheet at
   // all, alongside the normal picker.
   const [extras, setExtras] = useState<{ id: number; name: string; price: string; quantity: string }[]>([]);
@@ -99,9 +102,10 @@ function SparePartsPageInner() {
     const [sparePartsRes, salesRes, ticketRes] = await Promise.all(requests);
 
     let isServiceVisit = false;
+    let inWarranty = false;
     if (ticketId && ticketKind === 'service_visit' && ticketRes) {
       const { ticket } = await ticketRes.json();
-      const inWarranty = isWithinWarranty(ticket?.installation_date ?? null, todayIST());
+      inWarranty = isWithinWarranty(ticket?.installation_date ?? null, todayIST());
       setWithinWarranty(inWarranty);
       setSparesConfirmed(!!ticket?.spares_confirmed);
       isServiceVisit = true;
@@ -112,7 +116,12 @@ function SparePartsPageInner() {
     // its own always-there figure for a service visit, and doesn't apply
     // at all to an office/installation sale (no visit is happening).
     setSpareParts(allParts.filter((p) => !isServiceCharge(p)));
-    setServiceChargePart(isServiceVisit ? allParts.find(isServiceCharge) ?? null : null);
+    const chargePart = isServiceVisit ? allParts.find(isServiceCharge) ?? null : null;
+    setServiceChargePart(chargePart);
+    // Defaults to the sheet price, or 0 when the visit is already free —
+    // still just a plain editable number either way (§13.3 re-enforces
+    // 0 server-side for a genuine warranty visit regardless of this).
+    setServiceChargeValue(chargePart ? String(inWarranty ? 0 : chargePart.price) : '');
     setRecentSales((await salesRes.json()).sales ?? []);
     setLoading(false);
   };
@@ -186,19 +195,17 @@ function SparePartsPageInner() {
     setExtras((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const removeExtra = (id: number) => setExtras((rows) => rows.filter((r) => r.id !== id));
 
-  // Warranty already makes it free automatically (§13.3, re-enforced
-  // server-side regardless); the discount field covers the other
-  // deliberate no-charge case — never below zero either way.
-  const serviceChargeEffectivePrice = serviceChargePart
-    ? withinWarranty
-      ? 0
-      : Math.max(0, serviceChargePart.price - (Number(serviceChargeDiscount) || 0))
-    : 0;
-
-  const sellTotal =
+  // The spare-parts side of the total — picked parts plus extras, before
+  // the discount below. The service charge is a separate figure entirely
+  // (its own editable number, footer-only) and never part of this sum.
+  const sparePartsTotal =
     spareParts.reduce((sum, p) => sum + (sellQuantities[p.name] ?? 0) * displayPrice(p), 0) +
-    (serviceChargePart ? serviceChargeEffectivePrice : 0) +
     extras.reduce((sum, x) => sum + (Number(x.price) || 0) * (Number(x.quantity) || 0), 0);
+  // Never below zero, and never more than the parts total itself — a
+  // discount can zero the parts out, not flip the sale negative.
+  const discountAmount = Math.min(Math.max(0, Number(discount) || 0), sparePartsTotal);
+  const serviceChargeAmount = serviceChargePart ? Math.max(0, Number(serviceChargeValue) || 0) : 0;
+  const sellTotal = serviceChargeAmount + sparePartsTotal - discountAmount;
 
   const handleSellSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,11 +217,16 @@ function SparePartsPageInner() {
       .filter((x) => x.name.trim() && Number(x.quantity) > 0)
       .map((x) => ({ partName: x.name.trim(), unitPrice: withinWarranty ? 0 : Number(x.price) || 0, quantity: Number(x.quantity) }));
     // Always included for a service visit — the flat charge is "there"
-    // whether or not the admin picked any other part, same as the sheet
-    // row it's read from; its price is already 0 if under warranty or
-    // fully discounted above.
-    const serviceChargeItems = serviceChargePart ? [{ partName: serviceChargePart.name, unitPrice: serviceChargeEffectivePrice, quantity: 1 }] : [];
-    const items = [...pickedItems, ...serviceChargeItems, ...extraItems];
+    // whether or not the admin picked any other part — at whatever value
+    // the footer's own field holds (§13.3 still re-forces 0 server-side
+    // for a genuine warranty visit regardless of what's typed here).
+    const serviceChargeItems = serviceChargePart ? [{ partName: serviceChargePart.name, unitPrice: serviceChargeAmount, quantity: 1 }] : [];
+    // The discount reduces the spare-parts total specifically — recorded
+    // as its own negative line rather than distorting any real part's
+    // price, so the sheet/ledger stays an honest record of what actually
+    // happened (a real sale, then a discount applied to it).
+    const discountItems = discountAmount > 0 ? [{ partName: 'Discount', unitPrice: -discountAmount, quantity: 1 }] : [];
+    const items = [...pickedItems, ...extraItems, ...discountItems, ...serviceChargeItems];
     if (items.length === 0) {
       // Sometimes nothing gets charged even outside warranty (a
       // relationship call, goodwill, whatever the reason) — for a linked
@@ -243,7 +255,7 @@ function SparePartsPageInner() {
       return;
     }
     setSellQuantities({});
-    setServiceChargeDiscount('');
+    setDiscount('');
     setExtras([]);
     if (!ticketId) {
       setSellCustomerName('');
@@ -375,37 +387,6 @@ function SparePartsPageInner() {
             />
           </div>
 
-          {/* The flat visit charge — its own always-there figure, not
-              buried in the scrollable parts list. Warranty already makes
-              it free automatically; the discount field covers any other
-              deliberate no-charge case. */}
-          {serviceChargePart && (
-            <div className="border border-rule rounded-lg p-3 flex justify-between items-center gap-3 bg-inset">
-              <div>
-                <p className="text-sm font-medium">{serviceChargePart.name}</p>
-                <p className="text-xs text-ink-2">
-                  {withinWarranty ? 'Free (under warranty)' : `List: ${formatINR(serviceChargePart.price)}`}
-                </p>
-              </div>
-              {!withinWarranty && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <label className="text-xs text-ink-2">Discount</label>
-                  <span className="text-xs text-ink-2">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0"
-                    value={serviceChargeDiscount}
-                    onChange={(e) => setServiceChargeDiscount(e.target.value)}
-                    className="w-20 border rounded px-2 py-1 text-sm"
-                  />
-                  <span className="text-sm font-medium w-20 text-right">{formatINR(serviceChargeEffectivePrice)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="border rounded-lg divide-y">
             {spareParts.length === 0 ? (
               <p className="text-sm text-ink-2 p-3">No spare parts loaded — check the sheet.</p>
@@ -478,19 +459,54 @@ function SparePartsPageInner() {
             </button>
           </div>
 
-          {/* Fixed to the bottom of the viewport, not the form — the
-              total and the submit button stay visible the whole time the
-              admin is scrolling through the parts list above. */}
+          {/* Fixed to the bottom of the viewport, not the form — visible
+              the whole time the admin is scrolling through the parts
+              list above. Service charge + Spare parts (calculated) −
+              Discount = Total, spelled out so it's clear where every
+              rupee in the total actually comes from. */}
           <div className="fixed bottom-0 inset-x-0 bg-surface border-t border-rule shadow-lg z-20">
-            <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center gap-3">
-              <span className="text-xl font-bold">Total: {formatINR(sellTotal)}</span>
-              <button
-                type="submit"
-                disabled={submittingSell}
-                className="px-6 py-3 text-base bg-accent hover:bg-accent-hover text-white font-semibold disabled:opacity-50"
-              >
-                {submittingSell ? 'Recording...' : 'Record sale'}
-              </button>
+            <div className="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {serviceChargePart && (
+                  <>
+                    <span className="text-ink-2">Service charge</span>
+                    <span className="text-ink-2">₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={serviceChargeValue}
+                      onChange={(e) => setServiceChargeValue(e.target.value)}
+                      className="w-20 border rounded px-2 py-1"
+                    />
+                    <span className="text-ink-2">+</span>
+                  </>
+                )}
+                <span className="text-ink-2">Spare parts</span>
+                <span className="font-medium">{formatINR(sparePartsTotal)}</span>
+                <span className="text-ink-2">−</span>
+                <span className="text-ink-2">Discount</span>
+                <span className="text-ink-2">₹</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  className="w-20 border rounded px-2 py-1"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-bold whitespace-nowrap">= {formatINR(sellTotal)}</span>
+                <button
+                  type="submit"
+                  disabled={submittingSell}
+                  className="px-6 py-3 text-base bg-accent hover:bg-accent-hover text-white font-semibold disabled:opacity-50 whitespace-nowrap"
+                >
+                  {submittingSell ? 'Recording...' : 'Record sale'}
+                </button>
+              </div>
             </div>
           </div>
         </form>
