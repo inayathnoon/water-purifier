@@ -465,7 +465,7 @@ function SparePartsPageInner() {
               Discount = Total, spelled out so it's clear where every
               rupee in the total actually comes from. */}
           <div className="fixed bottom-0 inset-x-0 bg-surface border-t border-rule shadow-lg z-20">
-            <div className="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center gap-6">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 {serviceChargePart && (
                   <>
