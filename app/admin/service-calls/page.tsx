@@ -355,7 +355,12 @@ function ServiceCallsPageInner() {
     load();
   };
 
-  const activeCalls = calls.filter((c) => c.status !== 'closed');
+  // Split what used to be one "active" list in two — a job still open or
+  // booked reads as "requested or in progress"; one already marked done by
+  // the spares step (awaiting its close, or a legacy ticket stuck here from
+  // before the one-click merge) reads as "completed", not "in progress".
+  const requestedOrInProgress = calls.filter((c) => c.status === 'open' || c.status === 'booked');
+  const completedServices = calls.filter((c) => c.status === 'completed');
   const closedCalls = calls.filter((c) => c.status === 'closed');
 
   return (
@@ -517,14 +522,14 @@ function ServiceCallsPageInner() {
         </div>
       )}
 
-      <h2 className="text-lg font-semibold mb-2">Requested — booking or in progress</h2>
+      <h2 className="text-lg font-semibold mb-2">Requested or In Progress</h2>
       {loading ? (
         <p>Loading...</p>
-      ) : activeCalls.length === 0 ? (
+      ) : requestedOrInProgress.length === 0 ? (
         <p className="text-ink">No yearly service calls due right now.</p>
       ) : (
         <div className="space-y-4">
-          {activeCalls.map((c) => (
+          {requestedOrInProgress.map((c) => (
             <div
               key={c.id}
               id={`call-${c.id}`}
@@ -715,32 +720,61 @@ function ServiceCallsPageInner() {
                 </div>
               )}
 
-              {c.status === 'completed' && (
-                <div className="mt-3 pt-3 border-t space-y-2">
-                  {/* A visit still sitting here in 'completed' predates
-                      the one-click spares-completion merge (or its
-                      immediate close call failed) — no action left to
-                      take on it from here, just what was recorded. Spare
-                      parts are recorded separately (Sell Spare Part,
-                      linked to this ticket), not on the ticket itself. */}
-                  <div className="bg-inset rounded-md p-3 text-sm space-y-1">
-                    <p>
-                      <span className="text-ink-2">Spare parts:</span>{' '}
-                      {(sparePartSalesByTicket[c.id] ?? []).length === 0
-                        ? '—'
-                        : sparePartSalesByTicket[c.id]
-                            .map((s) => `${s.part_name} x${s.quantity} (₹${s.total})`)
-                            .join(', ')}
-                    </p>
-                    <p>
-                      <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
+      )}
+
+      {!loading && completedServices.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold mb-2 mt-6">Completed services</h2>
+          <div className="space-y-4">
+            {completedServices.map((c) => (
+              <div
+                key={c.id}
+                id={`call-${c.id}`}
+                className={`bg-surface rounded-lg shadow-sm border border-rule p-4 ${
+                  highlightTicket === c.id ? 'ring-2 ring-warn' : ''
+                }`}
+              >
+                <p className="font-medium">
+                  {c.customers.name} — {c.customers.phone_number}
+                </p>
+                <p className="text-sm text-ink-2">
+                  {c.customers.address}, {c.customers.area}
+                </p>
+                <p className="text-sm mt-1">
+                  Status: <span className="font-medium capitalize">{c.status}</span>
+                  {c.booked_date && (
+                    <>
+                      {' · '}
+                      {c.booked_date} ({c.booked_half_day}) · {c.location} · assigned to {c.users?.name}
+                    </>
+                  )}
+                </p>
+                {/* A visit still sitting here in 'completed' predates
+                    the one-click spares-completion merge (or its
+                    immediate close call failed) — no action left to
+                    take on it from here, just what was recorded. Spare
+                    parts are recorded separately (Sell Spare Part,
+                    linked to this ticket), not on the ticket itself. */}
+                <div className="bg-inset rounded-md p-3 text-sm space-y-1 mt-2">
+                  <p>
+                    <span className="text-ink-2">Spare parts:</span>{' '}
+                    {(sparePartSalesByTicket[c.id] ?? []).length === 0
+                      ? '—'
+                      : sparePartSalesByTicket[c.id]
+                          .map((s) => `${s.part_name} x${s.quantity} (₹${s.total})`)
+                          .join(', ')}
+                  </p>
+                  <p>
+                    <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {!loading && closedCalls.length > 0 && (
