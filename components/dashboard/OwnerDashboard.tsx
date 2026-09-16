@@ -125,8 +125,56 @@ export default function OwnerDashboard() {
           identical exclusion for why. */}
       <WeekSchedule days={data.scheduleDays} weekJobs={data.weekJobs} staff={staff.filter((s) => s.name !== 'Others')} />
 
-      {/* Money outstanding — the owner's highest-value module: a compact
-          table, not five separate cards. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <DashboardCard
+          title="Commercial & vessel enquiries"
+          badge={data.commercialVesselEnquiries.length > 0 ? `${data.commercialVesselEnquiries.length}` : undefined}
+          emptyText="None open right now."
+          viewAllHref="/admin/enquiries"
+          shownCount={Math.min(5, data.commercialVesselEnquiries.length)}
+          totalCount={data.commercialVesselEnquiries.length}
+        >
+          {data.commercialVesselEnquiries.slice(0, 5).map((e) => (
+            <Row
+              key={e.id}
+              href={`/admin/enquiries/${e.id}`}
+              primary={toStartCase(e.customers.name)}
+              secondary={`${toStartCase(e.enquiry_product_interest || '')} · ${daysAgo(e.created_at)}d open`}
+              kind="enquiry"
+            />
+          ))}
+        </DashboardCard>
+
+        <DashboardCard
+          title="Jobs to dispatch"
+          emptyText="Nothing waiting on a technician."
+          viewAllLinks={[
+            { label: 'New installation', href: '/admin/installations' },
+            { label: 'Services', href: '/admin/service-calls' },
+          ]}
+          shownCount={Math.min(5, data.jobsToDispatch.length)}
+          totalCount={data.jobsToDispatch.length}
+        >
+          {data.jobsToDispatch.slice(0, 5).map((t) => {
+            const age = daysAgo(t.created_at);
+            return (
+              <Row
+                key={t.id}
+                href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
+                primary={toStartCase(t.customers.name)}
+                secondary={t.enquiry_product_interest ? toStartCase(t.enquiry_product_interest) : t.customers.phone_number}
+                tag={age >= 3 ? `${age}d overdue` : `${age}d`}
+                tagTone={age >= 3 ? 'danger' : 'neutral'}
+                kind={t.kind}
+              />
+            );
+          })}
+        </DashboardCard>
+      </div>
+
+      {/* Money outstanding — the owner's highest-value module, but moved
+          to the bottom of the page at direct request rather than sitting
+          above the day-to-day operational cards. */}
       <div className="bg-surface border border-rule">
         <div className="flex justify-between items-center gap-2 px-4 py-3 border-b border-rule">
           <h3 className="font-condensed text-[15px] uppercase tracking-[0.06em]">Payments outstanding</h3>
@@ -177,53 +225,6 @@ export default function OwnerDashboard() {
             </table>
           </div>
         )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DashboardCard
-          title="Commercial & vessel enquiries"
-          badge={data.commercialVesselEnquiries.length > 0 ? `${data.commercialVesselEnquiries.length}` : undefined}
-          emptyText="None open right now."
-          viewAllHref="/admin/enquiries"
-          shownCount={Math.min(5, data.commercialVesselEnquiries.length)}
-          totalCount={data.commercialVesselEnquiries.length}
-        >
-          {data.commercialVesselEnquiries.slice(0, 5).map((e) => (
-            <Row
-              key={e.id}
-              href={`/admin/enquiries/${e.id}`}
-              primary={toStartCase(e.customers.name)}
-              secondary={`${toStartCase(e.enquiry_product_interest || '')} · ${daysAgo(e.created_at)}d open`}
-              kind="enquiry"
-            />
-          ))}
-        </DashboardCard>
-
-        <DashboardCard
-          title="Jobs to dispatch"
-          emptyText="Nothing waiting on a technician."
-          viewAllLinks={[
-            { label: 'New installation', href: '/admin/installations' },
-            { label: 'Services', href: '/admin/service-calls' },
-          ]}
-          shownCount={Math.min(5, data.jobsToDispatch.length)}
-          totalCount={data.jobsToDispatch.length}
-        >
-          {data.jobsToDispatch.slice(0, 5).map((t) => {
-            const age = daysAgo(t.created_at);
-            return (
-              <Row
-                key={t.id}
-                href={t.kind === 'installation' ? '/admin/installations' : '/admin/service-calls'}
-                primary={toStartCase(t.customers.name)}
-                secondary={t.enquiry_product_interest ? toStartCase(t.enquiry_product_interest) : t.customers.phone_number}
-                tag={age >= 3 ? `${age}d overdue` : `${age}d`}
-                tagTone={age >= 3 ? 'danger' : 'neutral'}
-                kind={t.kind}
-              />
-            );
-          })}
-        </DashboardCard>
       </div>
     </div>
   );

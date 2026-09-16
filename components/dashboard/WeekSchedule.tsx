@@ -1,9 +1,9 @@
 'use client';
 
-// Today plus the next couple of days, skipping Sunday (see
-// nextWorkingDaysIST()) — staff as rows — used on both the admin and
-// owner dashboards, identical except admin's cells are clickable (to
-// reassign/edit a booked job in place) and owner's are read-only.
+// Fixed Mon–Sat calendar week (see mondaySaturdayWeekIST()) — staff as
+// rows — used on both the admin and owner dashboards, identical except
+// admin's cells are clickable (to reassign/edit a booked job in place)
+// and owner's are read-only.
 
 // Admin's weekJobs carries extra fields (location, a stricter status) that
 // owner's leaner data doesn't — generic over the caller's own job shape so

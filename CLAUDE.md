@@ -4119,6 +4119,29 @@ live-tested end-to-end with the real "Others" account**, since that
 account doesn't exist until the business creates it — worth a real
 booking-and-completion walkthrough once it does.
 
+## Admin Staff Schedule Back to a Fixed Mon–Sat Week; Owner's Payments Moved to the Bottom (2026-09-16)
+
+Two quick layout fixes:
+
+- **Admin dashboard's Staff Schedule reverted from the rolling
+  "today + 2 working days" window back to a fixed Mon–Sat calendar
+  week.** Asked directly ("only three days?") after noticing the
+  narrower window — that rolling window was itself a request from
+  earlier this same session, but three days turned out to be too little
+  visibility in practice. `nextWorkingDaysIST()` had exactly one caller
+  left after this, so removed it outright rather than leaving dead code
+  — `mondaySaturdayWeekIST()` (which the owner dashboard was already
+  using the whole time, an inconsistency between the two routes this
+  fix also resolves) is now the one function both routes share.
+- **Owner dashboard's Payments Outstanding table moved to the very
+  bottom of the page**, below the enquiries/dispatch cards it used to
+  sit above — a direct ask, no change to the table itself.
+
+Verified: `tsc`/`next build`/`eslint` clean at baseline, all 5
+hard-rule tests pass (touched the admin dashboard route's schedule
+query, adjacent to booked-job data other tests don't directly exercise
+but worth the re-run for).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

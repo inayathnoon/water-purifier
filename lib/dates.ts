@@ -126,26 +126,6 @@ export const HALF_DAY_TIMES: Record<string, { start: string; end: string }> = {
  * the label always reads as a real calendar week regardless of what day
  * it's checked on.
  */
-/**
- * Today plus the next `count - 1` days, skipping Sunday (the business
- * doesn't work Sundays) — used for "This Week"'s schedule, replacing the
- * earlier fixed Mon–Sat calendar week with a rolling short window that
- * always starts from today. If Sunday falls inside the window it's
- * dropped and the window extends one extra day to still show `count`
- * real days.
- */
-export function nextWorkingDaysIST(count: number, now: Date = new Date()): string[] {
-  const ist = new Date(now.getTime() + IST_OFFSET_MS);
-  const days: string[] = [];
-  let offset = 0;
-  while (days.length < count) {
-    const d = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + offset));
-    if (d.getUTCDay() !== 0) days.push(d.toISOString().slice(0, 10));
-    offset += 1;
-  }
-  return days;
-}
-
 export function mondayOfWeekIST(now: Date = new Date()): string {
   const ist = new Date(now.getTime() + IST_OFFSET_MS);
   const dow = ist.getUTCDay(); // 0=Sun..6=Sat

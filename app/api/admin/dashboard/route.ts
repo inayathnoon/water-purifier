@@ -1,6 +1,6 @@
 import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
-import { daysAgoIST, isEnquiryOverdue, todayIST, nextWorkingDaysIST } from '@/lib/dates';
+import { daysAgoIST, isEnquiryOverdue, todayIST, mondaySaturdayWeekIST } from '@/lib/dates';
 import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
 /**
@@ -17,9 +17,11 @@ export async function GET() {
     // 'developer' included so the Developer panel's "View As Admin" preview works.
     await requireUser(['admin', 'owner', 'developer']);
     const today = todayIST();
-    // Today plus the next 2 days, skipping Sunday — not a fixed calendar
-    // week any more (see nextWorkingDaysIST()).
-    const scheduleDays = nextWorkingDaysIST(3);
+    // Fixed Mon–Sat calendar week — matches the owner dashboard's own
+    // identical query (mondaySaturdayWeekIST()). Was briefly a rolling
+    // "today + 2 working days" window; reverted back to the full week at
+    // direct request.
+    const scheduleDays = mondaySaturdayWeekIST();
     const weekStart = scheduleDays[0];
     const weekEnd = scheduleDays[scheduleDays.length - 1];
 
