@@ -121,7 +121,9 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
-      <WeekSchedule days={data.scheduleDays} weekJobs={data.weekJobs} staff={staff} />
+      {/* "Others" has no real schedule to show — see AdminDashboard's
+          identical exclusion for why. */}
+      <WeekSchedule days={data.scheduleDays} weekJobs={data.weekJobs} staff={staff.filter((s) => s.name !== 'Others')} />
 
       {/* Money outstanding — the owner's highest-value module: a compact
           table, not five separate cards. */}

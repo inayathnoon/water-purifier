@@ -488,7 +488,11 @@ export default function AdminDashboard() {
         <WeekSchedule
           days={data.scheduleDays}
           weekJobs={data.weekJobs}
-          staff={staff}
+          // "Others" has no real schedule to show — excluded from this
+          // grid specifically (still a normal, bookable staff option
+          // everywhere else); a job assigned to it still counts and
+          // still shows correctly wherever the ticket itself is listed.
+          staff={staff.filter((s) => s.name !== 'Others')}
           onJobClick={(j) => (editingJobId === j.id ? setEditingJobId(null) : startEditingJob(j))}
           activeJobId={editingJobId}
         />

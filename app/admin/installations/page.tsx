@@ -512,7 +512,12 @@ function InstallationsPageInner() {
                       there's nothing to schedule or dispatch; this closes
                       the purchase immediately instead of booking a job. */}
                   <option value={SELF_INSTALLED}>Others</option>
-                  {staff.map((s) => (
+                  {/* Excludes a real "Others" service_staff account if one
+                      exists — the sentinel above already covers this exact
+                      slot for a purchase (immediate, no assignee shown),
+                      so both would otherwise render as two identical
+                      "Others" entries in the same list. */}
+                  {staff.filter((s) => s.name !== 'Others').map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>

@@ -6,7 +6,7 @@ import AppShell from '@/components/AppShell';
 import CustomerFields from '@/components/CustomerFields';
 import AreaSelect from '@/components/AreaSelect';
 import { useConfirm } from '@/components/useConfirm';
-import BookingForm from '@/components/BookingForm';
+import BookingForm, { isOthers } from '@/components/BookingForm';
 import { todayIST } from '@/lib/dates';
 
 // Label on the left, the field on the right — matches FormRow elsewhere.
@@ -462,7 +462,7 @@ function ServiceCallsPageInner() {
               ))}
             </select>
           </FormRow>
-          {newService.staffAttendedId && (
+          {newService.staffAttendedId && !isOthers(staff, newService.staffAttendedId) && (
             <FormRow label="Date & Time">
               <div className="flex gap-2">
                 <input

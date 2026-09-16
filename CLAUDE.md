@@ -4046,6 +4046,79 @@ a real ticket run through book → confirm-no-spares → complete → close
 exactly as the merged route now does it internally, reaching `closed`
 with zero gap. All test data (DB + both sheets) cleaned up afterward.
 
+## "Others": a Staff Option for External Work, No Real Schedule (2026-09-16)
+
+For the case where a job was actually done by someone outside the three
+regular technicians — an external contractor, or "something else" not
+worth naming precisely — worked through with the business directly
+before building anything, since it touches the §13.5 assignment trigger:
+
+- **"Others" is a real `service_staff` account**, not a null/blank
+  assignee — so it correctly shows "assigned to Others" everywhere a
+  technician's name is shown, and can be booked and completed through
+  the exact same flow as a real technician (mark-done, spares, close —
+  all unchanged), rather than needing special-cased logic anywhere in
+  the service layer. §13.5's trigger already requires nothing more than
+  a real, active `service_staff` row — "Others" satisfies that exactly
+  like Cristeen/Babu/Yasir do, no schema change needed.
+- **Recognized purely by name** (`OTHERS_STAFF_NAME = 'Others'` in
+  `components/BookingForm.tsx`) — no schema flag, no hardcoded id. Until
+  the business creates this one account (via `/developer`'s existing
+  "+ Add Staff" — the same one-time step every real technician's account
+  already went through; Claude Code's own safety rules block creating a
+  login credential directly from a script, so this has to be the
+  business's own action, exactly like the original 5 staff accounts),
+  the option simply doesn't exist anywhere — nothing conditional to get
+  wrong, it either shows up in every staff dropdown once it exists, or
+  it doesn't.
+- **No real schedule to fill in, "given time to close" it later** (the
+  business's own framing, choosing this over forcing an immediate
+  completion): picking "Others" in the shared `BookingForm` component
+  (used by `/admin/installations`, `/admin/service-calls`, and the
+  admin dashboard's inline Assign form — every general booking form in
+  the app) silently fills in today's date/morning/home and **hides**
+  the date/half-day/location fields and any workload/leave note, since
+  none of those mean anything for an unspecified person. The job still
+  gets created as a normal `booked` ticket, assigned to the real
+  "Others" row — completable whenever, through the exact same spares →
+  mark-done → close flow as any real technician's job, not rushed.
+- **New Service's own "Assign to Staff" picker** gets the identical
+  treatment (hides the Date & Time row when Others is picked, keeping
+  today/now as the silent default already used for a real staff pick).
+- **Deliberately excluded** from three places it would otherwise
+  wrongly appear: the **Staff Schedule** grid on both dashboards (a job
+  assigned to Others has no real schedule worth showing — filtered out
+  of the `staff` array passed to `WeekSchedule`, so its jobs simply
+  don't render there at all, same as if that staff member didn't
+  exist), the **Leave request** staff dropdown (`/admin/leave` — "Others"
+  isn't a real person to file leave for), and the workload/leave-warning
+  note on `BookingForm` itself (gated the same way as the date fields).
+- **New Purchase already has its own "Others"** — the option renamed
+  this same day from "No staff — I did it myself" (`SELF_INSTALLED`
+  sentinel, `assigned_to_id` stays null, immediate self-complete, no
+  spares gate to worry about since an installation has none). That
+  mechanism is kept as-is there rather than replaced by the real-account
+  version, since immediate self-complete genuinely fits an installation
+  better than a booked-and-later-closed job would — but the real
+  "Others" account is explicitly filtered *out* of that page's own
+  dropdown (`staff.filter((s) => s.name !== 'Others')`) so the two don't
+  render as two identical "Others" entries in the same list once the
+  account exists. New Purchase's general "Book" form (for an
+  already-open installation ticket, not the create form) still gets the
+  real-account version through the shared `BookingForm`, same as
+  Services.
+
+**Verified**: `tsc`/`next build`/`eslint` clean at baseline, all 5
+hard-rule tests pass. The underlying mechanism (`bookJob()`,
+`completeJob()`, `closeTicketAfterConfirmation()`, the mark-done/close
+merge) was already proven against a real, disposable service_staff
+account earlier this same session — "Others" is just another row
+satisfying the identical `role='service_staff' AND active=true`
+condition, so nothing new needed proving at the service-layer. **Not yet
+live-tested end-to-end with the real "Others" account**, since that
+account doesn't exist until the business creates it — worth a real
+booking-and-completion walkthrough once it does.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

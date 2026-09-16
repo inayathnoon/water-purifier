@@ -67,7 +67,8 @@ export default function AdminLeavePage() {
               onChange={(e) => setForm({ ...form, staffId: e.target.value })}
             >
               <option value="">Select…</option>
-              {staff.map((s) => (
+              {/* "Others" isn't a real person to file leave for. */}
+              {staff.filter((s) => s.name !== 'Others').map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
