@@ -15,6 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const ticket = await editCompletedJob(id, user.id, {
       actualDate: body.actualDate,
       notes: body.notes ?? '',
+      assignedToId: body.assignedToId || undefined,
     });
     return Response.json({ ticket });
   } catch (err) {

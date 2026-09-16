@@ -3939,6 +3939,113 @@ failure that reports itself from the machine it happens on, not more
 careful looking from this end. If this laptop's Chrome turns out to be
 older than 87, the floor in `package.json` is the one number to lower.
 
+## Root Cause Fixed: 12 Real Service Visits Stranded at 'Completed', Never Reaching 'Closed' (2026-09-16)
+
+Reported live: "In service I can see Closed / we discussed earlier no more
+concept of closed? didn't we." Two separate things tangled together —
+one a UI inconsistency I'd introduced the day before, the other a real
+data-integrity bug this surfaced while investigating.
+
+**The UI issue**: `/admin/service-calls` had a "Completed services"
+section and a separate "Closed" section — an internal DB status
+(`tickets.status`: `completed` vs `closed`) leaking out as if it were a
+real business distinction. Business's own words: "closed and completed
+is the same thing." Merged into one "Completed services" list (`status
+IN ('completed', 'closed')`); the word "Closed" no longer appears
+anywhere on the page.
+
+**The real bug, found while checking whether the two statuses could be
+collapsed at the schema level** ("do we have a closed status column or
+what... we might have to handle this with care"): a direct query turned
+up **12 real customers' service visits genuinely stuck in `completed`**
+forever, all dated the day the one-click completion merge shipped
+(2026-09-15) — MUKUNDAN, JAMSHEENA, SHAZIN, SANEESH, SATHEESH, MUHAMMED
+ALI, HAMEED, NAJILA, BASHEER, RIYAS, CHANDRAN (×2). This was the exact
+tradeoff CLAUDE.md's own "Confirm & Close Removed Entirely" section had
+flagged as a known, accepted risk: three separate places
+(`admin/spare-parts`, `admin/installations`,
+`components/dashboard/AdminDashboard`) each independently ran the same
+two-step client-side chain — `POST .../mark-done`, then a *second*,
+separate `POST .../close` — and once the standalone "Confirm & close"
+fallback button was removed, a network blip or closed tab between those
+two requests left a job stuck in `completed` with **no UI path left to
+reach it**, exactly as predicted.
+
+**Root-cause fix, not a patch**: `/api/admin/tickets/[id]/mark-done`
+now calls `closeTicketAfterConfirmation()` itself, server-side, in the
+same request right after `completeJob()` succeeds — one atomic action
+instead of two independent client-orchestrated fetches. All three call
+sites simplified to a single `fetch()` each, since the separate `/close`
+call they used to make is now redundant (and would error "must be
+completed" if left in, since the ticket already reached `closed` by the
+time it arrived). The `/close` route itself is left in place, unused by
+the UI now, as the documented manual-recovery hatch for the rare case
+`closeTicketAfterConfirmation()` itself throws mid-request. This closes
+the gap for *both* installations and service visits — installations
+were never actually caught stuck (all 103 closed installations checked
+clean), but the identical fragile two-fetch pattern existed there too.
+
+**The 12 stranded tickets were closed directly** (via
+`closeTicketAfterConfirmation()`, not a raw status flip — so warranty
+logic, order creation, and the Service sheet resync all ran exactly as
+they would have on the day) and verified: 0 remain in `completed`,
+`notifications_log` shows zero sheet-sync failures from the run.
+
+**Schema-level collapse considered and deliberately not done.** For a
+service visit, `completed` vs `closed` now carries zero remaining
+behavioral difference anywhere in the code — genuinely collapsible. For
+an **installation**, it can't be: `closed` is the exact moment
+`installation_date`/`warranty_expires_at` get stamped and the order gets
+created (§7.1/§8.1) — merging the two statuses there would need
+rewriting warranty/order logic across a system with 103 live closed
+installations and would touch `tests/hard-rules.test.ts` directly. Not
+worth the risk to fix what was, in the end, a two-network-call fragility
+bug, not a genuine need for two ticket-lifecycle stages — the merged
+mark-done route already makes them functionally inseparable for every
+future job of either kind, which is what "remove that distinction" was
+actually asking for.
+
+**Second real bug found investigating the same report**: the Staff
+Schedule showed nothing for a service visit Yasir had completed that
+same day. Cause: `weekJobs` in both dashboard routes filtered
+`.in('status', ['booked', 'completed'])` — and now that mark-done closes
+instantly, a job is only ever visible in `'completed'` for a database
+instant before becoming `'closed'`, which the filter excluded entirely.
+Every job finished and closed the same week vanished from its own
+schedule the moment it was confirmed. Added `'closed'` to both routes'
+filter — `WeekSchedule` already rendered a non-`'booked'` job as
+plain, non-editable text, so no frontend change was needed, only the
+query. Bounded by the existing `booked_date` window, so this doesn't
+resurrect old jobs — only ones already visible this week.
+
+**Extended editing on the Services page**: "give option to edit staff
+also" — `editCompletedJob()` now accepts an optional `assignedToId`,
+appended into the same `edit_history` audit entry as the date/notes
+correction it already recorded; DB's own §13.5 trigger independently
+refuses anything but a real active `service_staff` id, same guard every
+other assignment goes through. Never clears to unassigned. The
+"Completed services" list also now sorts newest-first by `actual_date`
+(was oldest-first, inherited from the "chase the oldest unbooked job
+first" ordering that's correct for "Requested or In Progress" but wrong
+for a completed list, where what just finished matters more than
+something from weeks ago).
+
+**Separately, a stray real test entry found and removed** ("remove all
+test case from DB and gsheets"): a customer named "TEST"/"test", its
+`service_visit` ticket, and a ₹0 `spare_part_sales` row — created
+through the live app (real assigned technician, real admin), not one of
+this session's own scripts. Removed from the DB and both the Service and
+Spare Part Sales sheets, verified gone from all three afterward. Left
+untouched: an already-`active: false` `users` row named "Test" from
+2026-09-05's staff-management feature verification — inert, can't be
+assigned a job, no login risk.
+
+**Verified**: `tsc`/`next build`/`eslint` clean at baseline (20/4), all 5
+hard-rule tests pass, `npm run check:browsers` green. Live end-to-end:
+a real ticket run through book → confirm-no-spares → complete → close
+exactly as the merged route now does it internally, reaching `closed`
+with zero gap. All test data (DB + both sheets) cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

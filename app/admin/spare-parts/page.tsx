@@ -148,14 +148,12 @@ function SparePartsPageInner() {
   // this any more. On success, home is the dashboard, same for either path.
   const markDoneAndGoHome = async () => {
     setMarkDoneError('');
+    // Marks done and closes in the same request now (see mark-done's own
+    // route for why) — one call, not two, so there's no gap a network
+    // blip could strand this job in.
     const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, { method: 'POST' });
     if (!res.ok) {
       setMarkDoneError((await res.json()).error ?? 'Spares saved, but marking the job done failed — try again below.');
-      return;
-    }
-    const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
-    if (!closeRes.ok) {
-      setMarkDoneError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again from Services.');
       return;
     }
     router.push('/dashboard');

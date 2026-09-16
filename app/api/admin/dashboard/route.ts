@@ -75,17 +75,20 @@ export async function GET() {
         .gt('balance_owed', 0)
         .order('balance_owed', { ascending: false }),
 
-      // This week's schedule, per technician — Mon–Sat of the current
-      // calendar week (fixed, not a rolling next-7-days window). status
-      // included so the frontend only offers to edit a still-'booked'
-      // job, not one already completed.
+      // Staff schedule — today plus the next couple of working days. status
+      // included so the frontend only offers to edit a still-'booked' job.
+      // Includes 'closed' alongside 'booked'/'completed' — a job finished
+      // and closed earlier the same day (which, since the mark-done/close
+      // merge, is nearly instant) still represents real work that
+      // happened this week and should keep showing here, not vanish the
+      // moment it's confirmed. Only 'inactive' (voided) drops off.
       supabaseAdmin
         .from('tickets')
         .select('id, kind, status, booked_date, booked_half_day, location, assigned_to_id, customers(name)')
         .in('kind', ['installation', 'service_visit'])
         .gte('booked_date', weekStart)
         .lte('booked_date', weekEnd)
-        .in('status', ['booked', 'completed']),
+        .in('status', ['booked', 'completed', 'closed']),
     ]);
 
     // Plain read-time computation, not a DB query — see

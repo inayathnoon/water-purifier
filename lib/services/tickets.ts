@@ -688,7 +688,7 @@ export async function completeJob(
 export async function editCompletedJob(
   ticketId: string,
   editorId: string,
-  input: { actualDate: string; notes: string }
+  input: { actualDate: string; notes: string; assignedToId?: string }
 ) {
   const ticket = await getTicketOrThrow(ticketId);
   if (ticket.status !== 'completed' && ticket.status !== 'closed') {
@@ -700,7 +700,7 @@ export async function editCompletedJob(
 
   const editHistory = Array.isArray(ticket.edit_history) ? ticket.edit_history : [];
   const entry = {
-    before: { actual_date: ticket.actual_date, actual_notes: ticket.actual_notes },
+    before: { actual_date: ticket.actual_date, actual_notes: ticket.actual_notes, assigned_to_id: ticket.assigned_to_id },
     editedBy: editorId,
     editedAt: new Date().toISOString(),
   };
@@ -710,6 +710,15 @@ export async function editCompletedJob(
     actual_notes: input.notes,
     edit_history: [...editHistory, entry],
   };
+  // Correcting who actually did the job — e.g. it was really Yasir, not
+  // Cristeen, and the wrong person got booked/recorded at the time. Never
+  // clears it to unassigned; the DB's own §13.5 trigger
+  // (check_assignee_is_service_staff) independently refuses this if given
+  // anything but a real, active service_staff id, the same guard every
+  // other assignment in this app already goes through.
+  if (input.assignedToId) {
+    update.assigned_to_id = input.assignedToId;
+  }
 
   if (ticket.kind === 'installation' && ticket.status === 'closed') {
     const warrantyExpires = new Date(input.actualDate);

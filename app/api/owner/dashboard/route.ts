@@ -88,15 +88,17 @@ export async function GET() {
         .eq('status', 'open')
         .in('enquiry_product_interest', ['Vessel', 'Commercial']),
 
-      // This week's schedule, per technician — Mon–Sat of the current
-      // calendar week (fixed, not a rolling next-7-days window).
+      // Staff schedule — today plus the next couple of working days.
+      // Includes 'closed' alongside 'booked'/'completed' — see the admin
+      // dashboard route's identical query for why (a same-day closed job
+      // shouldn't vanish from the week the moment it's confirmed).
       supabaseAdmin
         .from('tickets')
         .select('id, kind, booked_date, booked_half_day, assigned_to_id, customers(name)')
         .in('kind', ['installation', 'service_visit'])
         .gte('booked_date', weekStart)
         .lte('booked_date', weekEnd)
-        .in('status', ['booked', 'completed']),
+        .in('status', ['booked', 'completed', 'closed']),
 
       // Same "needs a technician" list as the admin dashboard's Jobs to
       // Dispatch — shown alongside the week's schedule so the owner sees

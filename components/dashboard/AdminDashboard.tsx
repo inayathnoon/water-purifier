@@ -150,24 +150,20 @@ export default function AdminDashboard() {
   const handleConfirmInstallDone = async (ticketId: string) => {
     setMarkDoneError('');
     setMarkingDoneId(ticketId);
+    // Marks done and closes in the same request now (see mark-done's own
+    // route for why) — one call, not two, so there's no gap a network
+    // blip could strand this job in.
     const res = await fetch(`/api/admin/tickets/${ticketId}/mark-done`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ actualDate: installConfirmDate }),
     });
+    setMarkingDoneId(null);
     if (!res.ok) {
-      setMarkingDoneId(null);
       setMarkDoneError((await res.json()).error ?? 'Failed to mark done');
       return;
     }
-    const closeRes = await fetch(`/api/admin/tickets/${ticketId}/close`, { method: 'POST' });
-    setMarkingDoneId(null);
     setInstallConfirmId(null);
-    if (!closeRes.ok) {
-      setMarkDoneError((await closeRes.json()).error ?? 'Marked done, but confirming failed — try again below.');
-      loadDashboard();
-      return;
-    }
     loadDashboard();
   };
 

@@ -138,7 +138,7 @@ function ServiceCallsPageInner() {
   // Correcting the completion date/notes on an already-marked-done visit —
   // the replacement for the old technician-facing mistake-fix window.
   const [editingCompletionId, setEditingCompletionId] = useState<string | null>(null);
-  const [completionEditForm, setCompletionEditForm] = useState({ actualDate: '', notes: '' });
+  const [completionEditForm, setCompletionEditForm] = useState({ actualDate: '', notes: '', assignedToId: '' });
   const [completionEditError, setCompletionEditError] = useState('');
   const [savingCompletionEdit, setSavingCompletionEdit] = useState(false);
 
@@ -334,7 +334,7 @@ function ServiceCallsPageInner() {
   const startEditingCompletion = (c: ServiceCall) => {
     setCompletionEditError('');
     setEditingCompletionId(c.id);
-    setCompletionEditForm({ actualDate: c.actual_date ?? todayIST(), notes: c.actual_notes ?? '' });
+    setCompletionEditForm({ actualDate: c.actual_date ?? todayIST(), notes: c.actual_notes ?? '', assignedToId: c.assigned_to_id ?? '' });
   };
 
   const handleSaveCompletionEdit = async (ticketId: string) => {
@@ -344,7 +344,11 @@ function ServiceCallsPageInner() {
     const res = await fetch(`/api/admin/tickets/${ticketId}/edit-completion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actualDate: completionEditForm.actualDate, notes: completionEditForm.notes }),
+      body: JSON.stringify({
+        actualDate: completionEditForm.actualDate,
+        notes: completionEditForm.notes,
+        assignedToId: completionEditForm.assignedToId,
+      }),
     });
     setSavingCompletionEdit(false);
     if (!res.ok) {
@@ -360,8 +364,22 @@ function ServiceCallsPageInner() {
   // the spares step (awaiting its close, or a legacy ticket stuck here from
   // before the one-click merge) reads as "completed", not "in progress".
   const requestedOrInProgress = calls.filter((c) => c.status === 'open' || c.status === 'booked');
-  const completedServices = calls.filter((c) => c.status === 'completed');
-  const closedCalls = calls.filter((c) => c.status === 'closed');
+  // 'completed' and 'closed' are one and the same thing to read here — the
+  // one-click completion flow walks a visit booked → completed → closed in
+  // a single action, so 'completed' on its own only ever means a legacy
+  // ticket or one whose close call didn't land. Splitting them into two
+  // sections surfaced an internal status distinction as if it were a real
+  // business one; the business's own words: "closed and completed is the
+  // same thing". One list, and the word "closed" stays out of the UI.
+  // Newest-first here specifically — the underlying query is oldest-first
+  // (right for "Requested or In Progress," where the oldest unbooked/
+  // unfinished job is the one to chase first), but a completed list is
+  // read the other way: what just got done matters more than what got
+  // done weeks ago. Sorted by actual_date, not created_at — that's the
+  // date this list itself displays.
+  const completedServices = calls
+    .filter((c) => c.status === 'completed' || c.status === 'closed')
+    .sort((a, b) => (b.actual_date ?? '').localeCompare(a.actual_date ?? ''));
 
   return (
     <AppShell title="Services">
@@ -744,19 +762,10 @@ function ServiceCallsPageInner() {
                   {c.customers.address}, {c.customers.area}
                 </p>
                 <p className="text-sm mt-1">
-                  Status: <span className="font-medium capitalize">{c.status}</span>
-                  {c.booked_date && (
-                    <>
-                      {' · '}
-                      {c.booked_date} ({c.booked_half_day}) · {c.location} · assigned to {c.users?.name}
-                    </>
-                  )}
+                  Completed {c.actual_date ?? '—'}
+                  {c.users && <> · {c.users.name}</>}
                 </p>
-                {/* A visit still sitting here in 'completed' predates
-                    the one-click spares-completion merge (or its
-                    immediate close call failed) — no action left to
-                    take on it from here, just what was recorded. Spare
-                    parts are recorded separately (Sell Spare Part,
+                {/* Spare parts are recorded separately (Sell Spare Part,
                     linked to this ticket), not on the ticket itself. */}
                 <div className="bg-inset rounded-md p-3 text-sm space-y-1 mt-2">
                   <p>
@@ -771,44 +780,11 @@ function ServiceCallsPageInner() {
                     <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
                   </p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {!loading && closedCalls.length > 0 && (
-        <>
-          <h2 className="text-lg font-semibold mb-2 mt-6">Closed</h2>
-          <div className="space-y-4">
-            {closedCalls.map((c) => (
-              <div key={c.id} className="bg-surface rounded-lg shadow-sm border border-rule p-4">
-                <p className="font-medium">
-                  {c.customers.name} — {c.customers.phone_number}
-                </p>
-                <p className="text-sm text-ink-2">
-                  {c.customers.address}, {c.customers.area}
-                </p>
-                <p className="text-sm mt-1">
-                  Completed {c.actual_date ?? '—'}
-                  {c.users && <> · {c.users.name}</>}
-                </p>
-                <div className="bg-inset rounded-md p-3 text-sm space-y-1 mt-2">
-                  <p>
-                    <span className="text-ink-2">Spare parts:</span>{' '}
-                    {(sparePartSalesByTicket[c.id] ?? []).length === 0
-                      ? '—'
-                      : sparePartSalesByTicket[c.id].map((s) => `${s.part_name} x${s.quantity} (₹${s.total})`).join(', ')}
-                  </p>
-                  <p>
-                    <span className="text-ink-2">Notes:</span> {c.actual_notes || '—'}
-                  </p>
-                </div>
                 <button
                   onClick={() => (editingCompletionId === c.id ? setEditingCompletionId(null) : startEditingCompletion(c))}
                   className="mt-2 text-xs text-accent-deep hover:underline"
                 >
-                  {editingCompletionId === c.id ? 'Cancel edit' : 'Edit completion date/notes'}
+                  {editingCompletionId === c.id ? 'Cancel edit' : 'Edit completion'}
                 </button>
                 {editingCompletionId === c.id && (
                   <div className="mt-2 p-3 border rounded-md space-y-2">
@@ -822,6 +798,20 @@ function ServiceCallsPageInner() {
                         onChange={(e) => setCompletionEditForm({ ...completionEditForm, actualDate: e.target.value })}
                         className="border rounded px-2 py-1 text-sm"
                       />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs text-ink-2">Staff</label>
+                      <select
+                        value={completionEditForm.assignedToId}
+                        onChange={(e) => setCompletionEditForm({ ...completionEditForm, assignedToId: e.target.value })}
+                        className="border rounded px-2 py-1 text-sm"
+                      >
+                        {staff.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <textarea
                       placeholder="Notes"
