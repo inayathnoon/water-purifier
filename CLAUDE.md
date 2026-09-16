@@ -3853,6 +3853,92 @@ Verified: `tsc`/`next build`/`eslint` unchanged from baseline (20/4).
 `formatINR(-1150)` → `-₹1,150`, `formatINR(1150)` → `₹1,150`,
 `formatINR(0)` → `₹0` — checked directly, not just read from the code.
 
+## Root Cause: Could Not Log In On The Business's Own Windows Laptop — No Browser Target Was Ever Declared (2026-09-16)
+
+Reported with real frustration, and fairly: "why does this issue still come
+up, we had sorted this a few weeks back... it's fine on mac, but on google
+chrome/old laptop i3/windows — not even able to login. Solve this once and
+for all." Every previous round of this had been treated as a *layout*
+problem (the fixed-height dashboard, walked back twice). It wasn't. This
+time it was a genuine, total failure with a single concrete cause.
+
+**The cause.** This project never declared a `browserslist` anywhere, so
+Next/SWC compiled the client bundle to its own modern default target.
+That shipped an **ES2022 class static initialisation block**
+(`static{this.contextType=...}`) inside Next's core App Router chunk —
+loaded on every page, including login. Any Chrome older than 94 refuses to
+parse that entire chunk, so the router never initialises and **React never
+hydrates**.
+
+**Why it presented as "can't log in" rather than an obvious crash**: every
+page in this app is server-rendered. So the login page still arrived
+looking completely normal — heading, both inputs, the Sign in button, all
+correctly styled — but with no `onSubmit` handler ever attached. Typing
+the phone/password and clicking Sign in did *nothing at all*, silently,
+with no error anywhere. That failure mode is invisible from a modern
+machine: `tsc`, `eslint`, `next build`, and all 5 hard-rule tests pass,
+the page renders perfectly in any current browser, and nothing in this
+repo's entire verification routine would ever have caught it. Which is
+exactly why it kept coming back through the business instead of being
+found here.
+
+**The fix, in three parts** (the first solves it; the other two are why it
+shouldn't recur):
+
+1. **An explicit `browserslist` in `package.json`** — `chrome >= 87,
+   edge >= 87, firefox >= 78, safari >= 14`. Verified by re-parsing every
+   built chunk with acorn before and after: the floor dropped from
+   **ES2022 (Chrome 94+) to ES2020/ES2021 (Chrome 87 parses it all)**, and
+   the offending `static{...}` block is gone from the output entirely. The
+   comment above the field says plainly to *lower* this, never raise it.
+2. **`npm run check:browsers`** (`scripts/check-browser-support.cjs`) —
+   parses every built client chunk with acorn at ES2021 and exits 1 if
+   anything needs newer syntax. This is the alarm for the next Next/React
+   upgrade quietly raising the floor again. Proved it actually works
+   rather than assuming: injected a fake `class A{static{}}` chunk,
+   confirmed exit code 1 and a useful message, removed it, confirmed 0.
+   `acorn` promoted from a transitive dep to an explicit devDependency so
+   the check can't break on someone else's dependency tree.
+3. **A failure that announces itself.** A silent dead page is the real
+   problem here — not any single browser. `app/layout.tsx` now inlines a
+   **plain-ES5 boot guard** (no arrow functions, no `const`/`let`, no
+   template literals — deliberately, since its whole job is to run on a
+   browser too old to parse the main bundle; verified it parses at
+   `ecmaVersion: 5` straight out of the served HTML). If React hasn't
+   hydrated 10 seconds in, it puts a red banner at the top of the page
+   saying the page didn't finish loading, that Sign in won't work, and
+   printing the browser's own user-agent plus any captured error — so
+   whoever is at that machine can read it out instead of reporting "the
+   button doesn't work". `components/BootProbe.tsx` sets the flag that
+   cancels it on successful hydration. Added `app/error.tsx` and
+   `app/global-error.tsx` too, so a React crash shows a readable message
+   and a retry rather than a blank page (`global-error.tsx` is fully
+   inline-styled, since it can't assume fonts or Tailwind loaded).
+
+**Checked and ruled out along the way**, so this isn't guesswork:
+Tailwind v4's `color-mix()` (6 uses) is already wrapped in
+`@supports (color:color-mix(in lab, red, red))` by Lightning CSS, so CSS
+degrades gracefully rather than failing; `@property`/`@layer`/`:where()`
+are all Chrome 85-99 and fine; media queries emit as old-style
+`(min-width:40rem)`, not the range syntax that would need Chrome 104. CSS
+was never the problem — the JS syntax floor was.
+
+**Verified**: `tsc`/`next build` clean; `eslint` back to the exact
+baseline (20 errors/4 warnings — the 3 new `require()` errors were in the
+CommonJS check script, so `.cjs` files now correctly opt out of
+`@typescript-eslint/no-require-imports` rather than being left as noise);
+all 5 hard-rule tests pass; `npm run check:browsers` green at 28/28
+chunks. Smoke-tested the real production build over HTTP: `/auth/login`
+returns 200, the boot guard and the server-rendered form are both in the
+HTML, and **all 11 chunks that page actually loads parse as ES2021**.
+
+**Standing lesson, and the honest limit**: a modern dev machine cannot
+verify this class of bug — the app looked perfect here throughout. The
+durable protection is a declared floor plus an automated check plus a
+failure that reports itself from the machine it happens on, not more
+careful looking from this end. If this laptop's Chrome turns out to be
+older than 87, the floor in `package.json` is the one number to lower.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:browsers": "node scripts/check-browser-support.cjs",
     "test": "tsx --test --require dotenv/config tests/*.test.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
@@ -20,11 +21,19 @@
     "tsx": "^4.23.12",
     "zod": "^4.5.2"
   },
+  "//browserslist": "The real machines this runs on include an old Windows i3 laptop whose Chrome does not auto-update. Without this, Next/SWC targets its own modern default and shipped ES2022 syntax (class static blocks) in the core router chunk — which throws a SyntaxError on older Chrome, so React never hydrates: the server-rendered login form appears but the Sign in button does nothing. Lower this floor rather than raise it, and re-check with `node esfloor.cjs`-style parsing after any Next/React upgrade.",
+  "browserslist": [
+    "chrome >= 87",
+    "edge >= 87",
+    "firefox >= 78",
+    "safari >= 14"
+  ],
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "acorn": "^8.18.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
