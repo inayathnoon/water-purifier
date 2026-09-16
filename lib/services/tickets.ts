@@ -928,7 +928,8 @@ export async function updatePurchase(
 }
 
 /**
- * "No staff — I did it myself": the admin or owner personally installed
+ * "Others" (New Purchase's "Assign to Staff" option, was labeled "No
+ * staff — I did it myself"): the admin or owner personally installed
  * the unit at the moment of sale, so there's nothing to dispatch — no
  * technician, no booking, no separate completion step later. Skips
  * straight from a freshly-created, still-`open` installation ticket to

@@ -70,8 +70,8 @@ function emptyPurchaseItem(id: number): PurchaseItem {
   return { id, productDetails: '', productCode: '', extraDetails: '', price: '', paidAmount: '', isFree: false, listPrice: null };
 }
 
-// Sentinel for "No staff — I did it myself" in the Assign to Staff
-// dropdown — never a real staff id, so it can't collide with one.
+// Sentinel for "Others" (was "No staff — I did it myself") in the Assign
+// to Staff dropdown — never a real staff id, so it can't collide with one.
 const SELF_INSTALLED = '__self__';
 
 interface StaffMember {
@@ -271,7 +271,7 @@ function InstallationsPageInner() {
     if (bookingFailed) {
       setPurchaseError(
         purchaseForm.assignedToId === SELF_INSTALLED
-          ? 'Purchase recorded, but marking it self-installed failed — try again below.'
+          ? 'Purchase recorded, but marking it done under Others failed — try again below.'
           : 'Purchase recorded, but assigning staff failed — book it manually below.'
       );
     }
@@ -511,7 +511,7 @@ function InstallationsPageInner() {
                       installed it themselves at the moment of sale, so
                       there's nothing to schedule or dispatch; this closes
                       the purchase immediately instead of booking a job. */}
-                  <option value={SELF_INSTALLED}>No staff — I did it myself</option>
+                  <option value={SELF_INSTALLED}>Others</option>
                   {staff.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
