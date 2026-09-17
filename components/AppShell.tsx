@@ -24,11 +24,13 @@ const NAV: NavItem[] = [
   { href: '/admin/spare-parts', label: 'Spares', roles: ['admin'] },
   { href: '/admin/customers', label: 'Customers', roles: ['admin', 'owner'] },
   { href: '/admin/products', label: 'Products', roles: ['admin', 'owner'] },
+  { href: '/admin/quotations', label: 'Quotations', roles: ['admin', 'owner'] },
   { href: '/admin/leave', label: 'Time off', roles: ['admin'] },
   { href: '/owner/leave', label: 'Time off', roles: ['owner'] },
 ];
 
 const NEW_MENU = [
+  { href: '/admin/quotations?new=1', label: 'New quotation' },
   { href: '/admin/enquiries?new=1', label: 'New enquiry' },
   { href: '/admin/installations?new=1', label: 'New purchase' },
   { href: '/admin/service-calls?new=1', label: 'New service' },

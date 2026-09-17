@@ -61,9 +61,17 @@ function Row({
 export default function CustomerFields({
   value,
   onChange,
+  // Every other caller (New Purchase/Enquiry/Service) deliberately forces
+  // the name to uppercase as typed — an established fix, not an accident
+  // (see CLAUDE.md's "Name field... now forces uppercase as you type").
+  // A quotation is the one caller that's a customer-facing printed
+  // document, where "SHIBIN PUNNOL" reads wrong — this opts that one
+  // caller out without touching the default for everyone else.
+  preserveCase = false,
 }: {
   value: CustomerFieldsValue;
   onChange: (value: CustomerFieldsValue) => void;
+  preserveCase?: boolean;
 }) {
   const [matches, setMatches] = useState<CustomerMatch[]>([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -188,12 +196,14 @@ export default function CustomerFields({
       <Row label="Name" required>
         <input
           required
-          className="w-full border rounded px-3 py-2 text-ink uppercase"
+          className={`w-full border rounded px-3 py-2 text-ink ${preserveCase ? 'capitalize' : 'uppercase'}`}
           value={value.name}
           // Forced uppercase as you type, not just display — the DB
           // trigger normalizes this anyway, but matching it live avoids
-          // ever showing mixed case just before it saves.
-          onChange={(e) => onChange({ ...value, name: e.target.value.toUpperCase() })}
+          // ever showing mixed case just before it saves. Skipped when
+          // preserveCase is set (quotations only) — stores what was
+          // typed, shown title-case.
+          onChange={(e) => onChange({ ...value, name: preserveCase ? e.target.value : e.target.value.toUpperCase() })}
         />
       </Row>
       <Row label="Address" required>

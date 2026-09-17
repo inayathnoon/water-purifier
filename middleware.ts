@@ -41,10 +41,13 @@ export async function middleware(request: NextRequest) {
 
   // Redirect unauthenticated users to login (except public pages)
   if (!session && !request.nextUrl.pathname.startsWith('/auth/login')) {
-    // Allow requests to static files and API routes
+    // Allow requests to static files, public API routes, and the public
+    // quotation-sheet route (/q/[token]) — a customer opening a WhatsApp/
+    // email link has no session and never will.
     if (
       !request.nextUrl.pathname.startsWith('/_next') &&
-      !request.nextUrl.pathname.startsWith('/api/public')
+      !request.nextUrl.pathname.startsWith('/api/public') &&
+      !request.nextUrl.pathname.startsWith('/q/')
     ) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/auth/login';

@@ -4216,6 +4216,133 @@ codebase and no Telegram call attempted for it. `tsc`/`next build`/
 `eslint` clean at baseline (20/4), all 5 hard-rule tests pass. All test
 data cleaned up afterward.
 
+## Quotations: Replacing the Carbon Book (2026-09-17)
+
+Full feature, built from a detailed spec matching the real printed
+quotation book (reference: quote No. 303, a ₹85,000 Pentair pressure-
+vessel system). `/admin/quotations` (index + `?new=1` form),
+`/admin/quotations/[id]` (printable sheet + `?edit=1` form), and
+`/q/[token]` (public, unauthenticated read-only sheet). New `+ New
+quotation`/`Quotations` entries in `AppShell.tsx`.
+
+**A separate numbering series from the paper book, deliberately.** The
+book keeps its own 300s-range numbers and the app never touches them —
+`quote_no` comes from a Postgres sequence (`quotation_quote_no_seq`,
+starts at 1), allocated server-side on insert, never computed client-side
+(a `max()+1` races on a double-submit). Printed as `No. Q-001` — the
+`Q-` prefix (`quotation_defaults.quote_prefix`, editable) exists purely
+so a bare `No. 1` is never ambiguous sitting next to the paper book's
+`No. 303` from the same period.
+
+**Rate is never fetched from the product sheet, on purpose.** `ProductPicker`
+still resolves Brand → Name → Variant and writes `product_code` for
+traceability, but its `listPrice` is discarded — a quotation's rate is
+always typed by hand, negotiated per deal, and showing a list-price hint
+here would misrepresent that as a starting point it isn't. A plain
+free-text input sits right next to the picker on every item row for
+anything not in the sheet at all (the reference quote's own "Pentair
+poly glass pressure vessel" line is exactly this case).
+
+**Remembered defaults, and why they can't be retroactive.** Business
+name/address/phone/mobile/email, notes, the terms lines, delivery-date
+label, signatory line, and quote prefix live in one `quotation_defaults`
+row, prefilled into every new quotation and editable behind a collapsed
+"Header & terms" section. Saving a quotation also `PUT`s these back as
+the new default for *next* time — but each quotation stores its own
+`terms`/`notes` **copy** at save time (plain columns on `quotations`,
+not a reference to the shared row), so editing the defaults today can
+never reach back and change what a quotation printed six months ago.
+Verified live: created a real quotation, changed the shared defaults'
+terms afterward, re-read the saved quotation — its own terms were
+unchanged. Items, customer, date, and discount are never remembered —
+always blank on a new quotation.
+
+**Two print modes, one CSS variable apart.** Blank paper prints the full
+header/terms/signatory block; Letterhead pad suppresses all of that and
+leaves a `--letterhead-gap` (default 42mm) spacer so the ruled table
+still starts below a pre-printed pad's own masthead — nothing shifts
+horizontally between modes, only the vertical offset. The last mode used
+is remembered (`quotation_defaults.print_mode`) and overridable per
+quotation before printing. Needs a real print of both modes against the
+actual letterhead pad to confirm `--letterhead-gap` is measured right —
+not verifiable from here.
+
+**PDF delivery goes through the browser's own print dialog, not a
+library.** `Download PDF` calls the identical `window.print()` as
+`Print`, with a one-line hint to choose "Save as PDF" as the
+destination — the print stylesheet already lays the sheet out at true
+A4, so html2canvas (rasterizes the type) or a headless-Chromium render
+(Puppeteer, a heavy dependency on Railway) would both be worse
+engineering for the same result.
+
+**WhatsApp/Email send a link, not a file** — there's no customer-facing
+messaging provider in this repo (`lib/services/telegram.ts` is
+internal-staff-only and must never be used for customer contact), so
+both open with a short prefilled message containing the quotation number,
+grand total, and the `/q/<token>` URL, built from `APP_URL` the same way
+`lib/services/notifications.ts`'s `appUrl()` does — never
+`window.location.origin`. WhatsApp normalizes the phone (strips
+spaces/`+`/a leading `0`, prefixes `91`) and falls back to no-recipient
+rather than guessing on a non-10-digit number. `public_token` (a
+~22-char random string, generated on insert) is the only credential
+`/q/[token]` accepts — the public page is a server component that reads
+by token directly (`getQuotationByToken()`, 404s on an unknown one,
+never falls back to `id`) and passes a deliberately narrowed object into
+its client half, stripping `created_by`/`customer_id`/`status`/
+`product_code` even though the UI never renders them — a public,
+unauthenticated payload shouldn't carry cost/internal fields regardless
+of what's displayed.
+
+**One real gap in the brief's own schema, fixed rather than worked
+around**: §6's Email delivery route needs an email address to send to,
+but neither the brief's `quotations` schema nor the existing `customers`
+table has ever captured one anywhere in this app. Added `quotations.email`
+(migration 039, nullable, quotation-scoped only — not opened up as a
+customer-wide concept) rather than silently disabling the Email button
+or inventing a bigger feature than asked.
+
+**`CustomerFields.tsx` gained an opt-in `preserveCase` prop**, used only
+by the quotation form. Every other caller (New Purchase/Enquiry/Service)
+deliberately forces the customer name to uppercase as typed — an
+established, hard-won fix documented earlier in this file, not something
+to regress. A quotation is the one caller that's a customer-facing
+printed document, where "SHIBIN PUNNOL" reads wrong — `preserveCase`
+skips the `.toUpperCase()` write and shows `capitalize` instead, storing
+exactly what was typed, without touching the default for anyone else.
+
+**Sheet mirror**: a new "Quotation" tab (created directly via the Sheets
+API, same pattern as every other new tab this app has added), one row
+per quotation matched on `quote_no`, written through
+`syncQuotationToSheetSafely()` — fire-and-forget, never blocks a save,
+failures logged as `quotation_sheet_failed` (its own migration/
+transaction, same "a fresh enum value can't be used in the same
+transaction it's created in" rule as every other enum addition here).
+
+**Verified live against production**: a real quotation matching the
+reference exactly (₹90,000 item total − ₹5,000 discount = ₹85,000 grand
+total) got `quote_no = 1`; the public-token lookup succeeded and a bad
+token correctly threw; editing the shared defaults afterward left the
+saved quotation's own terms untouched; the Quotation sheet row synced
+correctly with no `quotation_sheet_failed` log entry. All test data (DB
+row, item rows, and the one sheet row) cleaned up afterward, and the
+sequence reset to 1 so the first *real* quotation is still `Q-001`.
+`tsc`/`next build` clean; `eslint` at 21 errors/4 warnings — one more
+than the 20-error baseline, but the identical pre-existing
+`react-hooks/set-state-in-effect` category already scattered through
+this codebase's load-on-mount pattern, not a new kind of finding;
+`npm run check:browsers` green; all 5 hard-rule tests pass.
+
+**Deliberately not built** (proposals, not decisions):
+- **Quotation → Purchase conversion** — turning a won quotation directly
+  into a New Purchase, carrying its items/customer/prices across, rather
+  than the admin re-typing everything into `/admin/installations` by hand.
+- **Expiry/validity tracking** — a "valid until" date and a visible
+  expired state on `/q/[token]`, the way a real quoted-price document
+  often carries one.
+- **A customer-facing accept/reject action on `/q/[token]`** — letting
+  the customer themselves flip a quotation to won/lost from the link,
+  instead of that always being an admin action from the index list.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
