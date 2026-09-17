@@ -164,7 +164,26 @@ export type Database = {
       notifications_log: {
         Row: {
           id: string;
-          event_type: 'job_assigned' | 'job_completed' | 'leave_requested' | 'payment_reminder' | 'product_sync_failed';
+          // Kept in sync by hand with the EventType union in
+          // lib/services/notifications.ts (that file can't import this
+          // one's type back without a circular import, since it already
+          // imports supabaseAdmin from here) — this was badly out of
+          // date (five values, missing eight the runtime enum actually
+          // carries) until this fix; inserts were never blocked by the
+          // mismatch, but the type was lying about what's actually valid.
+          event_type:
+            | 'job_assigned'
+            | 'job_completed'
+            | 'leave_requested'
+            | 'leave_decided'
+            | 'product_sync_failed'
+            | 'sales_sheet_failed'
+            | 'service_sheet_failed'
+            | 'enquiry_sheet_failed'
+            | 'customer_phone_rekey_failed'
+            | 'spare_part_sale_sheet_failed'
+            | 'payments_sheet_failed'
+            | 'quotation_sheet_failed';
           status: 'sent' | 'failed' | 'pending';
           error_message: string | null;
           created_at: string;

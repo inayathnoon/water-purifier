@@ -8,7 +8,7 @@ import { createAdHocServiceRequest } from '@/lib/services/tickets';
 // action on the due-this-month list, /api/admin/service-calls/request).
 export async function POST(request: Request) {
   try {
-    await requireUser(['admin', 'owner']);
+    const user = await requireUser(['admin', 'owner']);
     const body = await request.json();
 
     const customer = await findOrCreateCustomer({
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       bookedDate: body.bookedDate || undefined,
       bookedHalfDay: ['morning', 'afternoon', 'evening'].includes(body.bookedHalfDay) ? body.bookedHalfDay : undefined,
       location: body.location === 'office' ? 'office' : 'home',
+      createdBy: user.id,
     });
 
     return Response.json({ customer, ticket }, { status: 201 });

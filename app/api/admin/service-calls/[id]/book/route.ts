@@ -5,7 +5,7 @@ import { bookJob } from '@/lib/services/tickets';
 // installation — same bookJob() as /api/admin/installations/[id]/book.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireUser(['admin', 'owner']);
+    const user = await requireUser(['admin', 'owner']);
     const { id } = await params;
     const body = await request.json();
 
@@ -14,6 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       bookedDate: body.bookedDate,
       bookedHalfDay: body.bookedHalfDay,
       location: body.location,
+      assignedBy: user.id,
     });
 
     return Response.json({ ticket });

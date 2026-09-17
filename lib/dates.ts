@@ -147,3 +147,30 @@ export function mondaySaturdayWeekIST(now: Date = new Date()): string[] {
     return d.toISOString().slice(0, 10);
   });
 }
+
+const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "YYYY-MM-DD" → "Thu 17 Sep" — for Telegram messages read on a phone,
+ * where a raw ISO date makes the reader do the weekday math themselves.
+ * Parsed as a fixed UTC date (not `new Date(dateStr)` at local midnight)
+ * since these date-only strings already represent an IST calendar day,
+ * not a UTC instant — same reasoning as todayIST()'s own arithmetic.
+ */
+export function formatDisplayDateIST(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return `${WEEKDAY_ABBR[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH_ABBR[d.getUTCMonth()]}`;
+}
+
+/**
+ * A leave range as an owner actually weighs it: "Wed 17 – Fri 19 Sep
+ * (3 days)" — both ends and the day count in one glance, not two raw
+ * ISO dates to subtract in your head.
+ */
+export function formatDateRangeWithDaysIST(startDate: string, endDate: string): string {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const days = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  return `${formatDisplayDateIST(startDate)} – ${formatDisplayDateIST(endDate)} (${days} day${days === 1 ? '' : 's'})`;
+}

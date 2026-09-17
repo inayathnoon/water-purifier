@@ -4343,6 +4343,99 @@ this codebase's load-on-mount pattern, not a new kind of finding;
   the customer themselves flip a quotation to won/lost from the link,
   instead of that always being an admin action from the index list.
 
+## Telegram Message Formats: HTML-Escaping, Missing Fields, Format Fixes (2026-09-17)
+
+A thorough review of all five `notify*` functions, `sendTelegramMessage()`,
+and `lib/services/leave.ts` — confirming the plumbing (DB-write-first,
+fire-and-forget, never-throws, outcome-logged-either-way, the
+`RAILWAY_ENVIRONMENT_NAME` production gate from the September 12th
+fake-message incident) was already sound, and fixing everything about
+the message *text* that wasn't.
+
+**P1 — the one finding that actually loses a real message.**
+`sendTelegramMessage` sends `parse_mode: 'HTML'`, and every template
+interpolated raw free-text straight into it — a customer named `Ravi &
+Sons`, an address with a stray `<`, or (worst of all) `issueNote`/
+`explanation`/leave `reason`, all free-text boxes an admin types a
+sentence into. Telegram rejects the *entire* message on any of those,
+silently: `sendAndLog` records `failed` in `notifications_log`, nobody
+watches that table, and a technician simply never gets the job. New
+`esc()` in `notifications.ts` (HTML-entity-escapes `&`/`<`/`>`) wraps
+every interpolated value now; the literal `<b>` tags stay unescaped.
+`tests/telegram-format.test.ts` asserts a payload containing `Ravi &
+Sons <test>` produces no bare `<`/`>` outside the `<b>` tags — pure
+function, no DB needed, always runs as part of `npm test`.
+
+**Every message reformatted** — dates through new `formatDisplayDateIST()`
+("Thu 17 Sep" instead of a raw `2026-09-17`) and
+`formatDateRangeWithDaysIST()` ("Wed 17 – Fri 19 Sep (3 days)") in
+`lib/dates.ts`; `home`/`office` render as "home visit"/"office" instead
+of the bare column value. **Job assigned** reordered so the technician's
+name and the when come first (what each person in the group actually
+scans for), gained the assigning admin's name (`bookJob()`'s new optional
+`assignedBy` param, threaded through both booking API routes and
+`createAdHocServiceRequest`'s immediate-assignment path) — and its
+`/tickets/[id]` link is **restored** (a same-day-earlier change had
+dropped it entirely; kept this time, since it's still genuinely useful to
+the admins/owner also reading the group, as long as no *required* detail
+for the technician ever depends on it, which the phone/area/issue-note
+already in the body guarantees). **Job completed** gained the completion
+date and kept its link the same way. **Leave requested** now prints the
+reason — it was collected and stored (`requestLeave()`'s own required-
+reason rule) and then silently withheld from the one message that's
+supposed to let an owner decide without opening the app. **Leave
+approved/denied** now show visually distinct marks (✅ vs 🚫 — both used
+to open with the same 🌴, reading identically when scanning history),
+both name the deciding owner (`decideLeave()` already had `decidedBy`,
+just wasn't passing the looked-up name through), the denial reason is
+labeled `Reason:` and only ever printed when actually present (the
+signature still accepts `null` for any future caller), and both now
+carry a link to `/owner/leave` for consistency with every other message.
+
+**`lib/db.ts`'s `event_type` type was badly stale** — five values against
+the thirteen the runtime enum and `notifications.ts`'s own `EventType`
+union actually carry (inserts were never blocked by this, Postgres
+enforces the real enum regardless; the *type* was just lying). Synced by
+hand — `notifications.ts` can't import it back without a circular
+import, since it already imports `supabaseAdmin` from `lib/db.ts`.
+
+**One thing this brief assumed still existed and no longer does**:
+`notifyEnquiryPassedToOwner()` — reviewed as "already the right shape,
+just needs escaping" — was removed entirely earlier this same day, at
+explicit request, independent of this review (the underlying "Pass to
+owner" enquiry-closure feature itself is untouched, only its Telegram
+ping is gone). Nothing to fix there any more; noted here so this
+doesn't read as an oversight.
+
+**Verified live against production, not simulated**: a real ticket
+booked and completed with deliberately dangerous customer name/address/
+issue-note text (`Ravi & Sons <test>`, `D/No 12 <opp. temple>`, `Leak &
+no flow <urgent>`) and a real leave request/decision cycle with the same
+kind of text in the reason — every one logged `sent`, zero `failed`
+entries, proving the exact failure class P1 was fixed for no longer
+happens. No real Telegram messages were sent to verify (`FORCE_TELEGRAM_SEND`
+was never set) — the production gate from the September 12th fix stayed
+untouched and every one of these test sends was safely swallowed by it,
+same as every other script in this project's history. `tsc`/`next build`
+clean, `eslint` unchanged (21 errors/4 warnings — the one over the
+20-error baseline is Quotations' own, shipped in the same session, not
+from this work), all 5 hard-rule tests plus the 2 new escaping tests
+pass (7/7).
+
+**Two decisions brought back rather than built, per instruction:**
+- **A job taken away is never announced.** Unassigning a booked job
+  (`unassignJob()` in `tickets.ts`) clears the assignment and sends
+  nothing — a technician told over Telegram they had Thursday morning
+  booked is never told it was withdrawn, and Telegram is now the only
+  channel they have. Needs a `job_unassigned` message and its own
+  migration/enum value if wanted.
+- **`payment_reminder` is dead** — declared in the `event_type` enum
+  since migration 001, no `notifyPaymentReminder()` anywhere, while the
+  owner dashboard already tracks payments outstanding and "never called"
+  at read time. Either wire up a real reminder message or drop the
+  enum value (harmless to leave unused either way, same as
+  `callback_date`/`CRON_SECRET`).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

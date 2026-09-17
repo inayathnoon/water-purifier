@@ -187,6 +187,9 @@ export async function createAdHocServiceRequest(input: {
   bookedDate?: string;
   bookedHalfDay?: 'morning' | 'afternoon' | 'evening';
   location?: 'home' | 'office';
+  // Who created this request — threaded through to bookJob() for the
+  // "by ___" attribution on the resulting Job assigned message.
+  createdBy?: string;
 }) {
   if (!input.issueNote.trim()) throw new ApiError(400, 'A note on the reported problem is required');
 
@@ -220,6 +223,7 @@ export async function createAdHocServiceRequest(input: {
       bookedDate: input.bookedDate || todayIST(),
       bookedHalfDay: input.bookedHalfDay || halfDayNowIST(),
       location: input.location ?? 'home',
+      assignedBy: input.createdBy,
     });
   }
 
@@ -527,6 +531,10 @@ export async function bookJob(
     bookedDate: string;
     bookedHalfDay: 'morning' | 'afternoon' | 'evening';
     location: 'home' | 'office';
+    // Who actually clicked "book" — optional so every existing caller
+    // that hasn't been updated yet still compiles; the message just
+    // omits the "by ___" attribution when it's not given.
+    assignedBy?: string;
   }
 ) {
   const { data: assignee, error: assigneeError } = await supabaseAdmin
@@ -560,10 +568,16 @@ export async function bookJob(
   // a Telegram failure here can never undo or block the assignment.
   // Fire-and-forget — a Telegram send shouldn't hold up the response.
   (async () => {
-    const { data: technician } = await supabaseAdmin.from('users').select('name').eq('id', input.assignedToId).single();
+    const [{ data: technician }, { data: assigner }] = await Promise.all([
+      supabaseAdmin.from('users').select('name').eq('id', input.assignedToId).single(),
+      input.assignedBy
+        ? supabaseAdmin.from('users').select('name').eq('id', input.assignedBy).single()
+        : Promise.resolve({ data: null }),
+    ]);
     const product = data.product_interest || data.enquiry_product_interest;
     const kindLabel = data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation';
     await notifyJobAssigned({
+      ticketId,
       productOrKind: product ? `${product} — ${kindLabel}` : kindLabel,
       bookedDate: input.bookedDate,
       bookedHalfDay: input.bookedHalfDay,
@@ -573,6 +587,7 @@ export async function bookJob(
       customerAddress: data.customers.address,
       customerArea: data.customers.area,
       technicianName: technician?.name ?? 'Unknown',
+      assignedByName: assigner?.name ?? null,
       // Only ever set on an ad-hoc Service Call (§ Root Cause Fix:
       // product_interest/issue_note split) — the only place a technician
       // ever saw this was a box on /staff/jobs, so once that page is gone
@@ -651,10 +666,12 @@ export async function completeJob(
     const product = ticket.product_interest || ticket.enquiry_product_interest;
     const kindLabel = ticket.kind === 'service_visit' ? 'a service visit' : 'an installation';
     await notifyJobCompleted({
+      ticketId,
       technicianName: technician?.name ?? 'Unknown',
       productOrKind: product ? `${product} (${kindLabel})` : kindLabel,
       customerName: customer?.name ?? 'Unknown',
       customerAddress: customer?.address ?? 'Unknown',
+      completedDate: data.actual_date ?? input.actualDate,
     });
   })().catch(() => {});
 

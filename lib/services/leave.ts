@@ -21,6 +21,7 @@ export async function requestLeave(requesterId: string, startDate: string, endDa
     requesterName: data.users?.name ?? 'Unknown',
     startDate,
     endDate,
+    reason,
   }).catch(() => {});
 
   return data;
@@ -67,13 +68,17 @@ export async function decideLeave(
   // §10.5: fired only after the status change above has committed — the
   // one notification the requester actually cares about, previously the
   // only silent step in the whole leave flow. Fire-and-forget.
-  notifyLeaveDecided({
-    requesterName: data.users?.name ?? 'Unknown',
-    decision,
-    startDate: data.start_date,
-    endDate: data.end_date,
-    reason: data.decision_reason,
-  }).catch(() => {});
+  (async () => {
+    const { data: decider } = await supabaseAdmin.from('users').select('name').eq('id', decidedBy).single();
+    await notifyLeaveDecided({
+      requesterName: data.users?.name ?? 'Unknown',
+      decision,
+      startDate: data.start_date,
+      endDate: data.end_date,
+      decidedByName: decider?.name ?? 'Unknown',
+      reason: data.decision_reason,
+    });
+  })().catch(() => {});
 
   return data;
 }
