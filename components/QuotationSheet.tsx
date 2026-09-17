@@ -44,8 +44,9 @@ export interface QuotationSheetDefaults {
 
 // Filler rows so a short quotation's table still reaches a consistent
 // height on the page — the book's own ruled grid is the look; a 2-item
-// table that stops a third of the way down reads as unfinished.
-const MIN_TABLE_ROWS = 8;
+// table that stops a third of the way down reads as unfinished. A quote
+// with 6+ items already fills the grid on its own.
+const MIN_TABLE_ROWS = 6;
 
 function DropletWatermark() {
   return (
@@ -71,6 +72,28 @@ function DropletWatermark() {
       <p className="font-condensed uppercase" style={{ fontSize: 32, letterSpacing: '0.08em', marginTop: -40 }}>
         Noon Enterprises
       </p>
+    </div>
+  );
+}
+
+// Four "+" glyphs at the sheet's corners — what actually makes it read
+// as a drawn document rather than a table sitting on a page. Above the
+// watermark, below nothing.
+function RegistrationMarks() {
+  const corner: React.CSSProperties = {
+    position: 'absolute',
+    fontSize: 13,
+    lineHeight: 1,
+    color: 'var(--color-accent-deep)',
+    zIndex: 2,
+    pointerEvents: 'none',
+  };
+  return (
+    <div aria-hidden>
+      <span style={{ ...corner, top: '6mm', left: '6mm' }}>+</span>
+      <span style={{ ...corner, top: '6mm', right: '6mm' }}>+</span>
+      <span style={{ ...corner, bottom: '6mm', left: '6mm' }}>+</span>
+      <span style={{ ...corner, bottom: '6mm', right: '6mm' }}>+</span>
     </div>
   );
 }
@@ -208,10 +231,15 @@ export default function QuotationSheet({
       </div>
 
       <style>{`
-        .q-sheet-page { width: 210mm; min-height: 297mm; margin: 0 auto; background: white; position: relative; padding: 12mm; }
+        .q-sheet-page { width: 210mm; min-height: 297mm; margin: 0 auto; background: white; position: relative; padding: 12mm 13mm; }
         @media print {
-          @page { size: A4; margin: 12mm; }
-          .q-sheet-page { width: auto; min-height: auto; margin: 0; padding: 0; }
+          /* margin: 0 leaves Chrome no margin box to draw its own
+             header/footer (date, page URL, page count) into — that's
+             what was printing on the document. The 12mm/13mm inset
+             moves onto the sheet's own padding instead, at screen and
+             print alike, so nothing shifts when printing. */
+          @page { size: A4; margin: 0; }
+          .q-sheet-page { width: auto; min-height: auto; margin: 0; padding: 12mm 13mm; }
           .print-color-adjust { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
         @media screen and (max-width: 380px) {
@@ -221,15 +249,23 @@ export default function QuotationSheet({
 
       <div className="q-sheet-page text-[13px]" style={{ color: 'var(--color-ink)' }}>
         <DropletWatermark />
+        <RegistrationMarks />
         <div style={{ position: 'relative', zIndex: 1 }}>
           {printMode === 'blank' ? (
+            // Exactly one wordmark line — NOON at full weight/ink,
+            // ENTERPRISES lighter and in the accent, as the book prints
+            // it. Address/phone/e-mail are three separate lines; if the
+            // address line reads blank, quotation_defaults.address
+            // itself is empty (fill it in via Header & terms) — the
+            // paragraph is always rendered.
             <div className="text-center mb-4">
-              <h1 className="font-condensed uppercase" style={{ fontSize: 34, letterSpacing: '0.02em' }}>
-                <span style={{ fontWeight: 800 }}>NOON</span> <span style={{ fontWeight: 500 }}>ENTERPRISES</span>
+              <h1 className="font-condensed uppercase" style={{ fontSize: 36, letterSpacing: '0.02em', lineHeight: 1.1 }}>
+                <span style={{ fontWeight: 700 }}>NOON</span>{' '}
+                <span style={{ fontWeight: 400, color: 'var(--color-accent-deep)' }}>ENTERPRISES</span>
               </h1>
-              <p style={{ fontSize: 11 }}>{defaults.address}</p>
-              <p style={{ fontSize: 11 }}>Phone: {defaults.phone}, Mob. {defaults.mobile}</p>
-              <p style={{ fontSize: 11 }}>E-mail: {defaults.email}</p>
+              <p style={{ fontSize: 10.5 }} className="text-ink-2">{defaults.address}</p>
+              <p style={{ fontSize: 10.5 }} className="text-ink-2">Phone: {defaults.phone}, Mob. {defaults.mobile}</p>
+              <p style={{ fontSize: 10.5 }} className="text-ink-2">E-mail: {defaults.email}</p>
             </div>
           ) : (
             // Pre-printed letterhead already carries the masthead — leave
@@ -239,69 +275,100 @@ export default function QuotationSheet({
             <div style={{ height: 'var(--letterhead-gap, 42mm)' }} />
           )}
 
-          <div className="flex justify-between items-baseline mb-2">
-            <p className="uppercase font-semibold" style={{ fontSize: 12, letterSpacing: '0.08em' }}>Quotation</p>
+          {/* A real band, not an inline row — hairlines above and below,
+              tracked label left, date right. */}
+          <div
+            className="flex justify-between items-center mb-3"
+            style={{ borderTop: '1px solid var(--color-accent-deep)', borderBottom: '1px solid var(--color-accent-deep)', padding: '3px 0' }}
+          >
+            <p className="font-condensed uppercase" style={{ fontSize: 15, letterSpacing: '0.3em' }}>Quotation</p>
             <p style={{ fontSize: 12 }}>Date: {quotation.quote_date}</p>
           </div>
 
-          <div className="border-t border-b border-ink py-2 mb-3" style={{ borderColor: '#000' }}>
-            <div className="flex justify-between mb-1">
-              <p style={{ fontSize: 12 }}>No. {quoteNoLabel}</p>
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <p style={{ fontSize: 13 }}>M/s. {toStartCase(quotation.customer_name || '')}</p>
+              <p style={{ fontSize: 12 }}>{quotation.address}{quotation.address && quotation.area ? ', ' : ''}{quotation.area}</p>
+              <p style={{ fontSize: 12 }}>Mob: {quotation.phone_number}</p>
             </div>
-            <p style={{ fontSize: 13 }}>M/s. {toStartCase(quotation.customer_name || '')}</p>
-            <p style={{ fontSize: 12 }}>{quotation.address}{quotation.address && quotation.area ? ', ' : ''}{quotation.area}</p>
-            <p style={{ fontSize: 12 }}>Mob: {quotation.phone_number}</p>
+            {/* The sheet's identifier — set apart from the address block,
+                not buried at its head. */}
+            <p className="font-condensed" style={{ fontSize: 20, color: 'var(--color-accent-deep)', whiteSpace: 'nowrap' }}>
+              No. {quoteNoLabel}
+            </p>
           </div>
 
-          <table className="w-full mb-3" style={{ borderCollapse: 'collapse', border: '1px solid #000' }}>
-            <thead>
-              <tr>
-                <th style={{ border: '1px solid #000', padding: '4px 6px', fontSize: 11, textTransform: 'uppercase', textAlign: 'left' }}>Particulars</th>
-                <th style={{ border: '1px solid #000', padding: '4px 6px', fontSize: 11, textTransform: 'uppercase', width: 50 }}>Qty.</th>
-                <th style={{ border: '1px solid #000', padding: '4px 6px', fontSize: 11, textTransform: 'uppercase', width: 80, textAlign: 'right' }}>Rate</th>
-                <th style={{ border: '1px solid #000', padding: '4px 6px', fontSize: 11, textTransform: 'uppercase', width: 90, textAlign: 'right' }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotation.items.map((it, i) => (
-                <tr key={i}>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', verticalAlign: 'top' }}>
-                    <p>{it.particulars}</p>
-                    {it.details && (
-                      <div style={{ fontSize: 11, marginLeft: 8, marginTop: 2, whiteSpace: 'pre-wrap' }}>{it.details}</div>
-                    )}
-                  </td>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }} className="tabular-nums">{it.qty}</td>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }} className="tabular-nums">{formatINR(it.rate)}</td>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }} className="tabular-nums">{formatINR(it.amount)}</td>
-                </tr>
-              ))}
-              {Array.from({ length: filler }).map((_, i) => (
-                <tr key={`filler-${i}`}>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', height: 22 }}>&nbsp;</td>
-                  <td style={{ border: '1px solid #000' }}></td>
-                  <td style={{ border: '1px solid #000' }}></td>
-                  <td style={{ border: '1px solid #000' }}></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {(() => {
+            const hairline = '1px solid var(--color-accent-deep)';
+            return (
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: hairline }}>
+                <thead>
+                  <tr className="print-color-adjust" style={{ background: 'var(--color-accent-deep)' }}>
+                    <th
+                      className="font-condensed"
+                      style={{ border: hairline, padding: '5px 6px', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.16em', textAlign: 'left', color: '#fff' }}
+                    >
+                      Particulars
+                    </th>
+                    <th className="font-condensed" style={{ border: hairline, padding: '5px 6px', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.16em', width: 50, color: '#fff' }}>
+                      Qty.
+                    </th>
+                    <th className="font-condensed" style={{ border: hairline, padding: '5px 6px', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.16em', width: 80, textAlign: 'right', color: '#fff' }}>
+                      Rate
+                    </th>
+                    <th className="font-condensed" style={{ border: hairline, padding: '5px 6px', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.16em', width: 90, textAlign: 'right', color: '#fff' }}>
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quotation.items.map((it, i) => (
+                    <tr key={i}>
+                      <td style={{ border: hairline, padding: '4px 6px', verticalAlign: 'top' }}>
+                        <p>{it.particulars}</p>
+                        {it.details && (
+                          <div style={{ fontSize: 11, marginLeft: 8, marginTop: 2, whiteSpace: 'pre-wrap' }}>{it.details}</div>
+                        )}
+                      </td>
+                      <td style={{ border: hairline, padding: '4px 6px', textAlign: 'center' }} className="tabular-nums">{it.qty}</td>
+                      <td style={{ border: hairline, padding: '4px 6px', textAlign: 'right' }} className="tabular-nums">{formatINR(it.rate)}</td>
+                      <td style={{ border: hairline, padding: '4px 6px', textAlign: 'right' }} className="tabular-nums">{formatINR(it.amount)}</td>
+                    </tr>
+                  ))}
+                  {Array.from({ length: filler }).map((_, i) => (
+                    <tr key={`filler-${i}`}>
+                      <td style={{ border: hairline, padding: '3.4mm 6px' }}>&nbsp;</td>
+                      <td style={{ border: hairline }}></td>
+                      <td style={{ border: hairline }}></td>
+                      <td style={{ border: hairline }}></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
 
-          <div className="flex gap-4 mb-4">
-            <div className="flex-1 border border-ink p-3" style={{ borderColor: '#000', minHeight: 90 }}>
-              <p style={{ fontSize: 11, fontWeight: 600 }}>DSA details &amp; signature</p>
+          {/* One bordered box continuing straight down from the table —
+              border-top: none so it reads as the grid's own closing
+              band, not a separate floating element. */}
+          <div className="flex mb-4" style={{ border: '1px solid var(--color-accent-deep)', borderTop: 'none' }}>
+            <div className="flex-1 p-3" style={{ borderRight: '1px solid var(--color-accent-deep)', minHeight: 90 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-accent-deep)' }}>DSA details &amp; signature</p>
               <p style={{ fontSize: 12, marginTop: 4, whiteSpace: 'pre-wrap' }}>{quotation.notes}</p>
             </div>
-            <div className="w-56">
-              <div className="flex justify-between border-t border-rule pt-1">
-                <span className="text-ink-2">Total</span>
-                <span className="tabular-nums">{formatINR(quotation.subtotal)}</span>
+            <div className="w-56 p-3">
+              <div className="flex justify-between pt-1">
+                <span style={{ fontSize: 12 }}>Total</span>
+                <span className="tabular-nums" style={{ fontSize: 12 }}>{formatINR(quotation.subtotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-ink-2">Discount</span>
-                <span className="tabular-nums">−{formatINR(quotation.discount)}</span>
+              <div className="flex justify-between text-ink-2">
+                <span style={{ fontSize: 12 }}>Discount</span>
+                <span className="tabular-nums" style={{ fontSize: 12 }}>−{formatINR(quotation.discount)}</span>
               </div>
-              <div className="flex justify-between border-t-2 pt-1 font-semibold" style={{ borderColor: 'var(--color-accent)' }}>
+              <div
+                className="flex justify-between font-condensed uppercase print-color-adjust"
+                style={{ borderTop: '2px solid var(--color-accent)', background: 'var(--color-accent-tint)', marginTop: 4, padding: '4px 4px', fontWeight: 700, fontSize: 14 }}
+              >
                 <span>Grand total</span>
                 <span className="tabular-nums">{formatINR(quotation.total)}</span>
               </div>

@@ -4436,6 +4436,84 @@ pass (7/7).
   enum value (harmless to leave unused either way, same as
   `callback_date`/`CRON_SECRET`).
 
+## Quotation Sheet: Print-Chrome Blocker, Hierarchy, and Accent (2026-09-18)
+
+A real exported PDF (quote `Q-001`, `70c13666...` — the business's own
+first real quotation, not test data) turned up one blocker and three
+readability defects against the printed carbon book.
+
+**Blocker: Chrome's own header/footer were printing on the document** —
+a date/time top-left, "Noon Enterprises" top-right, the internal Railway
+admin URL bottom-left, page count bottom-right. Cause: `@page` declaring
+a `margin: 12mm` gives Chrome a margin box to draw its own chrome into.
+Fixed by declaring `@page { margin: 0 }` and moving the 12mm/13mm inset
+onto the sheet element's own `padding` instead — Chrome has nothing left
+to draw into, dropping the header/footer with no manual "more settings →
+headers and footers off" step needed from whoever prints it.
+
+**Hierarchy** — the sheet read as a flat run of same-weight lines.
+Reworked to distinct sizes matching the reference render: the wordmark
+at 36px condensed (`NOON` at 700/ink, `ENTERPRISES` at 400/accent-deep),
+contact lines dropped to 10.5px `text-ink-2`; `QUOTATION` became a real
+tracked (.3em) band with hairlines above and below and `Date`
+right-aligned in the same band, instead of an inline row at body size;
+`No. Q-001` moved out of the address block entirely to sit at 20px
+accent-deep on the right of the customer block, as the sheet's own
+identifier rather than buried at the head of the address lines; `Grand
+total` set to 14px condensed uppercase/700.
+
+**The table stopped a third of the way down** on a short quote. Filler
+rows now compute as `max(0, 6 - itemCount)` (was a flat 8) so a 6-item
+quote fills the grid on its own with no empty rows forced in. The totals
+ledger and the `DSA details & signature` cell were also merged into one
+bordered box directly beneath the table (`border-top: none`), reading as
+the grid's own closing band instead of a separate floating element.
+
+**Accent brought in, using only existing `@theme` tokens** — no new hex.
+The table's own hairlines and the table header row's solid fill both use
+`--color-accent-deep` (the header row in white condensed uppercase type,
+tracked .16em — the one other solid fill on the sheet besides the
+totals band); the `Grand total` row sits on `--color-accent-tint` under
+its `border-t-2 border-accent` rule. Four small `+` registration marks
+at each corner (`position: absolute`, `--color-accent-deep`, `aria-hidden`,
+`z-index: 2` — above the watermark, below nothing) are what actually
+makes the sheet read as a drawn document rather than a table on a page.
+Every accent fill carries `print-color-adjust: exact` (the existing
+`.print-color-adjust` class the watermark already used) — without it
+Chrome silently drops fills from a PDF export even though they show on
+screen.
+
+**Two items in the brief not independently reproducible from the
+current source**: the "wordmark prints twice" defect — the component as
+written (and as re-verified after this pass, both in the rendered HTML
+and via a fresh live-created quotation) renders exactly one visible
+`NOON ENTERPRISES` line; no second instance exists in the JSX to
+deduplicate. And the **missing address line** is not a dropped element
+— the `<p>{defaults.address}</p>` paragraph has always been rendered —
+it's blank because `quotation_defaults.address` itself was never
+seeded with a real value (flagged when this feature first shipped: the
+brief's reference material never supplied one, and inventing a business
+address wasn't something to do silently). Both are one edit away — fill
+in the real address via `/admin/quotations`' own "Header & terms"
+section — but neither needed a code change.
+
+**Verified live against production**: rebuilt the sheet against the
+business's own real `Q-001` plus a fresh disposable test quotation,
+confirmed via the actual rendered HTML from a local production server
+that exactly one visible wordmark line renders, the table/totals/DSA
+box render as one continuous bordered structure, and the accent tokens
+resolve correctly with no new hex introduced. `tsc`/`next build` clean,
+`eslint` unchanged (21/4, same baseline as the rest of this session's
+Quotations work). Test quotation's items and row deleted afterward —
+left a small, accepted gap in the `Q-` sequence (next real quotation is
+`Q-003`, `Q-002` having been consumed by this verification), same
+"gaps are fine, duplicates are not" rule the sequence was built around.
+Not independently verified against an actual exported PDF from this
+environment (no browser print pipeline here) — worth one real export to
+confirm the `@page: margin 0` fix actually drops Chrome's chrome in
+practice, since that's real browser behavior, not something `next build`
+can check.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
