@@ -69,7 +69,7 @@ function DropletWatermark() {
       <svg width="300" height="300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
       </svg>
-      <p className="font-condensed uppercase" style={{ fontSize: 32, letterSpacing: '0.08em', marginTop: -40 }}>
+      <p className="font-condensed uppercase" style={{ fontSize: 32, letterSpacing: '0.08em', marginTop: 12 }}>
         Noon Enterprises
       </p>
     </div>
@@ -248,7 +248,10 @@ export default function QuotationSheet({
       `}</style>
 
       <div className="q-sheet-page text-[13px]" style={{ color: 'var(--color-ink)' }}>
-        <DropletWatermark />
+        {/* The pre-printed letterhead pad already carries its own
+            branding — a second faint watermark behind it would be
+            redundant (or clash), so this only shows on blank paper. */}
+        {printMode === 'blank' && <DropletWatermark />}
         <RegistrationMarks />
         <div style={{ position: 'relative', zIndex: 1 }}>
           {printMode === 'blank' ? (
@@ -301,7 +304,7 @@ export default function QuotationSheet({
           {(() => {
             const hairline = '1px solid var(--color-accent-deep)';
             return (
-              <table className="w-full" style={{ borderCollapse: 'collapse', border: hairline }}>
+              <table className="w-full" style={{ borderCollapse: 'collapse', border: hairline, tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="print-color-adjust" style={{ background: 'var(--color-accent-deep)' }}>
                     <th
