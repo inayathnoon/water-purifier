@@ -313,6 +313,22 @@ export default function QuotationSheet({
             const hairline = '1px solid var(--color-accent-deep)';
             return (
               <table className="w-full" style={{ borderCollapse: 'collapse', border: hairline, tableLayout: 'fixed' }}>
+                {/* Pins the Particulars column to exactly "100% minus
+                    RIGHT_COL_WIDTH" — the same subtraction the totals/
+                    terms boxes below do via flex-1 next to a fixed-width
+                    sibling. Without this, table-layout: fixed still lets
+                    the browser's own column-width algorithm decide how
+                    the four <th> widths reconcile against the table's
+                    border-box, which doesn't necessarily land on the
+                    exact same pixel as a flexbox's arithmetic — a
+                    same-value-but-different-engine mismatch, not a typo
+                    in either width. */}
+                <colgroup>
+                  <col style={{ width: `calc(100% - ${RIGHT_COL_WIDTH}px)` }} />
+                  <col style={{ width: 50 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 90 }} />
+                </colgroup>
                 <thead>
                   <tr className="print-color-adjust" style={{ background: 'var(--color-accent-deep)' }}>
                     <th
