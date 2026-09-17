@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db';
 import { ApiError } from '../api-auth';
-import { notifyJobAssigned, notifyJobCompleted, notifyEnquiryPassedToOwner } from './notifications';
+import { notifyJobAssigned, notifyJobCompleted } from './notifications';
 import { syncOrderToSalesSheetSafely, removeOrderFromSalesSheetSafely } from './salesSheet';
 import { syncServiceToSheetSafely, removeServiceFromSheetSafely } from './serviceSheet';
 import { syncEnquiryToSheetSafely, removeEnquiryFromSheetSafely } from './enquirySheet';
@@ -350,15 +350,9 @@ export async function closeEnquiry(
       .single();
     if (error) throw new ApiError(500, error.message);
 
-    // §2.1/§10.5: fire only after the status change above has committed.
-    // Fire-and-forget — a Telegram send and a Sheets sync, neither
-    // needs to block the response.
-    if (action === 'pass_to_owner') {
-      (async () => {
-        const { data: customer } = await supabaseAdmin.from('customers').select('name').eq('id', ticket.customer_id).single();
-        await notifyEnquiryPassedToOwner({ ticketId, customerName: customer?.name ?? 'Unknown', explanation });
-      })().catch(() => {});
-    }
+    // §10.5: fire only after the status change above has committed —
+    // §2.1's own Telegram ping was removed (no longer wanted), so this
+    // is just the sheet sync now, for every closure action alike.
     syncEnquiryToSheetSafely(ticketId).catch(() => {});
 
     return data;
@@ -557,7 +551,7 @@ export async function bookJob(
       status: 'booked',
     })
     .eq('id', ticketId)
-    .select('*, customers(name, address)')
+    .select('*, customers(name, phone_number, address, area)')
     .single();
 
   if (error) throw new ApiError(500, error.message);
@@ -570,13 +564,14 @@ export async function bookJob(
     const product = data.product_interest || data.enquiry_product_interest;
     const kindLabel = data.kind === 'service_visit' ? 'Yearly service visit' : 'Installation';
     await notifyJobAssigned({
-      ticketId,
       productOrKind: product ? `${product} — ${kindLabel}` : kindLabel,
       bookedDate: input.bookedDate,
       bookedHalfDay: input.bookedHalfDay,
       location: input.location,
       customerName: data.customers.name,
+      customerPhone: data.customers.phone_number,
       customerAddress: data.customers.address,
+      customerArea: data.customers.area,
       technicianName: technician?.name ?? 'Unknown',
       // Only ever set on an ad-hoc Service Call (§ Root Cause Fix:
       // product_interest/issue_note split) — the only place a technician
@@ -656,7 +651,6 @@ export async function completeJob(
     const product = ticket.product_interest || ticket.enquiry_product_interest;
     const kindLabel = ticket.kind === 'service_visit' ? 'a service visit' : 'an installation';
     await notifyJobCompleted({
-      ticketId,
       technicianName: technician?.name ?? 'Unknown',
       productOrKind: product ? `${product} (${kindLabel})` : kindLabel,
       customerName: customer?.name ?? 'Unknown',

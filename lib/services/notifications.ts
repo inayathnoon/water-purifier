@@ -9,7 +9,6 @@ type EventType =
   | 'product_sync_failed'
   | 'sales_sheet_failed'
   | 'service_sheet_failed'
-  | 'enquiry_passed_to_owner'
   | 'enquiry_sheet_failed'
   | 'customer_phone_rekey_failed'
   | 'spare_part_sale_sheet_failed'
@@ -48,15 +47,22 @@ async function sendAndLog(eventType: EventType, text: string) {
   await logNotification(eventType, result.ok ? 'sent' : 'failed', result.error);
 }
 
-/** §10.3 row 1: product, date/half-day, home/office, customer name+address, technician, a link. */
+/** §10.3 row 1: product, date/half-day, home/office, customer name+address+
+ * phone+area, technician. No link — a technician has no login (the
+ * staff self-service portal is gone), so a `/tickets/[id]` link here was
+ * a dead end that just bounced them to the sign-in page. The message
+ * itself is the only thing a technician ever sees, so it carries the
+ * phone number (to call before heading out, or if the address is hard
+ * to find) and area directly instead of pointing anywhere. */
 export async function notifyJobAssigned(input: {
-  ticketId: string;
   productOrKind: string;
   bookedDate: string;
   bookedHalfDay: string;
   location: 'home' | 'office';
   customerName: string;
+  customerPhone: string;
   customerAddress: string;
+  customerArea: string;
   technicianName: string;
   // Only ever set on an ad-hoc Service Call — a technician has no other
   // way to see this now that there's no staff login (this was previously
@@ -66,10 +72,10 @@ export async function notifyJobAssigned(input: {
   const text =
     `📋 <b>Job assigned</b>\n` +
     `${input.productOrKind} — ${input.bookedDate} (${input.bookedHalfDay}), ${input.location}\n` +
-    `${input.customerName}, ${input.customerAddress}\n` +
+    `${input.customerName}, ${input.customerPhone}\n` +
+    `${input.customerAddress}, ${input.customerArea}\n` +
     `Assigned to: ${input.technicianName}` +
-    (input.issueNote ? `\n⚠️ Reported problem: ${input.issueNote}` : '') +
-    `\n${appUrl(`/tickets/${input.ticketId}`)}`;
+    (input.issueNote ? `\n⚠️ Reported problem: ${input.issueNote}` : '');
 
   await sendAndLog('job_assigned', text);
 }
@@ -79,9 +85,9 @@ export async function notifyJobAssigned(input: {
  * real (fixed half-day windows since the staff-portal removal, not
  * anything a technician actually clocked), so "Took 3h 0m" was always
  * the exact same fabricated number for every job in that slot. Neither
- * shown here nor stored on the ticket any more (see completeJob()). */
+ * shown here nor stored on the ticket any more (see completeJob()). No
+ * link either, same reasoning as notifyJobAssigned(). */
 export async function notifyJobCompleted(input: {
-  ticketId: string;
   technicianName: string;
   productOrKind: string;
   customerName: string;
@@ -89,8 +95,7 @@ export async function notifyJobCompleted(input: {
 }) {
   const text =
     `✅ <b>Job completed</b>\n` +
-    `${input.technicianName} finished ${input.productOrKind} for ${input.customerName}, ${input.customerAddress}\n` +
-    `${appUrl(`/tickets/${input.ticketId}`)}`;
+    `${input.technicianName} finished ${input.productOrKind} for ${input.customerName}, ${input.customerAddress}`;
 
   await sendAndLog('job_completed', text);
 }
@@ -126,17 +131,3 @@ export async function notifyLeaveDecided(input: {
   await sendAndLog('leave_decided', text);
 }
 
-/** §2.1: an admin couldn't close this enquiry themselves and passed it up. */
-export async function notifyEnquiryPassedToOwner(input: {
-  ticketId: string;
-  customerName: string;
-  explanation: string;
-}) {
-  const text =
-    `🔺 <b>Enquiry passed to you</b>\n` +
-    `${input.customerName}\n` +
-    `${input.explanation}\n` +
-    `${appUrl(`/tickets/${input.ticketId}`)}`;
-
-  await sendAndLog('enquiry_passed_to_owner', text);
-}

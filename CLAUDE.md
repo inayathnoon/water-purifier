@@ -4166,6 +4166,56 @@ Verified: `tsc`/`next build`/`eslint` clean at baseline (20/4). Purely
 client-side/print-CSS, so the 5 hard-rule tests weren't re-run — nothing
 here touches the service layer.
 
+## Telegram: "Job Assigned" Fixed for a Login-Less Technician; Dropped enquiry_passed_to_owner (2026-09-17)
+
+Reported live, with a real message: Cristeen's "📋 Job assigned" ended
+with a `/tickets/[id]` link that just bounced to the sign-in page —
+since the staff self-service portal was removed, a technician has no
+login at all, so that link was always a dead end for exactly the person
+it was addressed to.
+
+**A public, no-login page for this was considered and deliberately
+dropped.** Worked through directly: it's feasible and free, but a link
+is fundamentally different from a message to a closed staff group — it
+can't be revoked once sent, and anyone who ever forwards it, screenshots
+it, or leaves the group keeps permanent access with no record of who
+looked. Weighed against this app's whole existing posture (RLS scoping,
+§13.4 hiding prices from staff, no self-service anything), that traded a
+one-off convenience for an open-ended exposure. Decided instead to fix
+the actual problem: **make the message itself carry what a technician
+needs, so no link is required at all.**
+
+- **`notifyJobAssigned()`** now includes the customer's **phone number**
+  (to call before heading out, or if the address is hard to find) and
+  **area** (previously not shown at all — only free-text `address` was),
+  and drops the trailing ticket link entirely. `bookJob()`'s own
+  customer select widened from `name, address` to `name, phone_number,
+  address, area` to supply it — no new query, same round trip.
+- **`notifyJobCompleted()`** also loses its ticket link, for the same
+  reason — it's the same login-less audience for that message too.
+- **`notifyEnquiryPassedToOwner()` removed entirely** — a separate ask,
+  surfaced while auditing every notification type in the app end to end
+  (see the full table this produced, now worth keeping in mind: only
+  `job_assigned`, `job_completed`, `leave_requested`, `leave_decided`
+  actually reach Telegram; `product_sync_failed` and every `*_sheet_failed`
+  type only ever write to `notifications_log`, never sent anywhere). The
+  **feature** it rode alongside — "Pass to owner" as an enquiry-closure
+  action, `status: 'passed_to_owner'`, the owner dashboard's own card for
+  it — is completely untouched; only the Telegram ping fired alongside it
+  is gone. `'enquiry_passed_to_owner'` dropped from the `EventType` union
+  (same "harmless to leave the underlying Postgres enum value alone"
+  precedent already used for `payment_reminder`/`callback_date` — nothing
+  reads that DB enum value once nothing writes it, no migration needed).
+
+**Verified live against production**: a real `bookJob()` → Telegram
+logged `job_assigned`/`sent` with the widened customer select causing no
+error; a real `completeJob()` → `job_completed`/`sent`, no `ticketId` arg
+needed; a real `closeEnquiry(..., 'pass_to_owner')` completed cleanly
+with zero `notifyEnquiryPassedToOwner` reference left anywhere in the
+codebase and no Telegram call attempted for it. `tsc`/`next build`/
+`eslint` clean at baseline (20/4), all 5 hard-rule tests pass. All test
+data cleaned up afterward.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
