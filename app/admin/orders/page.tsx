@@ -100,6 +100,24 @@ export default function OrdersPage() {
   const [completionEditForm, setCompletionEditForm] = useState({ actualDate: '', notes: '' });
   const [completionEditError, setCompletionEditError] = useState('');
   const [savingCompletionEdit, setSavingCompletionEdit] = useState(false);
+  // Printing a single purchase's receipt — everything else on the page
+  // (and the browser chrome) is hidden via the @media print rule below,
+  // so only the one printable block for this order id shows up on paper.
+  const [printingId, setPrintingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!printingId) return;
+    // One tick so the printable block actually renders before the dialog
+    // opens — printingId only just changed this same render.
+    const t = setTimeout(() => window.print(), 50);
+    return () => clearTimeout(t);
+  }, [printingId]);
+
+  useEffect(() => {
+    const onAfterPrint = () => setPrintingId(null);
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => window.removeEventListener('afterprint', onAfterPrint);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -426,7 +444,27 @@ export default function OrdersPage() {
                           <span className="text-ink-2">Pending</span>
                         )}
                       </td>
-                      <td className="p-3 text-accent-deep whitespace-nowrap text-[12px] font-semibold">{isExpanded ? 'Hide ▲' : 'Details ▼'}</td>
+                      <td className="p-3 text-accent-deep whitespace-nowrap text-[12px] font-semibold">
+                        <span className="inline-flex items-center gap-2">
+                          {isExpanded ? 'Hide ▲' : 'Details ▼'}
+                          <button
+                            type="button"
+                            title="Print this purchase"
+                            aria-label="Print this purchase"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPrintingId(o.id);
+                            }}
+                            className="text-ink-2 hover:text-accent-deep p-0.5 -m-0.5"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="6 9 6 2 18 2 18 9" />
+                              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                              <rect x="6" y="14" width="12" height="8" />
+                            </svg>
+                          </button>
+                        </span>
+                      </td>
                     </tr>
                     {isExpanded && (
                       <tr className="border-t bg-inset">
@@ -738,6 +776,46 @@ export default function OrdersPage() {
           </table>
         </div>
       )}
+
+      {/* Only rendered while actually printing one purchase — a plain,
+          unstyled receipt-shaped block. The @media print rule below
+          hides everything else on the page (and the browser's own
+          chrome around it isn't ours to hide, but every dashboard
+          element under <body> is), so this is the only thing that
+          reaches paper regardless of where it sits in the DOM. */}
+      {printingId && (() => {
+        const o = orders.find((x) => x.id === printingId);
+        if (!o) return null;
+        const p = productFields(o);
+        return (
+          <div className="print-receipt hidden">
+            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Noon Enterprises</h1>
+            <p style={{ fontSize: 13, color: '#5d5d60', marginBottom: 16 }}>Purchase receipt</p>
+            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+              <tbody>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Bill date</td><td style={{ padding: '4px 0' }}>{billDate(o)}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Customer</td><td style={{ padding: '4px 0' }}>{toStartCase(o.tickets.customers.name)} — {o.tickets.customers.phone_number}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Address</td><td style={{ padding: '4px 0' }}>{o.tickets.customers.address}, {o.tickets.customers.area}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Product</td><td style={{ padding: '4px 0' }}>{[p.brand, p.name, p.variant].filter(Boolean).join(' ') || '—'}{p.sku ? ` (${p.sku})` : ''}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>List price</td><td style={{ padding: '4px 0' }}>{formatINR(o.list_price)}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Discount</td><td style={{ padding: '4px 0' }}>{formatINR(o.discount)}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60', fontWeight: 600 }}>Sold price</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{formatINR(o.sold_price)}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Paid</td><td style={{ padding: '4px 0' }}>{formatINR(o.paid_amount)}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Balance</td><td style={{ padding: '4px 0' }}>{formatINR(o.balance_owed)}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Installation completed</td><td style={{ padding: '4px 0' }}>{o.tickets.installation_date ?? '—'}</td></tr>
+                <tr><td style={{ padding: '4px 8px 4px 0', color: '#5d5d60' }}>Warranty until</td><td style={{ padding: '4px 0' }}>{o.tickets.warranty_expires_at ?? '—'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+      <style jsx global>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-receipt, .print-receipt * { visibility: visible; }
+          .print-receipt { display: block !important; position: absolute; top: 0; left: 0; width: 100%; padding: 24px; }
+        }
+      `}</style>
     </div>
     </AppShell>
   );

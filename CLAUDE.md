@@ -4142,6 +4142,30 @@ hard-rule tests pass (touched the admin dashboard route's schedule
 query, adjacent to booked-job data other tests don't directly exercise
 but worth the re-run for).
 
+## Print a Purchase Receipt from /admin/orders (2026-09-17)
+
+A small printer icon next to each row's "Details ▼"/"Hide ▲" toggle
+(`stopPropagation()`'d so it doesn't also expand the row) — for both
+admin and owner, since this page is already shared by both roles and
+nothing about the feature is role-specific. No new page or API route:
+clicking it sets `printingId` to that order's id, which renders one
+plain, unstyled receipt block (customer, address, product, list/sold
+price, discount, paid, balance, installation-completed date, warranty)
+and fires `window.print()` a tick later. A `@media print` rule
+(`body * { visibility: hidden }`, the receipt block forced visible and
+absolutely positioned) hides literally everything else under `<body>`
+— the sidebar, top bar, the whole orders table — so only that one
+purchase reaches paper regardless of where the block sits in the DOM.
+`printingId` clears itself on the browser's own `afterprint` event, so
+closing or completing the print dialog cleans up without another click.
+
+No backend change at all — every field printed was already loaded into
+the page's own `orders` array for the table itself.
+
+Verified: `tsc`/`next build`/`eslint` clean at baseline (20/4). Purely
+client-side/print-CSS, so the 5 hard-rule tests weren't re-run — nothing
+here touches the service layer.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent
