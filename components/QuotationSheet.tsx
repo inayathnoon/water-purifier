@@ -48,6 +48,14 @@ export interface QuotationSheetDefaults {
 // with 6+ items already fills the grid on its own.
 const MIN_TABLE_ROWS = 6;
 
+// The right-hand column's width in every one of the sheet's three
+// bordered blocks (the item table's Qty+Rate+Amount columns, the
+// totals box, the terms/signature box) — one shared constant so their
+// vertical dividers line up exactly, instead of three near-but-not-
+// quite-equal widths (220/224/240px) drifting visibly out of register
+// down the page.
+const RIGHT_COL_WIDTH = 220;
+
 function DropletWatermark() {
   return (
     <div
@@ -359,7 +367,7 @@ export default function QuotationSheet({
               <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-accent-deep)' }}>DSA details &amp; signature</p>
               <p style={{ fontSize: 12, marginTop: 4, whiteSpace: 'pre-wrap' }}>{quotation.notes}</p>
             </div>
-            <div className="w-56 p-3">
+            <div className="p-3" style={{ width: RIGHT_COL_WIDTH }}>
               <div className="flex justify-between pt-1">
                 <span style={{ fontSize: 12 }}>Total</span>
                 <span className="tabular-nums" style={{ fontSize: 12 }}>{formatINR(quotation.subtotal)}</span>
@@ -409,7 +417,7 @@ export default function QuotationSheet({
                       </div>
                     </div>
                   </div>
-                  <div className="p-3 flex flex-col justify-between" style={{ width: 240 }}>
+                  <div className="p-3 flex flex-col justify-between" style={{ width: RIGHT_COL_WIDTH }}>
                     <p className="font-condensed uppercase text-right" style={{ fontSize: 17, letterSpacing: '0.08em', fontWeight: 700 }}>
                       For {defaults.business_name}
                     </p>
