@@ -4514,6 +4514,43 @@ confirm the `@page: margin 0` fix actually drops Chrome's chrome in
 practice, since that's real browser behavior, not something `next build`
 can check.
 
+## Quotation Sheet: Terms/Signature Block Rebuilt as a Bordered Grid (2026-09-18)
+
+Shown a reference image of the intended footer and asked to match it —
+the terms/delivery-date/signature block was a plain two-column flex row
+of unbordered text; rebuilt as one bordered box (`--color-accent-deep`
+hairlines) split the way the reference shows:
+
+- **Left column, two stacked rows** — "Terms" as a tracked condensed
+  micro-label over a numbered list (`1. / 2. / 3.`, plain `<ol>` with
+  `list-style: none` since the numbers are typed manually rather than
+  left to the browser's own counter), then a divider, then "Delivery
+  date" and "Party's signature" side by side as bare micro-labels over
+  blank space — nothing printed under them, since that's where the
+  customer writes by hand.
+- **Right column, one tall cell spanning both rows** — no horizontal
+  divider crossing it, "For NOON ENTERPRISES" at the top (17px condensed
+  uppercase/700) and the signatory caption pinned to the bottom via
+  `justify-between`, matching the reference exactly.
+
+**Wording updated to match, in two places, deliberately not one.**
+`quotation_defaults` (the remembered default for every *future*
+quotation) now reads `delivery_date_label: "Delivery date"` (was
+"Delivery date: ……"), `signatory_line: "Authorised signatory"` (was
+"Sales Executive"), and the third terms line spelled out as "Errors and
+omissions excepted" (was "E&OE"). Separately, the real `Q-001` row's own
+*frozen* `terms` copy was updated too — normally the freeze-at-save rule
+means editing the shared default never touches an already-issued
+quotation, and that rule is unchanged; this one specific row was edited
+directly because its `customer_name` is literally "test", not a real
+issued document, so there was nothing to protect it from.
+
+**Verified live**: rebuilt and rendered the real `Q-001` quotation from
+a local production server, checked the actual HTML output — the
+numbered terms list, both micro-label rows, and "For NOON ENTERPRISES" /
+"Authorised signatory" all render exactly as the reference shows.
+`tsc`/`next build` clean, `eslint` unchanged (21/4).
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

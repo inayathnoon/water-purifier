@@ -375,21 +375,51 @@ export default function QuotationSheet({
             </div>
           </div>
 
-          {printMode === 'blank' && (
-            <div className="flex justify-between items-end" style={{ fontSize: 10 }}>
-              <div>
-                {(quotation.terms || '').split('\n').map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
-                <p>{defaults.delivery_date_label}</p>
-                <p style={{ marginTop: 12 }}>Party&apos;s signature</p>
-              </div>
-              <div className="text-right">
-                <p>For {defaults.business_name}</p>
-                <p style={{ marginTop: 24 }}>{defaults.signatory_line}</p>
-              </div>
-            </div>
-          )}
+          {printMode === 'blank' &&
+            (() => {
+              const hairline = '1px solid var(--color-accent-deep)';
+              const microLabel: React.CSSProperties = {
+                fontSize: 11,
+                letterSpacing: '0.12em',
+                color: 'var(--color-accent-deep)',
+                fontWeight: 600,
+              };
+              return (
+                <div className="flex" style={{ border: hairline }}>
+                  <div className="flex-1 flex flex-col" style={{ borderRight: hairline }}>
+                    <div className="p-3" style={{ borderBottom: hairline }}>
+                      <p className="font-condensed uppercase" style={microLabel}>Terms</p>
+                      <ol style={{ fontSize: 13, marginTop: 6, listStyle: 'none', paddingLeft: 0 }}>
+                        {(quotation.terms || '').split('\n').filter(Boolean).map((line, i) => (
+                          <li key={i} style={{ marginTop: i > 0 ? 2 : 0 }}>
+                            {i + 1}. {line}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                    <div className="flex flex-1">
+                      <div className="flex-1 p-2" style={{ borderRight: hairline, minHeight: 60 }}>
+                        <p className="font-condensed uppercase" style={microLabel}>{defaults.delivery_date_label}</p>
+                      </div>
+                      <div className="flex-1 p-2" style={{ minHeight: 60 }}>
+                        <p className="font-condensed uppercase" style={microLabel}>Party&apos;s signature</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-3 flex flex-col justify-between" style={{ width: 240 }}>
+                    <p className="font-condensed uppercase text-right" style={{ fontSize: 17, letterSpacing: '0.08em', fontWeight: 700 }}>
+                      For {defaults.business_name}
+                    </p>
+                    <p
+                      className="font-condensed uppercase text-right text-ink-2"
+                      style={{ fontSize: 10, letterSpacing: '0.12em' }}
+                    >
+                      {defaults.signatory_line}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
         </div>
       </div>
     </div>
