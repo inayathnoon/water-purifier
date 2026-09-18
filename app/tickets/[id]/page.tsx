@@ -14,7 +14,7 @@ export default function TicketRedirectPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/tickets/${id}/redirect-target`)
+    fetch(`/api/tickets/${id}/redirect-target`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;

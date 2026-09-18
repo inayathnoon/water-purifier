@@ -13,7 +13,7 @@ function PrintableSheet({ id }: { id: string }) {
 
   useEffect(() => {
     (async () => {
-      const [qRes, dRes] = await Promise.all([fetch(`/api/admin/quotations/${id}`), fetch('/api/admin/quotation-defaults')]);
+      const [qRes, dRes] = await Promise.all([fetch(`/api/admin/quotations/${id}`, { cache: 'no-store' }), fetch('/api/admin/quotation-defaults', { cache: 'no-store' })]);
       const qData = await qRes.json();
       const dData = await dRes.json();
       setQuotation(qData.quotation);

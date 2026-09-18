@@ -74,17 +74,17 @@ export default function AdminDashboard() {
   const [installConfirmDate, setInstallConfirmDate] = useState(todayIST());
 
   const loadDashboard = () => {
-    fetch('/api/admin/dashboard')
+    fetch('/api/admin/dashboard', { cache: 'no-store' })
       .then((res) => res.json())
       .then(setData);
   };
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/admin/dashboard')
+    fetch('/api/admin/dashboard', { cache: 'no-store' })
       .then((res) => res.json())
       .then((d) => !cancelled && setData(d));
-    fetch('/api/admin/staff')
+    fetch('/api/admin/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((d) => !cancelled && setStaff(d.staff ?? []));
     return () => {

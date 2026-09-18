@@ -84,7 +84,7 @@ function EnquiriesPageInner() {
     const phone = form.referrerPhone.trim();
     if (form.source !== 'referral' || phone.length < 6) return;
     const timeout = setTimeout(() => {
-      fetch(`/api/admin/enquiries/referrer-lookup?phone=${encodeURIComponent(phone)}`)
+      fetch(`/api/admin/enquiries/referrer-lookup?phone=${encodeURIComponent(phone)}`, { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
           if (data.referrerName) setForm((f) => ({ ...f, referrerName: data.referrerName }));
@@ -96,7 +96,7 @@ function EnquiriesPageInner() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch('/api/admin/enquiries');
+    const res = await fetch('/api/admin/enquiries', { cache: 'no-store' });
     const data = await res.json();
     setEnquiries(data.enquiries ?? []);
     setLoading(false);

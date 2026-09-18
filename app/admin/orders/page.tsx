@@ -121,7 +121,7 @@ export default function OrdersPage() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch('/api/admin/orders');
+    const res = await fetch('/api/admin/orders', { cache: 'no-store' });
     const data = await res.json();
     setOrders(data.orders ?? []);
     setLoading(false);

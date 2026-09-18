@@ -22,7 +22,7 @@ export default function AdminLeavePage() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    fetch('/api/admin/staff')
+    fetch('/api/admin/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((d) => setStaff(d.staff ?? []));
   }, []);

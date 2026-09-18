@@ -62,7 +62,7 @@ export default function DeveloperPage() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch('/api/developer/staff');
+    const res = await fetch('/api/developer/staff', { cache: 'no-store' });
     const data = await res.json();
     setStaff(data.staff ?? []);
     setLoading(false);
@@ -70,7 +70,7 @@ export default function DeveloperPage() {
 
   const loadMigrations = async () => {
     setMigrationsLoading(true);
-    const res = await fetch('/api/developer/migrations');
+    const res = await fetch('/api/developer/migrations', { cache: 'no-store' });
     const data = await res.json();
     setMigrations(data.migrations ?? []);
     setMigrationsLoading(false);

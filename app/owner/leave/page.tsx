@@ -22,7 +22,7 @@ export default function OwnerLeavePage() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch('/api/owner/leave');
+    const res = await fetch('/api/owner/leave', { cache: 'no-store' });
     const data = await res.json();
     setRequests(data.requests ?? []);
     setLoading(false);

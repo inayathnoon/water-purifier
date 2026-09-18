@@ -28,7 +28,7 @@ export default function AreaSelect({
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/admin/areas')
+    fetch('/api/admin/areas', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) setSuggestions(data.areas ?? []);

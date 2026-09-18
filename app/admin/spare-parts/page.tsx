@@ -111,8 +111,8 @@ function SparePartsPageInner() {
   const load = async () => {
     setLoading(true);
     const salesUrl = ticketId ? `/api/admin/spare-part-sales?ticketId=${ticketId}` : '/api/admin/spare-part-sales';
-    const requests: Promise<Response>[] = [fetch('/api/admin/spare-parts'), fetch(salesUrl)];
-    if (ticketId) requests.push(fetch(`/api/admin/tickets/${ticketId}`));
+    const requests: Promise<Response>[] = [fetch('/api/admin/spare-parts', { cache: 'no-store' }), fetch(salesUrl, { cache: 'no-store' })];
+    if (ticketId) requests.push(fetch(`/api/admin/tickets/${ticketId}`, { cache: 'no-store' }));
     const [sparePartsRes, salesRes, ticketRes] = await Promise.all(requests);
 
     let isServiceVisit = false;

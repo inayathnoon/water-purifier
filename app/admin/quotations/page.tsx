@@ -36,7 +36,7 @@ function QuotationsIndex() {
 
   const load = async () => {
     setLoading(true);
-    const [qRes, dRes] = await Promise.all([fetch('/api/admin/quotations'), fetch('/api/admin/quotation-defaults')]);
+    const [qRes, dRes] = await Promise.all([fetch('/api/admin/quotations', { cache: 'no-store' }), fetch('/api/admin/quotation-defaults', { cache: 'no-store' })]);
     setQuotations((await qRes.json()).quotations ?? []);
     setQuotePrefix((await dRes.json()).defaults.quote_prefix ?? 'Q');
     setLoading(false);

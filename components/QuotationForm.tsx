@@ -65,7 +65,7 @@ export default function QuotationForm({ quotationId, duplicateFromId }: { quotat
 
   useEffect(() => {
     (async () => {
-      const defaultsRes = await fetch('/api/admin/quotation-defaults');
+      const defaultsRes = await fetch('/api/admin/quotation-defaults', { cache: 'no-store' });
       const { defaults } = await defaultsRes.json();
       setQuotePrefix(defaults.quote_prefix);
       setBusinessName(defaults.business_name);
@@ -78,7 +78,7 @@ export default function QuotationForm({ quotationId, duplicateFromId }: { quotat
       setSignatoryLine(defaults.signatory_line);
 
       if (quotationId) {
-        const res = await fetch(`/api/admin/quotations/${quotationId}`);
+        const res = await fetch(`/api/admin/quotations/${quotationId}`, { cache: 'no-store' });
         const { quotation: q } = await res.json();
         setCustomer({
           phoneNumber: q.phone_number ?? '',
@@ -112,7 +112,7 @@ export default function QuotationForm({ quotationId, duplicateFromId }: { quotat
         // typed up: particulars, details, rates) for a repeat quote to a
         // *different* customer, so customer/date/discount/number all
         // still start blank/fresh exactly like any other new quotation.
-        const res = await fetch(`/api/admin/quotations/${duplicateFromId}`);
+        const res = await fetch(`/api/admin/quotations/${duplicateFromId}`, { cache: 'no-store' });
         const { quotation: q } = await res.json();
         setNotes(q.notes ?? defaults.notes);
         setTerms(q.terms ?? defaults.terms);

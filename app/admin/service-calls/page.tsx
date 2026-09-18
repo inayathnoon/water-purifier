@@ -145,9 +145,9 @@ function ServiceCallsPageInner() {
   const load = async () => {
     setLoading(true);
     const [callsRes, staffRes, dueRes] = await Promise.all([
-      fetch('/api/admin/service-calls'),
-      fetch('/api/admin/staff'),
-      fetch('/api/admin/service-calls/due'),
+      fetch('/api/admin/service-calls', { cache: 'no-store' }),
+      fetch('/api/admin/staff', { cache: 'no-store' }),
+      fetch('/api/admin/service-calls/due', { cache: 'no-store' }),
     ]);
     const serviceCalls: ServiceCall[] = (await callsRes.json()).serviceCalls ?? [];
     setCalls(serviceCalls);
@@ -160,7 +160,7 @@ function ServiceCallsPageInner() {
     const completedIds = serviceCalls.filter((c) => c.status === 'completed' || c.status === 'closed').map((c) => c.id);
     const salesEntries = await Promise.all(
       completedIds.map(async (id) => {
-        const res = await fetch(`/api/admin/spare-part-sales?ticketId=${id}`);
+        const res = await fetch(`/api/admin/spare-part-sales?ticketId=${id}`, { cache: 'no-store' });
         return [id, (await res.json()).sales ?? []] as const;
       })
     );

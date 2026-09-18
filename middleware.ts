@@ -62,6 +62,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Every API response is live business data — never let a browser (or any
+  // proxy in between) reuse an old copy of it. Found live 2026-09-18: a real
+  // purchase (NASAR, 9072917796) was missing from /admin/orders on several
+  // devices, each surviving a hard refresh, while the deployed server was
+  // verifiably returning it correctly. These responses went out with no
+  // Cache-Control header at all, which leaves a plain 200 eligible for
+  // heuristic caching — and a hard reload doesn't reliably bypass that for a
+  // fetch() fired later from JS. `export const dynamic = 'force-dynamic'`
+  // (added to every GET route earlier the same day) only stops Next.js
+  // caching the response on the server; it says nothing to the client.
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+  }
+
   return response;
 }
 

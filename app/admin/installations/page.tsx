@@ -146,8 +146,8 @@ function InstallationsPageInner() {
   const load = async () => {
     setLoading(true);
     const [instRes, staffRes] = await Promise.all([
-      fetch('/api/admin/installations'),
-      fetch('/api/admin/staff'),
+      fetch('/api/admin/installations', { cache: 'no-store' }),
+      fetch('/api/admin/staff', { cache: 'no-store' }),
     ]);
     const instData = await instRes.json();
     const staffData = await staffRes.json();

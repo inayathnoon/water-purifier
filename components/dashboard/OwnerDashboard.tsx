@@ -53,10 +53,10 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/owner/dashboard')
+    fetch('/api/owner/dashboard', { cache: 'no-store' })
       .then((res) => res.json())
       .then((d) => !cancelled && setData(d));
-    fetch('/api/admin/staff')
+    fetch('/api/admin/staff', { cache: 'no-store' })
       .then((res) => res.json())
       .then((d) => !cancelled && setStaff(d.staff ?? []));
     return () => {

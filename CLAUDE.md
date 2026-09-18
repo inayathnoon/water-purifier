@@ -4691,3 +4691,56 @@ All external-service wiring and deployment is done and verified (see
 above). What's left is the **Verification Checklist** above: hard-rule
 break-tests, one full end-to-end walkthrough on the live app, and the
 §15 dashboard acceptance checks.
+
+## The Real Root Cause: API Responses Carried No `Cache-Control` at All (2026-09-18)
+
+Follow-up to the section above, and the fix that actually worked. After
+`force-dynamic` shipped to all 26 GET routes, NASAR still didn't appear on
+`/admin/orders` — but he *did* appear in the Staff Schedule and Payments
+Outstanding on the same dashboard. That split was the decisive clue: both
+routes read the same database from the same process, so a stale
+*server-side* cache couldn't explain one being right and the other wrong.
+
+**Proved the server was correct**, rather than inferring it: signed in
+against production with a real owner session, reconstructed the
+`@supabase/ssr` auth cookie, and called the deployed
+`/api/admin/orders` endpoint directly. It returned all 104 orders with
+NASAR first. The deployed server has been right the whole time.
+
+**Root cause**: that live response came back with **no `Cache-Control`
+header at all** (verified directly on the response headers — only
+`content-type`, `vary`, and Railway's own trace headers). A plain 200 with
+no cache directives and no validators is eligible for heuristic caching by
+the browser, so each device could keep serving its own stale copy
+indefinitely. And a hard refresh doesn't reliably rescue it: the reload
+bypasses cache for the document and its load-time subresources, but the
+page's data comes from a `fetch()` fired later from a `useEffect`, which
+falls outside that bypass. Hence the exact reported signature — wrong on
+every device, immune to every refresh, while the server was correct.
+
+`export const dynamic = 'force-dynamic'` (the previous fix) governs
+whether *Next.js* caches a response on the server. It says nothing to the
+client. It was worth keeping, but it was never going to fix this.
+
+**Fixed in two places, because one alone isn't enough:**
+1. **`middleware.ts`** now sets `Cache-Control: no-store, no-cache,
+   must-revalidate, max-age=0` (plus `Pragma: no-cache`) on every `/api/`
+   response — one choke point covering all routes, current and future,
+   rather than 26 individual edits.
+2. **Every client-side API read passes `{ cache: 'no-store' }`** (38 call
+   sites across `app/` and `components/`). This is the half that rescues a
+   device *already* holding a stale entry: the header only takes effect
+   once the browser actually asks the server again, and a browser serving
+   a heuristically-fresh cached copy never asks. Forcing the request to
+   the network is what breaks that loop.
+
+**Verified**: `tsc`/`next build` clean, `eslint` unchanged at baseline
+(21 errors/4 warnings), all 7 tests pass. The live endpoint was confirmed
+returning NASAR correctly both before and after — again, the fix is about
+what the *browser* does with the response, never the data or the query.
+
+**Standing lesson**: "correct on the server, wrong on every device,
+survives a refresh" means the client cache, not the server. Checking the
+actual response headers of the deployed endpoint (not just re-running the
+query) is what separates the two, and it's the check that should come
+first next time.

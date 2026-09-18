@@ -83,7 +83,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
   const [savingEdit, setSavingEdit] = useState(false);
 
   const load = async () => {
-    const res = await fetch(`/api/admin/enquiries/${id}`);
+    const res = await fetch(`/api/admin/enquiries/${id}`, { cache: 'no-store' });
     const data = await res.json();
     setTicket(data.ticket);
     setCalls(data.calls ?? []);
@@ -185,7 +185,7 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
     const opening = !showLinkPicker;
     setShowLinkPicker(opening);
     if (opening && recentPurchases.length === 0) {
-      const res = await fetch('/api/admin/installations/recent');
+      const res = await fetch('/api/admin/installations/recent', { cache: 'no-store' });
       const data = await res.json();
       setRecentPurchases(data.installations ?? []);
     }

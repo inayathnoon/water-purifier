@@ -111,7 +111,7 @@ function CustomerDirectoryPageInner() {
     if (!q.trim()) return;
     setSearching(true);
     setError('');
-    const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(q.trim())}`);
+    const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(q.trim())}`, { cache: 'no-store' });
     const data = await res.json();
     const customers: Customer[] = data.customers ?? [];
     setResults(customers);
@@ -129,7 +129,7 @@ function CustomerDirectoryPageInner() {
     setExpandedId(customer.id);
     if (!history[customer.id]) {
       setLoadingHistory(customer.id);
-      const res = await fetch(`/api/admin/customers/${customer.id}`);
+      const res = await fetch(`/api/admin/customers/${customer.id}`, { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? 'Failed to load history');
@@ -164,7 +164,7 @@ function CustomerDirectoryPageInner() {
     setPayingOrderId(null);
     // Refresh this customer's history so the new balance/payment shows
     // immediately, same data this whole panel is already built from.
-    const historyRes = await fetch(`/api/admin/customers/${customerId}`);
+    const historyRes = await fetch(`/api/admin/customers/${customerId}`, { cache: 'no-store' });
     const data = await historyRes.json();
     if (historyRes.ok) setHistory((h) => ({ ...h, [customerId]: data.tickets ?? [] }));
   };
@@ -191,7 +191,7 @@ function CustomerDirectoryPageInner() {
       return;
     }
     setCallingOrderId(null);
-    const historyRes = await fetch(`/api/admin/customers/${customerId}`);
+    const historyRes = await fetch(`/api/admin/customers/${customerId}`, { cache: 'no-store' });
     const data = await historyRes.json();
     if (historyRes.ok) setHistory((h) => ({ ...h, [customerId]: data.tickets ?? [] }));
   };

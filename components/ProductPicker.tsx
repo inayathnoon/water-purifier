@@ -34,7 +34,7 @@ export default function ProductPicker({
   const [variantCode, setVariantCode] = useState('');
 
   useEffect(() => {
-    fetch('/api/admin/products')
+    fetch('/api/admin/products', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => setProducts((data.products ?? []).filter((p: PickableProduct) => p.active)));
   }, []);
