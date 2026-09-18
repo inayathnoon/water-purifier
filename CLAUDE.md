@@ -4551,50 +4551,55 @@ numbered terms list, both micro-label rows, and "For NOON ENTERPRISES" /
 "Authorised signatory" all render exactly as the reference shows.
 `tsc`/`next build` clean, `eslint` unchanged (21/4).
 
-## Root Cause: 26 GET Routes Had No Explicit Cache Directive — a Real Purchase Went Invisible (2026-09-18)
+## A Real Purchase Was Invisible on /admin/orders — a Sticky Header, Not a Cache (2026-09-18)
 
-Reported live: a real purchase (NASAR, `9072917796`, ₹12,500 Voltas+RO
-installed 2026-09-18) wasn't showing on `/admin/orders` — not at the top
-where its date put it, not via the search box, on multiple devices,
-surviving every hard refresh. That combination — same wrong answer,
-every device, immune to a client-side reload — pointed at one place: a
-cached response on the server itself, not the browser.
+Reported live: a real purchase (NASAR, `9072917796`, ₹12,500 Voltas+RO,
+installed 2026-09-18) did not appear on `/admin/orders` — not at the top
+where its bill date put it, not via the search box, on multiple devices,
+surviving every hard refresh.
 
-**Confirmed the data was never the problem.** Ran the exact query
-`/api/admin/orders` runs, directly against production: NASAR's order
-was there, correctly first by `created_at`, joined correctly to its
-ticket/customer/product rows, no null anywhere in the array of 104. A
-plain script (`tsx`, no Next.js runtime) always saw this correctly —
-only the deployed route, called from a real browser, didn't.
+**Cause**: that table's `<thead>` was `sticky top-14` inside a wrapper div
+classed `overflow-x-auto`. CSS computes `overflow-y` to `auto` whenever
+`overflow-x` is `auto`, so that div is its own scroll container — and a
+sticky offset resolves against the nearest scroll container, not the
+viewport. The `top-14` was written to clear AppShell's 56px top bar during
+*page* scroll; instead it pinned the header 56px below the *div's* own top
+edge, where its opaque `bg-inset` background covered the first `<tbody>`
+row. Row 0 of that table had been invisible for as long as the rule
+existed. It only surfaced now because the list is ordered newest-first, so
+the hidden row is always the purchase somebody just entered and is looking
+for. Fixed to `top-0` — the sticky behaviour was never working as intended
+anyway, since that container has no vertical overflow to scroll.
 
-**Root cause**: none of this app's 26 `GET` route handlers ever declared
-`export const dynamic`. Without it, a route handler is eligible for
-Next.js's own route-level caching — a real, documented App Router
-behavior, not a bug in Next.js — meaning a `GET` response can get cached
-*on the server* and keep being served long after the underlying data
-changes, regardless of how many times any client reloads the page
-(reloading only ever asks the same cached endpoint the same question).
-`requireUser()` reading cookies doesn't reliably opt a route out of this
-on its own — the only way to guarantee a route always re-runs its query
-is to say so explicitly.
+**Two wrong diagnoses shipped before this one**, recorded because the
+reasoning error is worth more than the fix:
+1. `export const dynamic = 'force-dynamic'` added to all 26 GET route
+   handlers, on the theory that Next.js was serving a cached response.
+   Functionally a no-op — every one of these routes calls `requireUser()`,
+   which reads cookies, which already made them dynamic. Kept as an
+   explicit declaration, but it changed nothing.
+2. `Cache-Control: no-store` on every `/api/` response (in `middleware.ts`)
+   plus `{ cache: 'no-store' }` on all 38 client-side API reads, after
+   finding the live responses carried no cache header at all. Correct
+   hygiene for an authenticated business API, and kept on those grounds —
+   but it fixed nothing the business reported.
 
-**Fixed on every GET route in the app, not just `/admin/orders`** — the
-exact same failure mode was silently possible on any of the other 25
-(enquiries, the dashboards, installations, service-calls, customers,
-staff, quotations, the products/spare-parts/areas sheet reads, the
-Telegram deep-link redirect...) and would have looked identical: correct
-in the database, wrong on screen, resistant to every refresh, until the
-next deploy happened to reset it. `export const dynamic =
-'force-dynamic';` added to all 26, each with the same comment pointing
-back at this incident so a future reader knows why every single GET
-route in this codebase carries it, not just the one that got caught.
+**What the symptoms actually meant**, re-read correctly: "should be at the
+top" — it *was* at the top, which is precisely why it was the hidden one.
+"Not via the search box either" — narrowing the list never changes which
+row is first. "Same on every device, survives a hard refresh" — a
+deterministic CSS rule behaves identically everywhere and is untouched by
+reloading. That signature was read as proof of caching; it fits a rendering
+bug exactly as well, and nothing was done to rule the second reading out
+until a screenshot arrived showing the row counter reading **"2 purchases"**
+while a single row rendered, the missing row's red overdue-payment left
+border plainly visible above the header.
 
-**Verified**: `tsc`/`next build` clean (26 routes correctly listed as
-`ƒ` dynamic in the build output, not `○` static), `eslint` unchanged
-(21/4), all 7 tests (5 hard-rule + 2 escaping) pass. The specific
-NASAR order was independently re-confirmed correct and first-by-date
-directly against production before and after this fix — the fix is
-about the *route*, not the data, which was never wrong.
+**Standing lesson**: "correct in the database, wrong on screen" has a
+rendering branch as well as a transport branch. The cheap discriminator —
+does the page's own row count match the rows actually drawn? — was
+available from the first report and was never asked for. Ask to see the
+screen before changing infrastructure.
 
 ## V1 Status: all 7 stages built
 
@@ -4691,110 +4696,3 @@ All external-service wiring and deployment is done and verified (see
 above). What's left is the **Verification Checklist** above: hard-rule
 break-tests, one full end-to-end walkthrough on the live app, and the
 §15 dashboard acceptance checks.
-
-## The Real Root Cause: API Responses Carried No `Cache-Control` at All (2026-09-18)
-
-Follow-up to the section above, and the fix that actually worked. After
-`force-dynamic` shipped to all 26 GET routes, NASAR still didn't appear on
-`/admin/orders` — but he *did* appear in the Staff Schedule and Payments
-Outstanding on the same dashboard. That split was the decisive clue: both
-routes read the same database from the same process, so a stale
-*server-side* cache couldn't explain one being right and the other wrong.
-
-**Proved the server was correct**, rather than inferring it: signed in
-against production with a real owner session, reconstructed the
-`@supabase/ssr` auth cookie, and called the deployed
-`/api/admin/orders` endpoint directly. It returned all 104 orders with
-NASAR first. The deployed server has been right the whole time.
-
-**Root cause**: that live response came back with **no `Cache-Control`
-header at all** (verified directly on the response headers — only
-`content-type`, `vary`, and Railway's own trace headers). A plain 200 with
-no cache directives and no validators is eligible for heuristic caching by
-the browser, so each device could keep serving its own stale copy
-indefinitely. And a hard refresh doesn't reliably rescue it: the reload
-bypasses cache for the document and its load-time subresources, but the
-page's data comes from a `fetch()` fired later from a `useEffect`, which
-falls outside that bypass. Hence the exact reported signature — wrong on
-every device, immune to every refresh, while the server was correct.
-
-`export const dynamic = 'force-dynamic'` (the previous fix) governs
-whether *Next.js* caches a response on the server. It says nothing to the
-client. It was worth keeping, but it was never going to fix this.
-
-**Fixed in two places, because one alone isn't enough:**
-1. **`middleware.ts`** now sets `Cache-Control: no-store, no-cache,
-   must-revalidate, max-age=0` (plus `Pragma: no-cache`) on every `/api/`
-   response — one choke point covering all routes, current and future,
-   rather than 26 individual edits.
-2. **Every client-side API read passes `{ cache: 'no-store' }`** (38 call
-   sites across `app/` and `components/`). This is the half that rescues a
-   device *already* holding a stale entry: the header only takes effect
-   once the browser actually asks the server again, and a browser serving
-   a heuristically-fresh cached copy never asks. Forcing the request to
-   the network is what breaks that loop.
-
-**Verified**: `tsc`/`next build` clean, `eslint` unchanged at baseline
-(21 errors/4 warnings), all 7 tests pass. The live endpoint was confirmed
-returning NASAR correctly both before and after — again, the fix is about
-what the *browser* does with the response, never the data or the query.
-
-**Standing lesson**: "correct on the server, wrong on every device,
-survives a refresh" means the client cache, not the server. Checking the
-actual response headers of the deployed endpoint (not just re-running the
-query) is what separates the two, and it's the check that should come
-first next time.
-
-## The Actual Bug: a Sticky Table Header Was Sitting On Top of the Newest Purchase (2026-09-18)
-
-Correcting the two sections above. Neither the server-side route cache nor
-the missing `Cache-Control` header was the cause — the purchase was
-reaching the browser correctly the whole time. It was being **painted
-over**.
-
-The tell came from a screenshot: searching "nasa" on `/admin/orders`
-showed the row counter reading **"2 purchases"** while exactly one row
-rendered, with an empty band above the header carrying a red left-edge
-stripe — `border-l-danger`, the overdue-payment-call marker, which NASAR's
-unpaid order qualifies for. The row was there. It just wasn't visible.
-
-**Root cause**: `/admin/orders`' table header was `sticky top-14`, inside a
-wrapper div classed `overflow-x-auto`. CSS computes `overflow-y` to `auto`
-whenever `overflow-x` is `auto`, so that div is its own scroll container —
-and a sticky offset resolves against the nearest scroll container, not the
-viewport. The `top-14` was written to clear AppShell's 56px top bar while
-the *page* scrolls; instead it pinned the header 56px down from the
-*div's* own top edge, where it covered the first `<tbody>` row with an
-opaque `bg-inset` background. Row 0 of that table has been invisible for as
-long as the rule has existed. It only got reported now because the list is
-ordered newest-first, so the casualty is always the most recent purchase —
-the one somebody is actively looking for. Fixed to `top-0`.
-
-**What the earlier symptoms actually meant**, re-read correctly: "at the
-top where its date put it" — it *was* at the top, which is precisely why it
-was the hidden one. "Not via the search box either" — searching narrows the
-list but never changes which row is first, so NASAR stayed row 0 and stayed
-covered. "Same on every device, survives a hard refresh" — a deterministic
-CSS rule behaves identically everywhere and is completely untouched by
-reloading. That signature was read as cache evidence; it fits a rendering
-bug exactly as well, and nothing was ever done to rule the second reading
-out. The screenshot settled it in seconds — a row count disagreeing with
-the rows on screen is proof the data arrived and the DOM is at fault.
-
-**The two cache fixes are kept**, because both are correct on their own
-terms (a live business API genuinely should not be cacheable, and the
-responses were going out with no `Cache-Control` at all) — but neither
-fixed anything the business reported, and CLAUDE.md should not read as
-though they did.
-
-**Standing lesson, and the honest one**: two rounds of infrastructure
-changes shipped against a bug that a single screenshot of the actual screen
-disproved. "Correct in the database, wrong on screen" has a rendering
-branch as well as a caching branch, and the cheap discriminator — does the
-page's own row count match the rows drawn? — was available from the first
-report and never asked for. Ask to see the screen before theorising about
-the transport.
-
-**Verified**: `tsc`/`next build` clean, `eslint` unchanged at baseline
-(21 errors/4 warnings). This is a one-class CSS change on a single
-element; the data path was never involved.
