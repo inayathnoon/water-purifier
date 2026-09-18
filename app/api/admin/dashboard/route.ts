@@ -3,6 +3,16 @@ import { supabaseAdmin } from '@/lib/db';
 import { daysAgoIST, isEnquiryOverdue, todayIST, mondaySaturdayWeekIST } from '@/lib/dates';
 import { getYearlyServiceDueThisMonth } from '@/lib/services/warranty';
 
+// Never cached — a stale response here means real business data
+// (a purchase, an enquiry, a balance owed) silently going out of
+// date on every device until the next deploy, immune to any client-
+// side refresh. Found live 2026-09-18: a real purchase (NASAR,
+// 9072917796) was missing from /admin/orders on multiple devices
+// after a hard refresh each time — the DB and the exact query this
+// route runs both had it correctly sorted first; only a cached
+// response explains the same wrong answer surviving every reload.
+export const dynamic = 'force-dynamic';
+
 /**
  * §15.1: everyone the admin needs to call today, on one screen — new
  * enquiries, jobs waiting to be dispatched to a technician, jobs overdue

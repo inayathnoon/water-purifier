@@ -4551,6 +4551,51 @@ numbered terms list, both micro-label rows, and "For NOON ENTERPRISES" /
 "Authorised signatory" all render exactly as the reference shows.
 `tsc`/`next build` clean, `eslint` unchanged (21/4).
 
+## Root Cause: 26 GET Routes Had No Explicit Cache Directive — a Real Purchase Went Invisible (2026-09-18)
+
+Reported live: a real purchase (NASAR, `9072917796`, ₹12,500 Voltas+RO
+installed 2026-09-18) wasn't showing on `/admin/orders` — not at the top
+where its date put it, not via the search box, on multiple devices,
+surviving every hard refresh. That combination — same wrong answer,
+every device, immune to a client-side reload — pointed at one place: a
+cached response on the server itself, not the browser.
+
+**Confirmed the data was never the problem.** Ran the exact query
+`/api/admin/orders` runs, directly against production: NASAR's order
+was there, correctly first by `created_at`, joined correctly to its
+ticket/customer/product rows, no null anywhere in the array of 104. A
+plain script (`tsx`, no Next.js runtime) always saw this correctly —
+only the deployed route, called from a real browser, didn't.
+
+**Root cause**: none of this app's 26 `GET` route handlers ever declared
+`export const dynamic`. Without it, a route handler is eligible for
+Next.js's own route-level caching — a real, documented App Router
+behavior, not a bug in Next.js — meaning a `GET` response can get cached
+*on the server* and keep being served long after the underlying data
+changes, regardless of how many times any client reloads the page
+(reloading only ever asks the same cached endpoint the same question).
+`requireUser()` reading cookies doesn't reliably opt a route out of this
+on its own — the only way to guarantee a route always re-runs its query
+is to say so explicitly.
+
+**Fixed on every GET route in the app, not just `/admin/orders`** — the
+exact same failure mode was silently possible on any of the other 25
+(enquiries, the dashboards, installations, service-calls, customers,
+staff, quotations, the products/spare-parts/areas sheet reads, the
+Telegram deep-link redirect...) and would have looked identical: correct
+in the database, wrong on screen, resistant to every refresh, until the
+next deploy happened to reset it. `export const dynamic =
+'force-dynamic';` added to all 26, each with the same comment pointing
+back at this incident so a future reader knows why every single GET
+route in this codebase carries it, not just the one that got caught.
+
+**Verified**: `tsc`/`next build` clean (26 routes correctly listed as
+`ƒ` dynamic in the build output, not `○` static), `eslint` unchanged
+(21/4), all 7 tests (5 hard-rule + 2 escaping) pass. The specific
+NASAR order was independently re-confirmed correct and first-by-date
+directly against production before and after this fix — the fix is
+about the *route*, not the data, which was never wrong.
+
 ## V1 Status: all 7 stages built
 
 Every hard rule (§13) is enforced in code, most of them in two independent

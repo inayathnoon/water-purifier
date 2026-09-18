@@ -2,6 +2,16 @@ import { requireUser, handleApiError } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/db';
 import { monthStartISTThreshold, mondaySaturdayWeekIST } from '@/lib/dates';
 
+// Never cached — a stale response here means real business data
+// (a purchase, an enquiry, a balance owed) silently going out of
+// date on every device until the next deploy, immune to any client-
+// side refresh. Found live 2026-09-18: a real purchase (NASAR,
+// 9072917796) was missing from /admin/orders on multiple devices
+// after a hard refresh each time — the DB and the exact query this
+// route runs both had it correctly sorted first; only a cached
+// response explains the same wrong answer surviving every reload.
+export const dynamic = 'force-dynamic';
+
 // §15.3's "what did we earn this month" split out by category — the three
 // product categories (from the sold purifier itself), spare parts (both
 // an office walk-in sale and whatever a tech sold during a visit), and
