@@ -4744,3 +4744,57 @@ survives a refresh" means the client cache, not the server. Checking the
 actual response headers of the deployed endpoint (not just re-running the
 query) is what separates the two, and it's the check that should come
 first next time.
+
+## The Actual Bug: a Sticky Table Header Was Sitting On Top of the Newest Purchase (2026-09-18)
+
+Correcting the two sections above. Neither the server-side route cache nor
+the missing `Cache-Control` header was the cause — the purchase was
+reaching the browser correctly the whole time. It was being **painted
+over**.
+
+The tell came from a screenshot: searching "nasa" on `/admin/orders`
+showed the row counter reading **"2 purchases"** while exactly one row
+rendered, with an empty band above the header carrying a red left-edge
+stripe — `border-l-danger`, the overdue-payment-call marker, which NASAR's
+unpaid order qualifies for. The row was there. It just wasn't visible.
+
+**Root cause**: `/admin/orders`' table header was `sticky top-14`, inside a
+wrapper div classed `overflow-x-auto`. CSS computes `overflow-y` to `auto`
+whenever `overflow-x` is `auto`, so that div is its own scroll container —
+and a sticky offset resolves against the nearest scroll container, not the
+viewport. The `top-14` was written to clear AppShell's 56px top bar while
+the *page* scrolls; instead it pinned the header 56px down from the
+*div's* own top edge, where it covered the first `<tbody>` row with an
+opaque `bg-inset` background. Row 0 of that table has been invisible for as
+long as the rule has existed. It only got reported now because the list is
+ordered newest-first, so the casualty is always the most recent purchase —
+the one somebody is actively looking for. Fixed to `top-0`.
+
+**What the earlier symptoms actually meant**, re-read correctly: "at the
+top where its date put it" — it *was* at the top, which is precisely why it
+was the hidden one. "Not via the search box either" — searching narrows the
+list but never changes which row is first, so NASAR stayed row 0 and stayed
+covered. "Same on every device, survives a hard refresh" — a deterministic
+CSS rule behaves identically everywhere and is completely untouched by
+reloading. That signature was read as cache evidence; it fits a rendering
+bug exactly as well, and nothing was ever done to rule the second reading
+out. The screenshot settled it in seconds — a row count disagreeing with
+the rows on screen is proof the data arrived and the DOM is at fault.
+
+**The two cache fixes are kept**, because both are correct on their own
+terms (a live business API genuinely should not be cacheable, and the
+responses were going out with no `Cache-Control` at all) — but neither
+fixed anything the business reported, and CLAUDE.md should not read as
+though they did.
+
+**Standing lesson, and the honest one**: two rounds of infrastructure
+changes shipped against a bug that a single screenshot of the actual screen
+disproved. "Correct in the database, wrong on screen" has a rendering
+branch as well as a caching branch, and the cheap discriminator — does the
+page's own row count match the rows drawn? — was available from the first
+report and never asked for. Ask to see the screen before theorising about
+the transport.
+
+**Verified**: `tsc`/`next build` clean, `eslint` unchanged at baseline
+(21 errors/4 warnings). This is a one-class CSS change on a single
+element; the data path was never involved.

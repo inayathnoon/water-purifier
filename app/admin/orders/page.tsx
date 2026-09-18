@@ -388,7 +388,20 @@ export default function OrdersPage() {
       ) : (
         <div className="bg-surface border border-rule overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead className="bg-inset text-left sticky top-14 z-10">
+            {/*
+              top-0, not top-14. This div is `overflow-x-auto`, which makes
+              CSS compute overflow-y to `auto` as well — so the div is its own
+              scroll container, and a sticky offset here is measured from the
+              div's top edge, NOT the viewport's. `top-14` (meant to clear
+              AppShell's 56px top bar during page scroll) therefore parked the
+              header 56px down and sat it directly on top of the first data
+              row, hiding whichever purchase was newest behind an opaque
+              bg-inset header. Found live 2026-09-18: a real purchase (NASAR,
+              9072917796) was invisible on every device — it was row 0, and
+              the row count above the table correctly said 2 while only 1
+              rendered.
+            */}
+            <thead className="bg-inset text-left sticky top-0 z-10">
               <tr>
                 <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Bill date</th>
                 <th className="p-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">Completed</th>
